@@ -6,6 +6,9 @@ import { verifyFacultyCredentials, verifyStudentCredentials } from '../services/
 
 export const AuthContext = createContext(null);
 
+//Note (Thanh): Here is the correct way to generate a token, 
+//   but this logic should NOT be on the front-end side, it should be on the back-end side.
+
 const generateMockJWT = (payload) => {
   const header = {
     alg: "HS256",

@@ -267,6 +267,34 @@ const ActionContainer = styled.div`
 
 // --- Component ---
 
+// Note (Thanh): useState, useEffect, and other hooks are not allowed in the global scope. Let's move them inside a component.
+
+// const [logoUrl, setLogoUrl] = useState(null);
+// const [coverUrl, setCoverUrl] = useState(null);
+
+// useEffect(() => {
+//   if (!logo) {
+//     setLogoUrl(null);
+//     return;
+//   }
+//   const objectUrl = URL.createObjectURL(logo);
+//   setLogoUrl(objectUrl);
+
+//   // Cleanup function: revoke URL khi logo thay đổi hoặc component unmount
+//   return () => URL.revokeObjectURL(objectUrl);
+// }, [logo]); // Chỉ chạy lại khi state 'logo' thay đổi
+
+// // Tương tự cho cover preview
+// useEffect(() => {
+//   if (!cover) {
+//     setCoverUrl(null);
+//     return;
+//   }
+//   const objectUrl = URL.createObjectURL(cover);
+//   setCoverUrl(objectUrl);
+//   return () => URL.revokeObjectURL(objectUrl);
+// }, [cover]);
+
 const CreateEventPage = () => {
     const navigate = useNavigate();
     const { user } = useAuth(); // Lấy thông tin người dùng đang đăng nhập
@@ -284,32 +312,6 @@ const CreateEventPage = () => {
 
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState(null); // String or object for detailed error
-
-    const [logoUrl, setLogoUrl] = useState(null);
-    const [coverUrl, setCoverUrl] = useState(null);
-
-    useEffect(() => {
-      if (!logo) {
-        setLogoUrl(null);
-        return;
-      }
-      const objectUrl = URL.createObjectURL(logo);
-      setLogoUrl(objectUrl);
-
-      // Cleanup function: revoke URL khi logo thay đổi hoặc component unmount
-      return () => URL.revokeObjectURL(objectUrl);
-    }, [logo]); // Chỉ chạy lại khi state 'logo' thay đổi
-
-    // Tương tự cho cover preview
-    useEffect(() => {
-      if (!cover) {
-        setCoverUrl(null);
-        return;
-      }
-      const objectUrl = URL.createObjectURL(cover);
-      setCoverUrl(objectUrl);
-      return () => URL.revokeObjectURL(objectUrl);
-    }, [cover]);
 
     const handleFileChange = (fieldName, setter) => (event) => {
       const file = event.target.files[0];
