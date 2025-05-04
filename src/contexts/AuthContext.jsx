@@ -6,6 +6,27 @@ import { verifyFacultyCredentials, verifyStudentCredentials } from '../services/
 
 export const AuthContext = createContext(null);
 
+const generateMockJWT = (payload) => {
+  const header = {
+    alg: "HS256",
+    typ: "JWT",
+  };
+
+  const base64Encode = (obj) =>
+    btoa(JSON.stringify(obj))
+      .replace(/=/g, '')
+      .replace(/\+/g, '-')
+      .replace(/\//g, '_');
+
+  const encodedHeader = base64Encode(header);
+  const encodedPayload = base64Encode(payload);
+
+  // Phần signature giả
+  const signature = "signature"; // Bạn có thể để "signature" giả hoặc tạo một ký tự ngẫu nhiên
+
+  return `${encodedHeader}.${encodedPayload}.${signature}`;
+};
+
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null); // Chứa thông tin user { id, name, email, role, faculty? }
   const [token, setToken] = useState(localStorage.getItem('authToken'));
@@ -55,15 +76,14 @@ export const AuthProvider = ({ children }) => {
           if (verifiedFacultyData) {
               userData = verifiedFacultyData; // Lấy dữ liệu user đã xác thực
                // Tạo mock token
-               const stringToEncode = JSON.stringify({
-                  sub: userData.id,
-                  name: userData.name,
-                  email: userData.email,
-                  role: userData.role,
-                  faculty: userData.faculty,
-                  exp: Math.floor(Date.now() / 1000) + (60 * 60) // 1 giờ
-               });
-               mockToken = btoa(unescape(encodeURIComponent(stringToEncode)));
+               mockToken = generateMockJWT({
+                sub: userData.id,
+                name: userData.name,
+                email: userData.email,
+                role: userData.role,
+                faculty: userData.faculty,
+                exp: Math.floor(Date.now() / 1000) + (60 * 60) // 1 giờ
+              });
           }
       } catch (facultyError) {
            console.error("Error verifying faculty credentials:", facultyError);
@@ -80,14 +100,13 @@ export const AuthProvider = ({ children }) => {
               if (verifiedStudentData) {
                   userData = verifiedStudentData; // Lấy dữ liệu user đã xác thực
                    // Tạo mock token
-                   const stringToEncode = JSON.stringify({
-                      sub: userData.id,
-                      name: userData.name,
-                      email: userData.email,
-                      role: userData.role,
-                      exp: Math.floor(Date.now() / 1000) + (60 * 60 * 24) // 1 ngày
-                   });
-                   mockToken = btoa(unescape(encodeURIComponent(stringToEncode)));
+                   mockToken = generateMockJWT({
+                    sub: userData.id,
+                    name: userData.name,
+                    email: userData.email,
+                    role: userData.role,
+                    exp: Math.floor(Date.now() / 1000) + (60 * 60 * 24) // 1 ngày
+                  });
               }
            } catch (studentError) {
               console.error("Error verifying student credentials:", studentError);
