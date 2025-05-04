@@ -103,8 +103,8 @@ const StyledButton = styled.button`
     }
 
     /* Loading state */
-    ${({ isLoading }) =>
-        isLoading &&
+    ${({ $isLoading }) =>
+        $isLoading &&
         css`
             color: transparent !important; /* Hide text */
             pointer-events: none; /* Prevent clicks while loading */

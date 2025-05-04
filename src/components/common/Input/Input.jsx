@@ -16,7 +16,7 @@ const StyledLabel = styled.label`
     color: #374151; /* text-gray-700 */
     margin-bottom: 0.25rem; /* mb-1 */
     /* Allow labelClassName override */
-    ${({ labelClassName }) => labelClassName}
+    ${({ $labelClassName }) => $labelClassName}
 `;
 
 const RequiredAsterisk = styled.span`
@@ -30,7 +30,7 @@ const StyledInput = styled.input`
     padding: 0.5rem 0.75rem; /* px-3 py-2 */
     border-radius: 0.375rem; /* rounded-md */
     box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05); /* shadow-sm */
-    border: 1px solid ${props => props.error ? '#f87171' : '#d1d5db'}; /* border-red-500 or border-gray-300 */
+    border: 1px solid ${props => props.$hasError ? '#f87171' : '#d1d5db'}; /* border-red-500 or border-gray-300 */
     appearance: none; /* Remove default appearance */
     background-color: #ffffff; /* Ensure background */
     color: #111827; /* Ensure text color */
@@ -54,7 +54,7 @@ const StyledInput = styled.input`
     }
 
     /* Allow inputClassName override */
-    ${({ inputClassName }) => inputClassName}
+    ${({ $inputClassName }) => $inputClassName}
 
     /* Specific styles for file input */
     &[type="file"] {
@@ -99,10 +99,11 @@ const Input = React.forwardRef(({
     required = false,
     ...props
 }, ref) => {
+    const hasError = !!error; // Chuyển đổi prop 'error' thành boolean
     return (
         <InputWrapper className={className}>
             {label && (
-                <StyledLabel htmlFor={id} labelClassName={labelClassName}>
+                <StyledLabel htmlFor={id} $labelClassName={labelClassName}>
                     {label} {required && <RequiredAsterisk>*</RequiredAsterisk>}
                 </StyledLabel>
             )}
@@ -115,8 +116,8 @@ const Input = React.forwardRef(({
                 onChange={onChange}
                 placeholder={placeholder}
                 required={required}
-                error={!!error} // Pass boolean error state for styling
-                inputClassName={inputClassName}
+                $hasError={hasError}
+                $inputClassName={inputClassName}
                 {...props}
             />
             {error && <ErrorMessage>{error}</ErrorMessage>}

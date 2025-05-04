@@ -96,21 +96,63 @@ export const AuthProvider = ({ children }) => {
       }
 
 
-        if (mockToken && userData) {
+      if (userData) {
+        const mockHeader = { alg: 'none', typ: 'JWT' }; // Header giả, không cần chữ ký
+        const payload = {
+          sub: userData.id,
+          name: userData.name,
+          email: userData.email,
+          role: userData.role,
+          // Chỉ thêm faculty nếu không phải student
+          ...(userData.role !== ROLES.STUDENT && { faculty: userData.faculty }),
+          // Đặt thời gian hết hạn (ví dụ: 1 giờ cho faculty, 1 ngày cho student)
+          exp: Math.floor(Date.now() / 1000) + (userData.role === ROLES.STUDENT ? (60 * 60 * 24) : (60 * 60))
+        };
+
+        // Hàm mã hóa Base64Url (an toàn hơn btoa cho JWT)
+        const base64UrlEncode = (str) => {
+            // Chuyển đổi sang UTF-8 trước khi mã hóa Base64
+            const utf8Bytes = new TextEncoder().encode(str);
+            // Mã hóa Base64 từ Uint8Array
+            let binaryString = '';
+            utf8Bytes.forEach(byte => {
+                binaryString += String.fromCharCode(byte);
+            });
+            return btoa(binaryString)
+                .replace(/\+/g, '-') // Thay '+' bằng '-'
+                .replace(/\//g, '_') // Thay '/' bằng '_'
+                .replace(/=+$/, ''); // Loại bỏ dấu '=' ở cuối
+        };
+
+        const encodedHeader = base64UrlEncode(JSON.stringify(mockHeader));
+        const encodedPayload = base64UrlEncode(JSON.stringify(payload));
+
+        // Tạo token giả với cấu trúc header.payload. (giả signature rỗng)
+        // Hoặc thêm một signature giả nếu muốn: .mockSignature
+        mockToken = `${encodedHeader}.${encodedPayload}.`;
+
+        if (mockToken) {
           localStorage.setItem('authToken', mockToken);
           setToken(mockToken);
           setUser(userData);
           setIsAuthenticated(true);
-          console.log("Login successful, Role:", userData.role);
+          console.log("Login successful, Role:", userData.role, "Generated Mock Token:", mockToken);
           resolve(userData);
         } else {
-          console.log("Login failed");
-          reject(new Error("Tên đăng nhập hoặc mật khẩu không đúng"));
+          // Trường hợp này ít xảy ra nếu userData tồn tại
+          console.error("Failed to generate mock token even after successful authentication.");
+          reject(new Error("Không thể tạo token giả lập sau khi xác thực."));
         }
-      }, 1000); // Giả lập độ trễ mạng
-    });
-    // --- KẾT THÚC GIẢ LẬP ---
-  };
+
+      } else {
+        // Nếu userData vẫn là null sau cả 2 lần thử
+        console.log("Login failed: Credentials incorrect or verification error.");
+        reject(new Error("Tên đăng nhập hoặc mật khẩu không đúng"));
+      }
+    }, 1000); // Giả lập độ trễ mạng
+  });
+  // --- KẾT THÚC GIẢ LẬP ---
+};
 
   const logout = () => {
     localStorage.removeItem('authToken');

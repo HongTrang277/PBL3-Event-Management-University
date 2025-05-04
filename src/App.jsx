@@ -23,6 +23,7 @@ import CreateEventPage from './pages/CreateEventPage';
 import StatisticsPage from './pages/StatisticsPage'; // Tạo file này
 import MyEventsPage from './pages/MyEventPage';
 import RegisteredEventsPage from './pages/RegisteredEventPage';
+import AdminAllEventsPage from './pages/AllEventPage';
 // import AchievementsPage from './pages/AchievementsPage'; // Tạo file này
 //  import AttendancePage from './pages/AttendancePage'; // Tạo file này
 // import ProfilePage from './pages/ProfilePage'; // Tạo file này
@@ -58,7 +59,6 @@ function ProtectedRoute({ children, allowedRoles }) {
 
 function App() {
   return (
-    
     <AuthProvider>
       <Routes>
         {/* Routes không cần đăng nhập (AuthLayout) */}
@@ -108,6 +108,7 @@ function App() {
            {/* Redirect /admin to a default admin page */}
            <Route index element={<Navigate to="my-events" replace />} />
            {/* <Route path="events" element={<EventListPage isAdminView={true}/>} /> Có thể tái sử dụng EventListPage với prop */}
+           <Route path="events" element={<AdminAllEventsPage />} />
            <Route path="my-events" element={<MyEventsPage />} />
            <Route path="create-event" element={<CreateEventPage />} />
            {/* Route thống kê chỉ cho Union */}

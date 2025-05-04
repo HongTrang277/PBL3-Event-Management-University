@@ -20,7 +20,7 @@ const Button = ({
             variant={variant}
             size={size} // Truyền prop size
             disabled={disabled || isLoading}
-            isLoading={isLoading}
+            $isLoading={isLoading}
             className={className} // Kết hợp class Tailwind/CSS (nếu có)
             {...props}
         >

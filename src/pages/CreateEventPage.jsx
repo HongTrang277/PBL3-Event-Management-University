@@ -267,31 +267,31 @@ const ActionContainer = styled.div`
 
 // --- Component ---
 
-const [logoUrl, setLogoUrl] = useState(null);
-const [coverUrl, setCoverUrl] = useState(null);
+// const [logoUrl, setLogoUrl] = useState(null);
+// const [coverUrl, setCoverUrl] = useState(null);
 
-useEffect(() => {
-  if (!logo) {
-    setLogoUrl(null);
-    return;
-  }
-  const objectUrl = URL.createObjectURL(logo);
-  setLogoUrl(objectUrl);
+// useEffect(() => {
+//   if (!logo) {
+//     setLogoUrl(null);
+//     return;
+//   }
+//   const objectUrl = URL.createObjectURL(logo);
+//   setLogoUrl(objectUrl);
 
-  // Cleanup function: revoke URL khi logo thay đổi hoặc component unmount
-  return () => URL.revokeObjectURL(objectUrl);
-}, [logo]); // Chỉ chạy lại khi state 'logo' thay đổi
+//   // Cleanup function: revoke URL khi logo thay đổi hoặc component unmount
+//   return () => URL.revokeObjectURL(objectUrl);
+// }, [logo]); // Chỉ chạy lại khi state 'logo' thay đổi
 
-// Tương tự cho cover preview
-useEffect(() => {
-  if (!cover) {
-    setCoverUrl(null);
-    return;
-  }
-  const objectUrl = URL.createObjectURL(cover);
-  setCoverUrl(objectUrl);
-  return () => URL.revokeObjectURL(objectUrl);
-}, [cover]);
+// // Tương tự cho cover preview
+// useEffect(() => {
+//   if (!cover) {
+//     setCoverUrl(null);
+//     return;
+//   }
+//   const objectUrl = URL.createObjectURL(cover);
+//   setCoverUrl(objectUrl);
+//   return () => URL.revokeObjectURL(objectUrl);
+// }, [cover]);
 
 const CreateEventPage = () => {
     const navigate = useNavigate();
@@ -310,6 +310,36 @@ const CreateEventPage = () => {
 
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState(null); // String or object for detailed error
+    const [logoUrl, setLogoUrl] = useState(null); // Khai báo state cho URL xem trước logo
+    const [coverUrl, setCoverUrl] = useState(null); // Khai báo state cho URL xem trước cover
+    const [fileErrors, setFileErrors] = useState({}); // <--- DÒNG CẦN THÊM
+    useEffect(() => {
+      if (!logo) {
+        setLogoUrl(null); // Nếu không có file logo, đặt URL là null
+        return;
+      }
+      // Tạo object URL từ file logo
+      const objectUrl = URL.createObjectURL(logo);
+      setLogoUrl(objectUrl); // Cập nhật state logoUrl
+
+      // Cleanup: Thu hồi object URL khi component unmount hoặc file logo thay đổi
+      return () => URL.revokeObjectURL(objectUrl);
+    }, [logo]); // Hook này chạy lại mỗi khi state 'logo' thay đổi
+
+    // Tương tự cho ảnh bìa (cover)
+    useEffect(() => {
+      if (!cover) {
+        setCoverUrl(null); // Nếu không có file cover, đặt URL là null
+        return;
+      }
+      // Tạo object URL từ file cover
+      const objectUrl = URL.createObjectURL(cover);
+      setCoverUrl(objectUrl); // Cập nhật state coverUrl
+
+      // Cleanup: Thu hồi object URL
+      return () => URL.revokeObjectURL(objectUrl);
+    }, [cover]); // Hook này chạy lại mỗi khi state 'cover' thay đổi
+
 
     const handleFileChange = (fieldName, setter) => (event) => {
       const file = event.target.files[0];
@@ -358,64 +388,102 @@ const CreateEventPage = () => {
     }
 
     const handleSubmit = async (e) => {
-        e.preventDefault();
-        setError(null);
+      e.preventDefault();
+      setError(null); // Reset lỗi chung
+      setFileErrors({}); // Reset lỗi file
 
-        const validationError = validateForm();
-        if (validationError) {
-            setError(validationError);
-            return;
-        }
+      // --- Bước 1: Validate Form và File Inputs ---
+      const validationError = validateForm();
+      // (Giả sử fileErrors được cập nhật đúng trong handleFileChange)
+      const hasFileErrors = Object.keys(fileErrors).length > 0;
 
-        setIsLoading(true);
+      if (validationError || hasFileErrors) {
+          setError(validationError || "Vui lòng kiểm tra lại thông tin file tải lên.");
+          // Có thể hiển thị fileErrors chi tiết hơn ở đây nếu muốn
+          return;
+      }
 
-        const newEventData = {
-            event_name: eventName,
-            description: description,
-            start_date: new Date(startDate).toISOString(),
-            end_date: new Date(endDate).toISOString(),
-            capacity: parseInt(capacity, 10),
-            host_id: user?.faculty || user?.name || 'Unknown Host',
-            logo_url: logo ? URL.createObjectURL(logo) : 'https://via.placeholder.com/150?text=Logo',
-            cover_url: cover ? URL.createObjectURL(cover) : 'https://via.placeholder.com/600x200?text=Cover',
-            attendance_type: attendanceType,
-            location: attendanceType === ATTENDANCE_TYPES.ONLINE ? 'Online Platform' : location,
-            tags: selectedTags,
-        };
+      setIsLoading(true);
 
-        // Quan trọng: Gửi file thực tế
-  if (logo) {
-    formData.append('logoFile', logo, logo.name); // Thêm file logo
-  }
-  if (cover) {
-    formData.append('coverFile', cover, cover.name); // Thêm file cover
-  }
+      // --- Bước 2: Khởi tạo FormData ---
+      const formData = new FormData();
 
+      // --- Bước 3: Append Dữ liệu Text vào FormData ---
+      // Các 'key' (ví dụ: 'event_name') phải khớp với tên mà Backend API mong đợi
+      formData.append('event_name', eventName);
+      formData.append('description', description);
+      formData.append('start_date', new Date(startDate).toISOString());
+      formData.append('end_date', new Date(endDate).toISOString());
+      formData.append('capacity', String(capacity)); // Chuyển số thành chuỗi nếu backend cần string
+      formData.append('host_id', user?.faculty || user?.name || 'Unknown Host');
+      formData.append('attendance_type', attendanceType);
+      formData.append('location', attendanceType === ATTENDANCE_TYPES.ONLINE ? (location.trim() || 'Online Platform') : location);
 
-        try {
-            await createNewEvent(newEventData);
-            setIsLoading(false);
-            alert('Tạo sự kiện thành công!');
-            setEventName('');
-            setDescription('');
-            setStartDate('');
-            setEndDate('');
-            setCapacity('');
-            setLogo(null);
-            setCover(null);
-            setAttendanceType(ATTENDANCE_TYPES.OFFLINE);
-            setLocation('');
-            setSelectedTags([]);
-            if(e.target.logo) e.target.logo.value = null;
-            if(e.target.cover) e.target.cover.value = null;
-        } catch (err) {
-            setIsLoading(false);
-            setError(err.message || 'Đã xảy ra lỗi khi tạo sự kiện.');
-             if (err.message && err.message.includes("đã tồn tại")) {
-               console.warn("Sự kiện trùng lặp - cần xử lý UI (vd: Modal)");
-             }
-        }
-    };
+      // Xử lý mảng tags: Gửi dưới dạng JSON string là cách phổ biến
+      // Backend sẽ cần parse chuỗi JSON này
+      formData.append('tags', JSON.stringify(selectedTags));
+      // Hoặc bạn có thể gửi từng tag nếu backend hỗ trợ (ví dụ: lặp và formData.append('tags[]', tag))
+
+      // --- Bước 4: Append File vào FormData (nếu có) ---
+      // Key 'logoFile' và 'coverFile' phải khớp với tên mà Backend API mong đợi
+      if (logo) {
+          formData.append('logoFile', logo, logo.name);
+      }
+      if (cover) {
+          formData.append('coverFile', cover, cover.name);
+      }
+
+      // --- Bước 5: Gọi API Thực Tế (Thay thế hàm mock) ---
+      try {
+          console.log("Chuẩn bị gửi FormData đến API:");
+          // Log các entry trong FormData để kiểm tra (không log được trực tiếp object FormData)
+          for (let [key, value] of formData.entries()) {
+              console.log(`${key}:`, value);
+          }
+
+          // --- !!! THAY THẾ BẰNG LỜI GỌI API THỰC TẾ CỦA BẠN !!! ---
+          // Ví dụ:
+          // const response = await yourApiFunctionToCreateEvent(formData);
+          // console.log('API Response:', response);
+          // --- KẾT THÚC PHẦN THAY THẾ ---
+
+          // --- Tạm thời giả lập API thành công để reset form ---
+          // Bạn có thể xóa phần giả lập này khi có API thật
+          await new Promise(resolve => setTimeout(resolve, 1000)); // Giả lập độ trễ mạng
+          alert('FormData đã sẵn sàng (API thực tế chưa được gọi)!');
+          // --- Kết thúc phần giả lập ---
+
+          setIsLoading(false);
+
+          // --- Bước 6: Reset Form sau khi thành công ---
+          setEventName('');
+          setDescription('');
+          setStartDate('');
+          setEndDate('');
+          setCapacity('');
+          setLogo(null);
+          setCover(null);
+          setAttendanceType(ATTENDANCE_TYPES.OFFLINE);
+          setLocation('');
+          setSelectedTags([]);
+          setFileErrors({});
+          // Cố gắng reset input file
+           if(e.target.elements.logo) e.target.elements.logo.value = null;
+           if(e.target.elements.cover) e.target.elements.cover.value = null;
+
+           // Có thể chuyển hướng người dùng sau khi thành công
+           // navigate('/admin/my-events'); // Ví dụ
+
+      } catch (apiError) { // Bắt lỗi từ API thực tế
+          setIsLoading(false);
+          console.error("Lỗi khi gọi API tạo sự kiện:", apiError);
+          // Hiển thị lỗi từ API cho người dùng (nếu có response lỗi cụ thể)
+          const message = apiError.response?.data?.message || apiError.message || 'Đã xảy ra lỗi khi tạo sự kiện bằng API.';
+          setError(message);
+          // Xử lý thêm các trường hợp lỗi cụ thể từ API nếu cần
+      }
+  };
+
 
 
   return (
@@ -508,7 +576,7 @@ const CreateEventPage = () => {
             label="Ảnh Bìa (Background) (.jpg, .png)"
             type="file"
             accept="image/jpeg, image/png"
-            onChange={handleFileChange(setCover)}
+            onChange={handleFileChange('cover',setCover)}
             required
             inputClassName="text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-violet-50 file:text-violet-700 hover:file:bg-violet-100"
           />

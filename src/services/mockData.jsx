@@ -12,8 +12,8 @@ export const mockEvents = [
       "approval_status": "approved",
       "submit_at": "2025-04-29T15:30:00Z", // Giả định ngày nộp
       "approval_at": "2025-04-30T08:00:00Z", // Giả định ngày duyệt
-      "logo_url": "https://via.placeholder.com/150/0000FF/808080?text=Event+Logo+1",
-      "cover_url": "https://via.placeholder.com/600x200/FF0000/FFFFFF?text=Event+Cover+1",
+      "logo_url": "https://i.pinimg.com/736x/6c/86/82/6c868260ba3228e2a3638f35c9b0226f.jpg",
+      "cover_url": "https://i.pinimg.com/736x/fd/51/3e/fd513efeb80ba5ccd5b62812c1c59151.jpg",
       "plan_link": null,
       "update_at": "2025-04-30T11:00:00Z",
       "attendance_type": "offline",
