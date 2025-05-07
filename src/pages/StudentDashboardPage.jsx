@@ -1,11 +1,12 @@
 // src/pages/StudentDashboardPage.jsx
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+// import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 import { useAuth } from '../hooks/useAuth';
-import { getAllEvents } from '../services/mockData'; // Import hàm lấy event
+import { getAllEvents, getRegisteredEventsForStudent, registerForEvent, unregisterForEvent } from '../services/mockData'; // Import hàm lấy event
 import EventSearchBar from '../components/features/Search/EventSearchBar/EventSearchBar';
 import EventCard from '../components/features/Events/EventCard/EventCard'; // Import EventCard
+import { ROLES } from '../utils/constants';
 
 // --- Styled Components ---
 const DashboardWrapper = styled.div`
@@ -55,31 +56,91 @@ const ErrorText = styled.p`
 // --- Component ---
 const StudentDashboardPage = () => {
   const { user } = useAuth();
-  const [events, setEvents] = useState([]);
+  // const [events, setEvents] = useState([]);
+  const [allEvents, setAllEvents] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState(''); // State cho tìm kiếm
-
+  const [registeredEventIds, setRegisteredEventIds] = useState(new Set());
   // Fetch events khi component mount
   useEffect(() => {
-    const fetchEvents = async () => {
-      setIsLoading(true);
-      setError(null);
-      try {
-        const response = await getAllEvents(); // Sử dụng hàm mock
-        setEvents(response.data || []);
-      } catch (err) {
-        setError(err.message || 'Không thể tải danh sách sự kiện.');
-        setEvents([]);
-      } finally {
-        setIsLoading(false);
-      }
+    const fetchData = async () => {
+        // Chỉ fetch nếu user đã load và là student
+        if (!user?.id || user?.role !== ROLES.STUDENT) {
+             setIsLoading(false);
+             // Có thể đặt lỗi hoặc không hiển thị gì nếu không phải student vào dashboard này
+             if (user && user.role !== ROLES.STUDENT) {
+                setError("Trang này chỉ dành cho sinh viên.");
+             }
+             return;
+        }
+
+        setIsLoading(true);
+        setError(null);
+        setRegisteredEventIds(new Set()); // Reset trước khi fetch
+
+        try {
+            // Dùng Promise.all để fetch song song
+            const [eventsResponse, registeredResponse] = await Promise.all([
+                getAllEvents(),
+                getRegisteredEventsForStudent(user.id) // Fetch event đã đăng ký
+            ]);
+
+            // Lọc chỉ lấy các sự kiện đã được duyệt
+            const approvedEvents = (eventsResponse.data || []).filter(e => e.approval_status === 'approved');
+            setAllEvents(approvedEvents);
+
+            // Lưu ID các sự kiện đã đăng ký vào Set
+            const ids = new Set((registeredResponse.data || []).map(e => e.event_id));
+            setRegisteredEventIds(ids);
+
+        } catch (err) {
+            setError(err.message || 'Không thể tải dữ liệu trang.');
+            setAllEvents([]); // Xóa sự kiện nếu có lỗi
+        } finally {
+            setIsLoading(false);
+        }
     };
-    fetchEvents();
-  }, []);
+    fetchData();
+}, [user]); // Chạy lại khi user thay đổi (login/logout)
+
+const handleRegister = async (eventId, studentId) => {
+  // Kiểm tra lại phòng trường hợp gọi nhầm
+  if (registeredEventIds.has(eventId)) {
+       alert("Bạn đã đăng ký sự kiện này rồi.");
+       return;
+  }
+  try {
+      await registerForEvent(eventId, studentId);
+      setRegisteredEventIds(prev => new Set(prev).add(eventId)); // Cập nhật state
+      alert("Đăng ký thành công!");
+  } catch (err) {
+      alert(`Đăng ký thất bại: ${err.message}`);
+  }
+};
+
+// Hàm xử lý hủy đăng ký (truyền xuống EventCard)
+const handleUnregister = async (eventId, studentId) => {
+  if (!registeredEventIds.has(eventId)) {
+       alert("Bạn chưa đăng ký sự kiện này.");
+       return;
+  }
+  try {
+      await unregisterForEvent(eventId, studentId);
+      setRegisteredEventIds(prev => { // Cập nhật state
+          const newSet = new Set(prev);
+          newSet.delete(eventId);
+          return newSet;
+      });
+      alert("Hủy đăng ký thành công!");
+  } catch (err) {
+      alert(`Hủy đăng ký thất bại: ${err.message}`);
+  }
+};
+
 
   // Lọc sự kiện dựa trên searchTerm
-  const filteredEvents = events.filter(event =>
+  const filteredEvents = allEvents.filter(event =>
     event.event_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     event.description.toLowerCase().includes(searchTerm.toLowerCase())
     // Thêm các trường tìm kiếm khác nếu muốn (ví dụ: host_id, tags)
@@ -102,23 +163,31 @@ const StudentDashboardPage = () => {
       </Section>
 
       <Section>
-        <SectionTitle>Sự kiện nổi bật</SectionTitle>
-        {isLoading && <LoadingText>Đang tải sự kiện...</LoadingText>}
-        {error && <ErrorText>Lỗi: {error}</ErrorText>}
-        {!isLoading && !error && (
-          <EventGrid>
-            {filteredEvents.length > 0 ? (
-              filteredEvents.map((event) => (
-                // Sử dụng EventCard để hiển thị từng sự kiện
-                <EventCard key={event.event_id} event={event} />
-              ))
-            ) : (
-              <p>Không tìm thấy sự kiện nào.</p>
-            )}
-          </EventGrid>
-        )}
-      </Section>
-
+                <SectionTitle>
+                    {searchTerm ? `Kết quả tìm kiếm (${filteredEvents.length})` : `Sự kiện nổi bật (${allEvents.length})`}
+                </SectionTitle>
+                {isLoading && <LoadingText>Đang tải sự kiện...</LoadingText>}
+                {error && <ErrorText>Lỗi: {error}</ErrorText>}
+                {!isLoading && !error && (
+                    <EventGrid>
+                        {filteredEvents.length > 0 ? (
+                            filteredEvents.map((event) => (
+                                <EventCard
+                                    key={event.event_id}
+                                    event={event}
+                                    // Xác định trạng thái đăng ký cho card này
+                                    isAlreadyRegistered={registeredEventIds.has(event.event_id)}
+                                    // Truyền các hàm xử lý xuống
+                                    onRegister={handleRegister}
+                                    onUnregister={handleUnregister}
+                                />
+                            ))
+                        ) : (
+                            <p>{searchTerm ? "Không tìm thấy sự kiện phù hợp." : "Chưa có sự kiện nào."}</p>
+                        )}
+                    </EventGrid>
+                )}
+            </Section>
     </DashboardWrapper>
   );
 };

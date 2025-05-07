@@ -18,7 +18,6 @@ import StudentLayout from './layouts/StudentLayout';
 import StudentDashboardPage from './pages/StudentDashboardPage';
 import EventDetailsPage from './pages/EventDetailsPage'; 
 import CreateEventPage from './pages/CreateEventPage';
-//import MyEventsPage from './pages/MyEventsPage';
 // import RegisteredEventsPage from './pages/RegisteredEventsPage';
 import StatisticsPage from './pages/StatisticsPage'; 
 import MyEventsPage from './pages/MyEventPage';
@@ -81,7 +80,11 @@ function App() {
                 </ProtectedRoute>}/>
             <Route path="/attendance" element={
                 <ProtectedRoute allowedRoles={['student']}>
-                    {/* <AttendancePage /> Trang hiển thị các sự kiện đã đăng ký - Thiên Phú phát triển */}
+                    <RegisteredEventsPage/>
+                </ProtectedRoute>}/>
+            <Route path="/attendance" element={
+                <ProtectedRoute allowedRoles={['student']}>
+                    {/* <CheckinPage /> Trang điểm danh - Thiên Phú phát triển */}
                 </ProtectedRoute>}/>
             <Route path="/profile" element={
                 <ProtectedRoute allowedRoles={['student', 'event_creator', 'union']}>
@@ -91,7 +94,7 @@ function App() {
 
             // Route cho người tạo sự kiện đăng nhập
           <Route path="/admin" element={
-              <ProtectedRoute allowedRoles={['event_creator', 'union']}> //union ở đây là đoàn trường
+              <ProtectedRoute allowedRoles={['event_creator', 'union']}> 
                   <AdminLayout />
               </ProtectedRoute>}>
               <Route index element={<Navigate to="my-events" replace />} />
@@ -103,7 +106,7 @@ function App() {
                        {/* <EventCreatorDashboardPage />   Trang thống kê cho Liên chi, Thiên Phú phát triển */}
                   </ProtectedRoute>}/>
               <Route path="statistics" element={
-                  <ProtectedRoute allowedRoles={['union']}> //Trang thống kê thi đua cho đoàn trường
+                  <ProtectedRoute allowedRoles={['union']}> 
                       <StatisticsPage />
                   </ProtectedRoute>}/>
           </Route>

@@ -194,11 +194,11 @@ export const mockEvents = [
   export const createNewEvent = (newEventData) => {
     return new Promise((resolve, reject) => {
       setTimeout(() => {
-        // Check trùng tên và ngày bắt đầu
+        // Check trùng tên và thời gian bắt đầu
         const isDuplicate = createdEvents.some(event =>
           event.event_name === newEventData.event_name &&
-          new Date(event.start_date).toDateString() === new Date(newEventData.start_date).toDateString()
-          // Có thể check thêm giờ nếu cần độ chính xác cao hơn
+          new Date(event.start_date).getTime() === new Date(newEventData.start_date).getTime()
+          
         );
   
         if (isDuplicate) {
@@ -213,19 +213,17 @@ export const mockEvents = [
           approval_status: 'pending', // Trạng thái chờ duyệt (ví dụ)
           submit_at: new Date().toISOString(),
           update_at: new Date().toISOString(),
-          // host_id sẽ được lấy từ thông tin người dùng đăng nhập
         };
         createdEvents.push(newEvent);
         console.log("Mock Create Event:", newEvent);
         resolve({ data: newEvent });
-      }, 1000); // Giả lập độ trễ mạng
+      }, 1000); 
     });
   };
   
   
   
-  // src/services/mockData.js
-// ... (phần code mockEvents, createNewEvent, etc. đã có) ...
+
 
 // Hàm giả lập lấy chi tiết một sự kiện bằng ID
 export const getEventById = (eventId) => {
@@ -239,9 +237,14 @@ export const getEventById = (eventId) => {
           console.error("Mock Get Event By ID: Not Found", eventId);
           reject(new Error("Không tìm thấy sự kiện."));
         }
-      }, 700); // Giả lập độ trễ mạng
+      }, 700);
     });
   };
+
+  export let mockRegistrations = {
+    'student_1': ['evt_12345', 'evt_z1234'], // Ví dụ: student_1 đã đăng ký 2 sự kiện
+    // Thêm các user khác nếu cần cho testing
+};
 
   export const getRegisteredEventsForStudent = (userId) => {
     return new Promise((resolve) => {
@@ -250,7 +253,7 @@ export const getEventById = (eventId) => {
             const events = createdEvents.filter(event => registeredEventIds.includes(event.event_id));
             console.log(`Mock Get Registered Events for User ${userId}:`, events);
             resolve({ data: events });
-        }, 600); // Giả lập độ trễ mạng
+        }, 600); 
     });
 };
 
@@ -268,7 +271,7 @@ export const getEventById = (eventId) => {
               if (mockRegistrations[userId] && mockRegistrations[userId].includes(eventId)) {
                   // Có thể trả về lỗi hoặc thông báo đã đăng ký rồi
                   return resolve({ message: "Bạn đã đăng ký sự kiện này rồi." });
-                  // Hoặc: return reject(new Error("Bạn đã đăng ký sự kiện này rồi."));
+                 
               }
 
               // Thêm đăng ký mới
@@ -284,12 +287,10 @@ export const getEventById = (eventId) => {
     });
 };
 
-  // src/services/mockData.js
-// ... (code khác đã có) ...
+
 
 let mockStudentCredentials = [
   { email: 'test@gmail.com', password: 'password123', name: 'Test Student', id: 'student_1' },
-  // Bạn có thể thêm các tài khoản giả lập khác ở đây
 ];
 
 // Hàm giả lập đăng ký người dùng mới (sinh viên)
@@ -366,13 +367,12 @@ export const verifyStudentCredentials = async (email, password) => {
           };
       } else {
           console.log("Password does NOT match.");
-          return null; // Sai mật khẩu
+          return null; 
       }
   } else {
       console.log("User email not found in mock data.");
-      return null; // Không tìm thấy email
+      return null;
   }
-  // Không cần setTimeout ở đây vì hàm login đã có rồi
 };
 
 
@@ -498,3 +498,17 @@ export const getStatisticsData = () => {
   });
 };
 
+export const unregisterForEvent = (eventId, userId) => {
+  return new Promise((resolve, reject) => {
+      setTimeout(() => {
+          if (mockRegistrations[userId] && mockRegistrations[userId].includes(eventId)) {
+              mockRegistrations[userId] = mockRegistrations[userId].filter(id => id !== eventId);
+              console.log(`Mock Unregister: User ${userId} unregistered from Event ${eventId}`);
+              console.log("Current Mock Registrations:", mockRegistrations);
+              resolve({ message: "Hủy đăng ký thành công!" });
+          } else {
+              reject(new Error("Bạn chưa đăng ký sự kiện này hoặc có lỗi xảy ra."));
+          }
+      }, 500);
+  });
+};
