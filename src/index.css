@@ -1,1 +1,12 @@
 @import "tailwindcss";
+
+
+body {
+  font-family: 'Nunito Sans', sans-serif; /* Font mặc định */
+  /* background-color: #ffabda; */
+}
+
+/* Có thể định nghĩa các class dùng font DM Sans khi cần */
+.font-dm-sans {
+   font-family: 'DM Sans', sans-serif;
+}
