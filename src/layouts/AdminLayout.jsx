@@ -6,18 +6,20 @@ import { useAuth } from '../hooks/useAuth'; // Đảm bảo đường dẫn đú
 import { ROLES } from '../utils/constants'; // Đảm bảo đường dẫn đúng
 import AdminSidebar from '../components/features/Navigation/MainNav/AdminSidebar'; // Đảm bảo đường dẫn đúng
 
+
+
 // --- Styled Components --- (Giữ nguyên)
 const AdminWrapper = styled.div`
     display: flex;
     min-height: 100vh; /* Sử dụng min-height thay height */
-    background-color: #f3f4f6; /* bg-gray-100 */
+    background-color: #ddf4ff; /* bg-gray-100 */
 `;
 
 const AdminContent = styled.main`
     flex: 1 1 0%; /* flex-1 */
     overflow-x: hidden;
     overflow-y: auto;
-    padding: 1.5rem; /* p-6 */
+    padding: 0.5rem; /* p-6 */
 `;
 
 const LoadingWrapper = styled.div`

@@ -9,7 +9,7 @@ import Button from '../../../common/Button/Button'; // Giả định Button là 
 // --- Styled Components ---
 const SidebarWrapper = styled.div`
     width: 16rem; /* w-64 */
-    background-color: #1e40af; /* bg-blue-800 */
+    background-color: #003652; /* bg-blue-800 */
     color: #ffffff;
     display: flex;
     flex-direction: column;
@@ -54,7 +54,7 @@ const StyledNavLink = styled(NavLink)`
     }
 
     &.active {
-        background-color: #2563eb; /* bg-blue-600 */
+        background-color: #81ADC4; /* bg-blue-600 */
         color: #ffffff; /* text-white */
         font-weight: 500;
     }

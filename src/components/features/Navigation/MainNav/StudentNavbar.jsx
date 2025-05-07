@@ -7,9 +7,9 @@ import Button from '../../../common/Button/Button'; // Điều chỉnh đường
 
 // --- Styled Components --- (Giữ nguyên như trong mã gốc)
 const Nav = styled.nav`
-    background-color: #4f46e5; /* bg-indigo-600 */
+    background-color: #47c1ff; /* bg-indigo-600 */
     padding: 0.75rem 1.5rem; /* py-3 px-6 */
-    color: white;
+    color: black;
     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 `;
 
@@ -25,7 +25,8 @@ const NavContainer = styled.div`
 const NavBrand = styled(Link)`
     font-size: 1.25rem; /* text-xl */
     font-weight: 700; /* font-bold */
-    color: white;
+    color: black;
+    
     text-decoration: none;
     margin-right: 1.5rem; /* Add some space */
 `;
@@ -51,7 +52,8 @@ const NavLinks = styled.ul`
 `;
 
 const StyledNavLink = styled(NavLink)`
-    color: #e0e7ff; /* indigo-100 */
+    color: #black; /* indigo-100 */
+    
     text-decoration: none;
     padding: 0.5rem 0.75rem;
     border-radius: 0.25rem;
@@ -149,7 +151,7 @@ const StudentNavbar = () => {
 
                 {/* Các link điều hướng */}
                 <NavLinks $isOpen={isMenuOpen}>
-                    <li><StyledNavLink to={getHomeLink()} onClick={closeMenu} end>Sự kiện</StyledNavLink></li>
+                    {/* <li><StyledNavLink to={getHomeLink()} onClick={closeMenu} end>Sự kiện</StyledNavLink></li> */}
                     {isAuthenticated && user?.role === 'student' && (
                         <>
                             <li><StyledNavLink to="/registered-events" onClick={closeMenu}>Đã đăng ký</StyledNavLink></li>

@@ -40,7 +40,7 @@ const SearchForm = styled.form`
     display: flex;
     align-items: center;
     width: 100%;
-    max-width: 42rem; /* max-w-xl */
+    /* max-w-xl */
     margin-left: auto;
     margin-right: auto;
 `;

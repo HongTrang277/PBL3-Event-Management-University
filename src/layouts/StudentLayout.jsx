@@ -18,6 +18,7 @@ const MainContent = styled.main`
     margin: 0 auto;
     padding: 1.5rem; /* Add some padding */
     width: 100%; /* Ensure it takes width */
+    background-color: #f9fafb; /* Optional: Add a light background */
 `;
 
 // --- Component --- (Giữ nguyên)

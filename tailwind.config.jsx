@@ -26,7 +26,7 @@ export default {
             'primary-7': "#003652",
             'primary-8': "#02a533",
           'secondary': '#ffd3ec', // Màu phụ
-            'secondary-1': "#êb7ebc",
+            'secondary-1': "#eb7ebc",
             'secondary-2': "#ffabda",
             'secondary-3': "#ffc3e5",
             'secondary-4': "#a75e87",

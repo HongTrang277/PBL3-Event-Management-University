@@ -21,6 +21,107 @@ export const mockEvents = [
       "tags": ["Công nghệ", "Hội thảo"] // Thêm tags ví dụ
     },
     {
+      "event_id": "evt_z1234",
+      "event_name": "Đêm nhạc Acoustic Gây quỹ từ thiện",
+      "description": "Thưởng thức âm nhạc và chung tay đóng góp cho các hoạt động thiện nguyện của sinh viên Bách Khoa.",
+      "create_on": "2025-04-20T13:00:00Z",
+      "start_date": "2025-05-18T19:00:00Z", // Sự kiện sắp diễn ra
+      "end_date": "2025-05-18T21:30:00Z",
+      "capacity": 300,
+      "host_id": "Khoa Quản lý dự án", // Một khoa khác
+      "approval_status": "approved",
+      "submit_at": "2025-04-19T09:00:00Z",
+      "approval_at": "2025-04-20T10:00:00Z",
+      "logo_url": "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?ixlib=rb-1.2.1&auto=format&fit=crop&w=150&q=80",
+      "cover_url": "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?ixlib=rb-1.2.1&auto=format&fit=crop&w=750&q=80",
+      "plan_link": null,
+      "update_at": "2025-04-20T14:00:00Z",
+      
+      "location": "Sân khấu ngoài trời Khu A, ĐH Bách Khoa",
+      "tags": ["Văn nghệ", "Âm nhạc", "Từ thiện", "Acoustic"]
+    },
+    {
+      "event_id": "evt_fghij",
+      "event_name": "Cuộc thi Sáng tạo Robot BKDN 2025",
+      "description": "Sân chơi trí tuệ cho sinh viên đam mê robot. Thể hiện tài năng, kỹ năng thiết kế và lập trình robot của bạn.",
+      "create_on": "2025-02-20T14:00:00Z",
+      "start_date": "2025-09-10T08:30:00Z", // Sự kiện trong tương lai xa hơn
+      "end_date": "2025-09-12T17:00:00Z",
+      "capacity": 100, // Số đội hoặc thành viên tham gia
+      "host_id": "Khoa Cơ khí",
+      "approval_status": "approved",
+      "submit_at": "2025-02-19T11:00:00Z",
+      "approval_at": "2025-02-20T10:00:00Z",
+      "logo_url": "https://images.unsplash.com/photo-1581092921440-5c51d1e9e909?ixlib=rb-1.2.1&auto=format&fit=crop&w=150&q=80",
+      "cover_url": "https://images.unsplash.com/photo-1620712943543-bcc4688e7485?ixlib=rb-1.2.1&auto=format&fit=crop&w=750&q=80",
+      "plan_link": null,
+      "update_at": "2025-02-21T09:00:00Z",
+      // "attendance_type": ATTENDANCE_TYPES.OFFLINE,
+      "location": "Xưởng thực hành Khoa Cơ khí",
+      "tags": ["Học thuật", "Công nghệ", "Robot", "Thi đấu"]
+    },
+    {
+      "event_id": "evt_klmno",
+      "event_name": "Talkshow: Kỹ năng mềm cho Kỹ sư thế kỷ 21",
+      "description": "Chia sẻ từ các chuyên gia về các kỹ năng giao tiếp, làm việc nhóm, tư duy phản biện cần thiết cho kỹ sư trong thời đại mới.",
+      "create_on": "2025-04-15T16:00:00Z",
+      "start_date": "2025-05-10T18:00:00Z", // Sự kiện đã diễn ra (giả sử hôm nay > 10/5/2025)
+      "end_date": "2025-05-10T20:00:00Z",
+      "capacity": 200,
+      "host_id": "Khoa Điện tử - Viễn thông",
+      "approval_status": "approved",
+      "submit_at": "2025-04-15T10:00:00Z",
+      "approval_at": "2025-04-16T09:00:00Z",
+      "logo_url": "https://images.unsplash.com/photo-1543269865-cbf427effbad?ixlib=rb-1.2.1&auto=format&fit=crop&w=150&q=80",
+      "cover_url": "https://images.unsplash.com/photo-1522202176988-66273c2fd55f?ixlibrb-1.2.1&auto=format&fit=crop&w=750&q=80",
+      "plan_link": null,
+      "update_at": "2025-04-16T11:00:00Z",
+      // "attendance_type": ATTENDANCE_TYPES.ONLINE,
+      "location": "Nền tảng MS Teams (Khoa ĐTVT)",
+      "tags": ["Kỹ năng mềm", "Hội thảo", "Hướng nghiệp"]
+    },
+    
+    {
+      "event_id": "evt_pqrst",
+      "event_name": "Giải bóng đá Sinh viên DUT Mở rộng",
+      "description": "Giải đấu thường niên quy tụ các đội bóng mạnh nhất từ các khoa và các trường bạn. Tinh thần thể thao, giao lưu và đoàn kết.",
+      "create_on": "2025-03-01T08:00:00Z",
+      "start_date": "2025-04-05T07:00:00Z", // Sự kiện đã diễn ra
+      "end_date": "2025-04-26T17:00:00Z", // Kéo dài nhiều ngày
+      "capacity": 16, // Số đội
+      "host_id": "Đoàn Thanh niên Trường",
+      "approval_status": "approved",
+      "submit_at": "2025-02-28T14:00:00Z",
+      "approval_at": "2025-03-01T10:00:00Z",
+      "logo_url": "https://images.unsplash.com/photo-1579952363873-27f3bade9f55?ixlib=rb-1.2.1&auto=format&fit=crop&w=150&q=80",
+      "cover_url": "https://scontent.fhan14-2.fna.fbcdn.net/v/t39.30808-6/489786430_1308896494579152_4453476905909770114_n.jpg?stp=dst-jpg_s600x600_tt6&_nc_cat=108&ccb=1-7&_nc_sid=127cfc&_nc_ohc=IfdaAXCX6oMQ7kNvwEQE_eJ&_nc_oc=Adm17jVPLtHt-WFnau8lnqF-TXxIdwSQxykbK7_MMdzzh6Tyn2OX7_ydZtdPMFj5Dp1xx6PchqVngz7mZH1MWDXG&_nc_zt=23&_nc_ht=scontent.fhan14-2.fna&_nc_gid=8d66yS2vOBgJnBOMAdoWGA&oh=00_AfK3T16fJhzeMnOc71gmBnG5ASB3LUmw08rPspuhON5_Bw&oe=681FF69B",
+      "plan_link": null,
+      "update_at": "2025-03-02T13:00:00Z",
+      // "attendance_type": ATTENDANCE_TYPES.OFFLINE,
+      "location": "Sân cỏ nhân tạo Khu KTX DMC",
+      "tags": ["Thể thao", "Bóng đá", "Giải đấu", "Toàn trường"]
+    },
+    {
+      "event_id": "evt_uvwxy",
+      "event_name": "Khóa học An toàn thông tin cơ bản",
+      "description": "Trang bị kiến thức nền tảng về an toàn thông tin, các mối đe dọa phổ biến và cách phòng chống cho sinh viên.",
+      "create_on": "2025-05-01T10:00:00Z",
+      "start_date": "2025-06-01T09:00:00Z",
+      "end_date": "2025-06-01T11:30:00Z",
+      "capacity": 100,
+      "host_id": "Khoa Công nghệ thông tin",
+      "approval_status": "pending", // Sự kiện đang chờ duyệt
+      "submit_at": "2025-04-30T15:00:00Z",
+      "approval_at": null,
+      "logo_url": "https://images.unsplash.com/photo-1526374965328-5f61d48c09f8?ixlib=rb-1.2.1&auto=format&fit=crop&w=150&q=80",
+      "cover_url": "https://images.unsplash.com/photo-1555949963-ff9fe0c870eb?ixlib=rb-1.2.1&auto=format&fit=crop&w=750&q=80",
+      "plan_link": null,
+      "update_at": "2025-05-01T10:00:00Z",
+      // "attendance_type": ATTENDANCE_TYPES.ONLINE,
+      "location": "Zoom Webinar",
+      "tags": ["Công nghệ", "An toàn thông tin", "Workshop"]
+    },
+    {
       "event_id": "evt_67890",
       "event_name": "Workshop Lập trình Web Nâng cao",
       "description": "Tìm hiểu các kỹ thuật frontend và backend hiện đại.",
@@ -41,6 +142,7 @@ export const mockEvents = [
       "tags": ["Công nghệ", "Workshop", "Lập trình"] // Thêm tags ví dụ
     },
     // Thêm sự kiện khác nếu cần
+    
   ];
   
   export const mockSingleEvent = mockEvents[0];

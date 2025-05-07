@@ -1,50 +1,57 @@
 // src/layouts/AuthLayout.jsx
 import React from 'react';
 import { Outlet, Link as RouterLink } from 'react-router-dom';
-import styled from 'styled-components';
-// Optional: Import Logo component nếu bạn có
-// import Logo from '../components/common/Logo/Logo';
+import styled, { ThemeProvider } from 'styled-components'; // Import ThemeProvider nếu cần
 
-// --- Styled Components --- (Giữ nguyên)
+// Giả định theme object giống như trong LoginPage.jsx
+const theme = {
+    colors: {
+        primary: '#a8e0fd',
+        'primary-1': "#47c1ff",
+        'primary-2': "#ddf4ff",
+        'primary-3': "#003652",
+        'primary-4': "#5ba2dd",
+        'primary-5': "#b1dcff",
+        'primary-6': "#ceeeff",
+        'primary-7': "#003652",
+        'primary-8': "#02a533",
+        // ... các màu khác
+        white: '#ffffff',
+        'custom-gray': { /* ...các màu xám... */
+            600: '#718096',
+        },
+    },
+     borderRadius: {
+        'xl': '0.75rem',
+     },
+     // ... font chữ, shadow ...
+};
+
 const AuthWrapper = styled.div`
     min-height: 100vh;
-    background: linear-gradient(to bottom right, #eff6ff, #ffffff, #eef2ff);
+    /* Đặt background gradient full trang ở đây */
+    background: linear-gradient(135deg, ${props => props.theme.colors['primary-6']} 0%, ${props => props.theme.colors.white} 100%);
     display: flex;
     flex-direction: column;
-    justify-content: center;
-    padding: 3rem 1rem; /* Adjusted padding */
-
-    @media (min-width: 640px) {
-        padding-left: 1.5rem;
-        padding-right: 1.5rem;
-    }
-    @media (min-width: 1024px) {
-        padding-left: 2rem;
-        padding-right: 2rem;
-    }
+    justify-content: center; /* Căn giữa theo chiều dọc */
+    align-items: center; /* Căn giữa theo chiều ngang */
+    padding: 2rem 1rem; /* Padding cho toàn trang */
 `;
-
-// LogoContainer is removed as it wasn't used in the component's return block
-// Add it back if you intend to use a Logo
 
 const ContentWrapper = styled.div`
     width: 100%;
+    /* Đặt max-width cho khung nội dung (LoginContainer) */
+    max-width: 60rem; /* Khớp với max-width của LoginContainer */
     margin-left: auto;
     margin-right: auto;
-
-    @media (min-width: 640px) {
-        max-width: 28rem; /* max-w-md */
-    }
-    /* Add default padding/margin for smaller screens if needed */
-     padding-left: 0; /* Remove default padding, handled by AuthWrapper or child */
-     padding-right: 0;
+    /* Không cần padding ở đây vì LoginContainer sẽ tự có padding */
 `;
 
 const FooterWrapper = styled.div`
-    margin-top: 2rem; /* mt-8 */
+    margin-top: 2rem;
     text-align: center;
-    font-size: 0.875rem; /* text-sm */
-    color: #6b7280; /* text-gray-500 */
+    font-size: 0.875rem;
+    color: ${props => props.theme.colors['custom-gray'][600]}; // Sử dụng theme
 `;
 
 const FooterText = styled.p`
@@ -53,36 +60,37 @@ const FooterText = styled.p`
 
 const FooterLinkParagraph = styled.p`
     margin: 0;
-    margin-top: 0.25rem; /* mt-1 */
+    margin-top: 0.25rem;
 `;
 
 const FooterLink = styled(RouterLink)`
     font-weight: 500;
-    color: #4f46e5;
+    color: ${props => props.theme.colors['primary-4']}; // Sử dụng theme
     text-decoration: none;
     &:hover {
-        color: #6366f1;
+        color: ${props => props.theme.colors['primary-3']}; // Sử dụng theme
         text-decoration: underline;
     }
 `;
 
-// --- Component --- (Giữ nguyên)
 const AuthLayout = () => {
     return (
-        <AuthWrapper>
-            {/* Optional Logo here */}
-            <ContentWrapper>
-                <Outlet />
-            </ContentWrapper>
-            <FooterWrapper>
-                <FooterText>&copy; {new Date().getFullYear()} Trường Đại học Bách khoa, ĐHĐN.</FooterText>
-                <FooterLinkParagraph>
-                    <FooterLink to="/">
-                        Quay lại trang chủ
-                    </FooterLink>
-                </FooterLinkParagraph>
-            </FooterWrapper>
-        </AuthWrapper>
+        // Cung cấp theme cho các component con nếu cần
+        <ThemeProvider theme={theme}>
+            <AuthWrapper>
+                <ContentWrapper>
+                    <Outlet /> {/* LoginPage sẽ được render ở đây */}
+                </ContentWrapper>
+                <FooterWrapper>
+                    <FooterText>&copy; {new Date().getFullYear()} Trường Đại học Bách khoa, ĐHĐN.</FooterText>
+                    <FooterLinkParagraph>
+                        <FooterLink to="/">
+                            Quay lại trang chủ
+                        </FooterLink>
+                    </FooterLinkParagraph>
+                </FooterWrapper>
+            </AuthWrapper>
+        </ThemeProvider>
     );
 };
 

@@ -14,7 +14,7 @@ const getVariantStyles = (variant) => {
     switch (variant) {
         case 'secondary':
             return css`
-                background-color: #e5e7eb; /* bg-gray-200 */
+                background-color: #ddf4ff; /* bg-gray-200 */
                 color: #1f2937; /* text-gray-800 */
                 border: 1px solid #d1d5db; /* border-gray-300 */
                 &:hover:not(:disabled) {
@@ -43,7 +43,7 @@ const getVariantStyles = (variant) => {
         case 'primary':
         default:
             return css`
-                background-color: #4f46e5; /* bg-indigo-600 */
+                background-color: #003652; /* bg-indigo-600 */
                 color: white;
                 border: 1px solid transparent;
                 &:hover:not(:disabled) {

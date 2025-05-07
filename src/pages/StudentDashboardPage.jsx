@@ -10,7 +10,7 @@ import EventCard from '../components/features/Events/EventCard/EventCard'; // Im
 // --- Styled Components ---
 const DashboardWrapper = styled.div`
   padding: 1.5rem;
-  max-width: 1280px; /* Example container */
+  width:100% /* Example container */
   margin: 0 auto;
 `;
 

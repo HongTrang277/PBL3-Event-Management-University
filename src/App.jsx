@@ -4,55 +4,48 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import { useAuth } from './hooks/useAuth'; // Import useAuth
 
-// Layouts
-import MainLayout from './layouts/MainLayout'; // Tạo file này
-import AuthLayout from './layouts/AuthLayout'; // Tạo file này
+
+import MainLayout from './layouts/MainLayout'; 
+import AuthLayout from './layouts/AuthLayout'; 
 import AdminLayout from './layouts/AdminLayout';
 
 // Pages
-import HomePage from './pages/HomePage'; // Tạo file này
+import HomePage from './pages/HomePage';
 import LoginPage from './pages/LoginPage';
-import RegisterPage from './pages/RegisterPage'; // Tạo file này
-// import EventListPage from './pages/EventListPage'; // Tạo file này
+import RegisterPage from './pages/RegisterPage';
+// import EventListPage from './pages/EventListPage';
 import StudentLayout from './layouts/StudentLayout';
 import StudentDashboardPage from './pages/StudentDashboardPage';
-import EventDetailsPage from './pages/EventDetailsPage'; // Tạo file này
+import EventDetailsPage from './pages/EventDetailsPage'; 
 import CreateEventPage from './pages/CreateEventPage';
-// import MyEventsPage from './pages/MyEventsPage'; // Tạo file này
-// import RegisteredEventsPage from './pages/RegisteredEventsPage'; // Tạo file này
-import StatisticsPage from './pages/StatisticsPage'; // Tạo file này
+//import MyEventsPage from './pages/MyEventsPage';
+// import RegisteredEventsPage from './pages/RegisteredEventsPage';
+import StatisticsPage from './pages/StatisticsPage'; 
 import MyEventsPage from './pages/MyEventPage';
 import RegisteredEventsPage from './pages/RegisteredEventPage';
 import AdminAllEventsPage from './pages/AllEventPage';
-// import AchievementsPage from './pages/AchievementsPage'; // Tạo file này
-//  import AttendancePage from './pages/AttendancePage'; // Tạo file này
-// import ProfilePage from './pages/ProfilePage'; // Tạo file này
-// import NotFoundPage from './pages/NotFoundPage'; // Tạo file này
+// import AchievementsPage from './pages/AchievementsPage'; 
+//  import AttendancePage from './pages/AttendancePage'; 
+// import ProfilePage from './pages/ProfilePage'; 
+// import NotFoundPage from './pages/NotFoundPage'; 
 
-// Component Protected Route (Ví dụ)
+
 function ProtectedRoute({ children, allowedRoles }) {
   const { isAuthenticated, user, loading } = useAuth();
 
   if (loading) {
-    return <div>Loading authentication...</div>; // Or a spinner component
+    return <div>Loading authentication...</div>; // 
   }
 
   if (!isAuthenticated) {
-    // Redirect them to the /login page, but save the current location they were
-    // trying to go to when they were redirected. This allows us to send them
-    // along to that page after they login, which is a nicer user experience
-    // than dropping them off on the home page.
     return <Navigate to="/login" state={{ from: window.location }} replace />;
   }
-
+ 
   // Check if the user's role is allowed
   if (allowedRoles && !allowedRoles.includes(user?.role)) {
-    // User is logged in but doesn't have the right role
-    // Redirect to a "not authorized" page or home page
     console.warn(`User role ${user?.role} not authorized for this route.`);
-    return <Navigate to="/" replace />; // Redirect to home for simplicity
+    return <Navigate to="/" replace />; 
   }
-
   return children;
 }
 
@@ -61,68 +54,61 @@ function App() {
   return (
     <AuthProvider>
       <Routes>
-        {/* Routes không cần đăng nhập (AuthLayout) */}
+
         <Route element={<AuthLayout />}>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
-          {/* Thêm các route khác như forgot password... */}
         </Route>
 
-        {/* Routes cho người dùng đã đăng nhập (MainLayout - Student View) */}
+        // Route cho lần đầu truy cập, không cần đăng nhập
         <Route element={<MainLayout />}>
-          <Route path="/" element={<HomePage />} />
-          {/* <Route path="/events" element={<EventListPage />} /> */}
-          <Route path="/events/:eventId" element={<EventDetailsPage />} />
-          <Route path="/dashboard" element={<ProtectedRoute allowedRoles={['student']}>
-<StudentDashboardPage /></ProtectedRoute> }/>
-          {/* Routes cần đăng nhập (Sinh viên) */}
-          <Route path="/registered-events" element={
+
+            <Route path="/" element={<HomePage />} />  //
+            <Route path="/events/:eventId" element={<EventDetailsPage />} />
+
+            //Route cho sinh viên đã đăng nhập
+            <Route path="/dashboard" element={
               <ProtectedRoute allowedRoles={['student']}>
-                  <RegisteredEventsPage/>
-              </ProtectedRoute>
-          } />
-          <Route path="/achievements" element={
-              <ProtectedRoute allowedRoles={['student']}>
-                 {/* <AchievementsPage /> */}
-              </ProtectedRoute>
-          } />
-          <Route path="/attendance" element={
-              <ProtectedRoute allowedRoles={['student']}>
-                  {/* <AttendancePage /> */}
-              </ProtectedRoute>
-          } />
-           <Route path="/profile" element={
-              <ProtectedRoute allowedRoles={['student', 'event_creator', 'union']}>
-                  {/* <ProfilePage /> */}
-              </ProtectedRoute>
-           } />
-           {/* Thêm các route chung khác */}
+                <StudentDashboardPage />
+              </ProtectedRoute> }/>
+            <Route path="/registered-events" element={
+                <ProtectedRoute allowedRoles={['student']}>
+                    <RegisteredEventsPage/>
+                </ProtectedRoute>}/>
+            <Route path="/achievements" element={
+                <ProtectedRoute allowedRoles={['student']}>
+                  {/* <AchievementsPage /> Bảng thành tích - Hồng Trang phát triển*/}   
+                </ProtectedRoute>}/>
+            <Route path="/attendance" element={
+                <ProtectedRoute allowedRoles={['student']}>
+                    {/* <AttendancePage /> Trang hiển thị các sự kiện đã đăng ký - Thiên Phú phát triển */}
+                </ProtectedRoute>}/>
+            <Route path="/profile" element={
+                <ProtectedRoute allowedRoles={['student', 'event_creator', 'union']}>
+                     {/* <ProfilePage />   Trang để điền các thông tin cá nhân và xác thực outlook - Thiên Phú phát triển */}
+                </ProtectedRoute>}/>
+           
+
+            // Route cho người tạo sự kiện đăng nhập
+          <Route path="/admin" element={
+              <ProtectedRoute allowedRoles={['event_creator', 'union']}> //union ở đây là đoàn trường
+                  <AdminLayout />
+              </ProtectedRoute>}>
+              <Route index element={<Navigate to="my-events" replace />} />
+              <Route path="events" element={<AdminAllEventsPage />} />
+              <Route path="my-events" element={<MyEventsPage />} />
+              <Route path="create-event" element={<CreateEventPage />} />
+              <Route path= "creator-dashboard" element={
+                  <ProtectedRoute allowedRoles={['event_creator']}>
+                       {/* <EventCreatorDashboardPage />   Trang thống kê cho Liên chi, Thiên Phú phát triển */}
+                  </ProtectedRoute>}/>
+              <Route path="statistics" element={
+                  <ProtectedRoute allowedRoles={['union']}> //Trang thống kê thi đua cho đoàn trường
+                      <StatisticsPage />
+                  </ProtectedRoute>}/>
+          </Route>
         </Route>
 
-        {/* Routes cho Admin/Người tạo sự kiện (AdminLayout) */}
-        <Route path="/admin" element={
-            <ProtectedRoute allowedRoles={['event_creator', 'union']}>
-               <AdminLayout />
-            </ProtectedRoute>
-        }>
-           {/* Redirect /admin to a default admin page */}
-           <Route index element={<Navigate to="my-events" replace />} />
-           {/* <Route path="events" element={<EventListPage isAdminView={true}/>} /> Có thể tái sử dụng EventListPage với prop */}
-           <Route path="events" element={<AdminAllEventsPage />} />
-           <Route path="my-events" element={<MyEventsPage />} />
-           <Route path="create-event" element={<CreateEventPage />} />
-           {/* Route thống kê chỉ cho Union */}
-           <Route path="statistics" element={
-               <ProtectedRoute allowedRoles={['union']}>
-                   <StatisticsPage />
-                </ProtectedRoute>
-           }/>
-           {/* Thêm các route admin khác: edit event, manage users... */}
-           {/* <Route path="*" element={<NotFoundPage />} /> Bắt các route admin không tồn tại */}
-        </Route>
-
-        {/* Route không tìm thấy (404) */}
-        {/* <Route path="*" element={<NotFoundPage />} /> */}
       </Routes>
     </AuthProvider>
   );
