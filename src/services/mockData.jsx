@@ -161,7 +161,7 @@ export const mockEvents = [
   const mockFacultyCredentials = [
     // Định nghĩa email giả lập cho từng đơn vị
     { email: "nhietdienlanh.khoa@dut.udn.vn", name: "Khoa Công nghệ Nhiệt - Điện lạnh", password: "khoa_nhiet_pass", role: ROLES.EVENT_CREATOR },
-    { email: "cntt.khoa@dut.udn.vn", name: "Khoa Công nghệ thông tin", password: "khoa_cntt_pass", role: ROLES.EVENT_CREATOR },
+    { email: "cntt.khoa@dut.udn.vn", name: "Khoa Công nghệ thông tin", password: "khoa_cntt_pass", role: ROLES.FALCUTY_UNION },
     { email: "ck.khoa@dut.udn.vn", name: "Khoa Cơ khí", password: "khoa_ck_pass", role: ROLES.EVENT_CREATOR },
     { email: "ckgt.khoa@dut.udn.vn", name: "Khoa Cơ khí giao thông", password: "khoa_ckgt_pass", role: ROLES.EVENT_CREATOR },
     { email: "dien.khoa@dut.udn.vn", name: "Khoa Điện", password: "khoa_dien_pass", role: ROLES.EVENT_CREATOR },
@@ -420,81 +420,131 @@ export const verifyFacultyCredentials = async (email, password) => {
   }
 };
 
+// Thêm mockRegistrations object để lưu trữ đăng ký sự kiện
+const mockRegistrations = {};
+
 // Hàm giả lập lấy dữ liệu thống kê
 export const getStatisticsData = () => {
   return new Promise((resolve) => {
     setTimeout(() => {
       // --- Dữ liệu thô từ mock ---
-      const events = createdEvents; // Sử dụng danh sách sự kiện đã có
-      const faculties = FACULTIES.filter(f => f !== "Đoàn Thanh niên Trường"); // Lấy danh sách các Khoa (Liên chi đoàn)
-
+      const events = createdEvents;
+      
       // --- Mô phỏng dữ liệu đăng ký ---
       const simulatedRegistrations = events.map(event => {
-          // Tạo số lượng đăng ký ngẫu nhiên, không vượt quá capacity
           const registeredCount = getRandomInt(0, event.capacity);
+          const attendanceCount = Math.floor(registeredCount * getRandomInt(70, 95) / 100); // 70-95% người đăng ký tham gia
           return {
               eventId: event.event_id,
               eventName: event.event_name,
               hostId: event.host_id,
               capacity: event.capacity,
               registeredCount: registeredCount,
+              attendanceCount: attendanceCount,
               participationRate: event.capacity > 0 ? (registeredCount / event.capacity) : 0,
-              tags: event.tags || []
+              attendanceRate: registeredCount > 0 ? (attendanceCount / registeredCount) : 0,
+              tags: event.tags || [],
+              startDate: new Date(event.start_date),
+              endDate: new Date(event.end_date),
+              duration: (new Date(event.end_date) - new Date(event.start_date)) / (1000 * 60 * 60), // Duration in hours
+              approvalTime: event.approval_at ? (new Date(event.approval_at) - new Date(event.submit_at)) / (1000 * 60 * 60) : null // Approval time in hours
           };
       });
 
       // --- Tính toán thống kê ---
-      // 1. Tổng số sự kiện
       const totalEvents = events.length;
+      const totalRegistrations = _.sumBy(simulatedRegistrations, 'registeredCount');
+      const totalAttendance = _.sumBy(simulatedRegistrations, 'attendanceCount');
+      const overallAvgParticipation = _.meanBy(simulatedRegistrations.filter(e => e.capacity > 0), 'participationRate') * 100;
+      const overallAvgAttendance = _.meanBy(simulatedRegistrations.filter(e => e.registeredCount > 0), 'attendanceRate') * 100;
 
-      // 2. Thống kê theo Khoa/Đoàn trường (Host)
+      // Thống kê theo thời gian
+      const monthlyStats = _.chain(simulatedRegistrations)
+          .groupBy(reg => new Date(reg.startDate).toLocaleString('default', { month: 'long', year: 'numeric' }))
+          .map((events, month) => ({
+              month,
+              eventCount: events.length,
+              registrationCount: _.sumBy(events, 'registeredCount'),
+              attendanceCount: _.sumBy(events, 'attendanceCount')
+          }))
+          .value();
+
+      // Thống kê theo Khoa/Đoàn trường
       const statsByHost = _.groupBy(simulatedRegistrations, 'hostId');
       const facultyStats = FACULTIES.map(hostName => {
-          const hostEvents = statsByHost[hostName] || []; // Lấy các sự kiện (đã mô phỏng đăng ký) của host này
+          const hostEvents = statsByHost[hostName] || [];
           const totalHostedEvents = hostEvents.length;
           const totalRegisteredForHost = _.sumBy(hostEvents, 'registeredCount');
+          const totalAttendanceForHost = _.sumBy(hostEvents, 'attendanceCount');
           const totalCapacityForHost = _.sumBy(hostEvents, 'capacity');
           const avgParticipationRate = totalHostedEvents > 0
-              ? _.meanBy(hostEvents.filter(e => e.capacity > 0), 'participationRate') // Chỉ tính rate cho sự kiện có capacity > 0
+              ? _.meanBy(hostEvents.filter(e => e.capacity > 0), 'participationRate') * 100
               : 0;
+          const avgAttendanceRate = totalHostedEvents > 0
+              ? _.meanBy(hostEvents.filter(e => e.registeredCount > 0), 'attendanceRate') * 100
+              : 0;
+          const avgApprovalTime = _.meanBy(hostEvents.filter(e => e.approvalTime !== null), 'approvalTime');
 
           return {
-              name: hostName, // Tên Khoa/Đoàn trường
+              name: hostName,
               eventsHosted: totalHostedEvents,
-              totalRegistered: totalRegisteredForHost, // Tổng SV đăng ký các sự kiện do Khoa/ĐT này tổ chức
-              avgParticipation: avgParticipationRate * 100, // Tính %
-              totalCapacity: totalCapacityForHost
+              totalRegistered: totalRegisteredForHost,
+              totalAttendance: totalAttendanceForHost,
+              avgParticipation: avgParticipationRate,
+              avgAttendance: avgAttendanceRate,
+              totalCapacity: totalCapacityForHost,
+              avgApprovalTime: avgApprovalTime || 0
           };
       });
 
-      // Sắp xếp để thi đua (ví dụ: theo số lượt đăng ký)
+      // Sắp xếp để thi đua
       const rankedFacultyStats = _.orderBy(facultyStats, ['totalRegistered', 'eventsHosted'], ['desc', 'desc']);
 
+      // Thống kê theo Thể loại (Tags)
+      const allTags = _.flatMap(simulatedRegistrations, 'tags');
+      const tagCounts = _.countBy(allTags);
+      const eventTypeStats = Object.entries(tagCounts).map(([name, count]) => ({
+          name,
+          value: count,
+          registrations: _.sumBy(simulatedRegistrations.filter(e => e.tags.includes(name)), 'registeredCount'),
+          attendance: _.sumBy(simulatedRegistrations.filter(e => e.tags.includes(name)), 'attendanceCount')
+      }));
 
-      // 3. Thống kê theo Thể loại (Tags)
-      const allTags = _.flatMap(simulatedRegistrations, 'tags'); // Lấy tất cả tags từ các sự kiện
-      const tagCounts = _.countBy(allTags); // Đếm số lần xuất hiện của mỗi tag
-      const eventTypeStats = Object.entries(tagCounts).map(([name, count]) => ({ name, value: count })); // Format cho Pie Chart
+      // Thống kê thời gian phê duyệt
+      const approvalTimeStats = {
+          avgApprovalTime: _.meanBy(simulatedRegistrations.filter(e => e.approvalTime !== null), 'approvalTime'),
+          minApprovalTime: _.minBy(simulatedRegistrations.filter(e => e.approvalTime !== null), 'approvalTime')?.approvalTime || 0,
+          maxApprovalTime: _.maxBy(simulatedRegistrations.filter(e => e.approvalTime !== null), 'approvalTime')?.approvalTime || 0
+      };
 
-      // 4. Các thống kê tổng quan khác
-      const totalRegistrations = _.sumBy(simulatedRegistrations, 'registeredCount');
-      const overallAvgParticipation = _.meanBy(simulatedRegistrations.filter(e => e.capacity > 0), 'participationRate') * 100;
+      // Thống kê thời lượng sự kiện
+      const durationStats = {
+          avgDuration: _.meanBy(simulatedRegistrations, 'duration'),
+          minDuration: _.minBy(simulatedRegistrations, 'duration')?.duration || 0,
+          maxDuration: _.maxBy(simulatedRegistrations, 'duration')?.duration || 0
+      };
 
       // --- Kết quả cuối cùng ---
       const statistics = {
           summary: {
-              totalEvents: totalEvents,
-              totalRegistrations: totalRegistrations,
-              overallAvgParticipation: overallAvgParticipation,
+              totalEvents,
+              totalRegistrations,
+              totalAttendance,
+              overallAvgParticipation,
+              overallAvgAttendance,
+              avgApprovalTime: approvalTimeStats.avgApprovalTime,
+              avgEventDuration: durationStats.avgDuration
           },
-          facultyRanking: rankedFacultyStats, // Thống kê theo Khoa/ĐT đã sắp xếp
-          eventTypeDistribution: eventTypeStats, // Phân bố theo thể loại
+          monthlyStats,
+          facultyRanking: rankedFacultyStats,
+          eventTypeDistribution: eventTypeStats,
+          approvalTimeStats,
+          durationStats
       };
 
       console.log("Mock Statistics Data:", statistics);
       resolve({ data: statistics });
-
-    }, 1500); // Giả lập độ trễ mạng
+    }, 1500);
   });
 };
 

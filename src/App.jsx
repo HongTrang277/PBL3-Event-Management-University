@@ -8,6 +8,7 @@ import { useAuth } from './hooks/useAuth'; // Import useAuth
 import MainLayout from './layouts/MainLayout'; 
 import AuthLayout from './layouts/AuthLayout'; 
 import AdminLayout from './layouts/AdminLayout';
+import StatisticsLayout from './layouts/StatisticsLayout';
 
 // Pages
 import HomePage from './pages/HomePage';
@@ -21,6 +22,8 @@ import CreateEventPage from './pages/CreateEventPage';
 //import MyEventsPage from './pages/MyEventsPage';
 // import RegisteredEventsPage from './pages/RegisteredEventsPage';
 import StatisticsPage from './pages/StatisticsPage'; 
+import StatisticsFacultyYouthUnion from './pages/StatisticsFacultyYouthUnion';
+import StatisticsSchoolYouthUnion from './pages/StatisticsSchoolYouthUnion';
 import MyEventsPage from './pages/MyEventPage';
 import RegisteredEventsPage from './pages/RegisteredEventPage';
 import AdminAllEventsPage from './pages/AllEventPage';
@@ -49,6 +52,16 @@ function ProtectedRoute({ children, allowedRoles }) {
   return children;
 }
 
+// Add a wrapper for /admin layout switching
+function AdminLayoutSwitcher() {
+  const { user } = useAuth();
+  if (user?.role === 'faculty_union') {
+    return <StatisticsLayout type="faculty" />;
+  } else if (user?.role === 'union') {
+    return <StatisticsLayout type="school" />;
+  }
+  return <AdminLayout />;
+}
 
 function App() {
   return (
@@ -91,21 +104,39 @@ function App() {
 
             // Route cho người tạo sự kiện đăng nhập
           <Route path="/admin" element={
-              <ProtectedRoute allowedRoles={['event_creator', 'union']}> //union ở đây là đoàn trường
-                  <AdminLayout />
+              <ProtectedRoute allowedRoles={['event_creator', 'union', 'faculty_union']}>
+                <AdminLayoutSwitcher />
               </ProtectedRoute>}>
               <Route index element={<Navigate to="my-events" replace />} />
               <Route path="events" element={<AdminAllEventsPage />} />
               <Route path="my-events" element={<MyEventsPage />} />
               <Route path="create-event" element={<CreateEventPage />} />
-              <Route path= "creator-dashboard" element={
-                  <ProtectedRoute allowedRoles={['event_creator']}>
-                       {/* <EventCreatorDashboardPage />   Trang thống kê cho Liên chi, Thiên Phú phát triển */}
-                  </ProtectedRoute>}/>
+              
+              {/* Thống kê cho Liên Chi đoàn */}
+              <Route path="creator-dashboard" element={
+                <ProtectedRoute allowedRoles={['faculty_union']}>
+                  <StatisticsFacultyYouthUnion />
+                </ProtectedRoute>
+              }>
+                <Route index element={<StatisticsFacultyYouthUnion />} />
+                <Route path="events" element={<StatisticsFacultyYouthUnion />} />
+                <Route path="participation" element={<StatisticsFacultyYouthUnion />} />
+                <Route path="performance" element={<StatisticsFacultyYouthUnion />} />
+                <Route path="comparison" element={<StatisticsFacultyYouthUnion />} />
+              </Route>
+
+              {/* Thống kê cho Đoàn trường */}
               <Route path="statistics" element={
-                  <ProtectedRoute allowedRoles={['union']}> //Trang thống kê thi đua cho đoàn trường
-                      <StatisticsPage />
-                  </ProtectedRoute>}/>
+                <ProtectedRoute allowedRoles={['union']}>
+                  <StatisticsSchoolYouthUnion />
+                </ProtectedRoute>
+              }>
+                <Route index element={<StatisticsSchoolYouthUnion />} />
+                <Route path="events" element={<StatisticsSchoolYouthUnion />} />
+                <Route path="participation" element={<StatisticsSchoolYouthUnion />} />
+                <Route path="performance" element={<StatisticsSchoolYouthUnion />} />
+                <Route path="comparison" element={<StatisticsSchoolYouthUnion />} />
+              </Route>
           </Route>
         </Route>
 

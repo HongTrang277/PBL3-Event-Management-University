@@ -117,6 +117,13 @@ const AdminSidebar = () => {
                             Tạo sự kiện mới
                         </StyledNavLink>
                     </NavItem>
+                    {(user?.role === ROLES.FACULTY_UNION || user?.role === ROLES.EVENT_CREATOR) && (
+                        <NavItem>
+                            <StyledNavLink to="/admin/creator-dashboard">
+                                Thống kê
+                            </StyledNavLink>
+                        </NavItem>
+                    )}
                     {user?.role === ROLES.UNION && (
                         <NavItem>
                             <StyledNavLink to="/admin/statistics">
@@ -124,7 +131,6 @@ const AdminSidebar = () => {
                             </StyledNavLink>
                         </NavItem>
                     )}
-                    {/* Thêm các link khác nếu cần */}
                 </ul>
             </NavList>
             <UserInfoSection>
