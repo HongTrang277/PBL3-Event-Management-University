@@ -20,7 +20,9 @@ export const FACULTIES = [
   export const ROLES = {
     STUDENT: 'student',
     EVENT_CREATOR: 'event_creator', // Chung cho Khoa và Đoàn trường
-    UNION: 'union' // Role đặc biệt của Đoàn trường (có thể kế thừa EVENT_CREATOR)
+    UNION: 'union', // Role đặc biệt của Đoàn trường (có thể kế thừa EVENT_CREATOR)
+    FALCUTY_UNION: 'faculty_union' // Role đặc biệt của Đoàn trường (có thể kế thừa EVENT_CREATOR)
+
   };
   
   export const ATTENDANCE_TYPES = {
