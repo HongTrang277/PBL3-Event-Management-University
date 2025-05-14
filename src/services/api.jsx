@@ -130,6 +130,8 @@ export const registrationService = {
       throw error;
     }
   },
+  
+
 };
 
 export default api;
