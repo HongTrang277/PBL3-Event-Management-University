@@ -3,8 +3,9 @@ import React, { useState, useEffect } from 'react';
 import styled from 'styled-components';
 import { useAuth } from '../hooks/useAuth';
 // Import thêm hàm unregisterForEvent
-import { getRegisteredEventsForStudent, unregisterForEvent } from '../services/mockData';
+// import { getRegisteredEventsForStudent, unregisterForEvent } from '../services/mockData';
 import EventCard from '../components/features/Events/EventCard/EventCard';
+import {registrationService} from '../services/api';
 
 // --- Styled Components (Giữ nguyên) ---
 const PageWrapper = styled.div` padding: 1.5rem; max-width: 1280px; margin: 0 auto; `;
@@ -32,7 +33,7 @@ const RegisteredEventsPage = () => {
             setIsLoading(true);
             setError(null);
             try {
-                const response = await getRegisteredEventsForStudent(user.id);
+                const response = await registrationService.getEventsUserRegisteredFor(user.id);
                 setRegisteredEvents(response.data || []);
             } catch (err) {
                 setError(err.message || 'Không thể tải danh sách sự kiện đã đăng ký.');
@@ -54,7 +55,7 @@ const RegisteredEventsPage = () => {
     // Hàm xử lý hủy đăng ký (truyền xuống EventCard)
     const handleUnregister = async (eventId, studentId) => {
         try {
-            await unregisterForEvent(eventId, studentId);
+            await registrationService.removeRegistration(studentId);
             // Cập nhật UI bằng cách loại bỏ event khỏi danh sách
             setRegisteredEvents(prev => prev.filter(event => event.event_id !== eventId));
             alert("Hủy đăng ký thành công!");

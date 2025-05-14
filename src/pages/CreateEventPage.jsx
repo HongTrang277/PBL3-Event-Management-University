@@ -2,7 +2,7 @@ import React, { useState, useEffect} from 'react';
 import { useNavigate } from 'react-router-dom';
 import styled from 'styled-components';
 import Button from '../components/common/Button/Button'; // Assume Button is styled or accepts className
-import { createNewEvent } from '../services/mockData';
+import { eventService } from '../services/api'; // Import your API service
 import { ATTENDANCE_TYPES, TAGS } from '../utils/constants';
 import { useAuth } from '../hooks/useAuth';
 import Input from '../components/common/Input/Input'; // Assume Input is styled or accepts className
@@ -296,7 +296,7 @@ const ActionContainer = styled.div`
 const CreateEventPage = () => {
     const navigate = useNavigate();
     const { user } = useAuth(); // Lấy thông tin người dùng đang đăng nhập
-
+    const [success, setSuccess] = useState(null); // Thông báo thành công
     const [eventName, setEventName] = useState('');
     const [description, setDescription] = useState('');
     const [startDate, setStartDate] = useState('');
@@ -405,86 +405,51 @@ const CreateEventPage = () => {
 
       setIsLoading(true);
 
-      // --- Bước 2: Khởi tạo FormData ---
-      const formData = new FormData();
+  try {
+    // Chuẩn bị dữ liệu cho API
+    
+    const eventData = {
+      EventName: eventName.trim(),
+      description: description.trim(),
+      attendanceType: attendanceType,
+      location: attendanceType === ATTENDANCE_TYPES.ONLINE ? location.trim() || 'Online Platform' : location.trim(),
+      startDate: new Date(startDate).toISOString(),
+      endDate: new Date(endDate).toISOString(),
+      capacity: parseInt(capacity, 10),
+      hostId: user?.id || '', // Lấy ID người dùng từ context
+      planLink: '', // Nếu có thêm trường này, bạn có thể bổ sung
+      logoUrl: '', // Nếu cần gửi URL logo
+      coverUrl: '', // Nếu cần gửi URL cover
+    };
 
-      // --- Bước 3: Append Dữ liệu Text vào FormData ---
-      // Các 'key' (ví dụ: 'event_name') phải khớp với tên mà Backend API mong đợi
-      formData.append('event_name', eventName);
-      formData.append('description', description);
-      formData.append('start_date', new Date(startDate).toISOString());
-      formData.append('end_date', new Date(endDate).toISOString());
-      formData.append('capacity', String(capacity)); // Chuyển số thành chuỗi nếu backend cần string
-      formData.append('host_id', user?.faculty || user?.name || 'Unknown Host');
-      formData.append('attendance_type', attendanceType);
-      formData.append('location', attendanceType === ATTENDANCE_TYPES.ONLINE ? (location.trim() || 'Online Platform') : location);
+    console.log('Sending event data:', eventData);
 
-      // Xử lý mảng tags: Gửi dưới dạng JSON string là cách phổ biến
-      // Backend sẽ cần parse chuỗi JSON này
-      formData.append('tags', JSON.stringify(selectedTags));
-      // Hoặc bạn có thể gửi từng tag nếu backend hỗ trợ (ví dụ: lặp và formData.append('tags[]', tag))
+    // Gọi API để tạo sự kiện
+    const response = await eventService.createEvent(eventData);
 
-      // --- Bước 4: Append File vào FormData (nếu có) ---
-      // Key 'logoFile' và 'coverFile' phải khớp với tên mà Backend API mong đợi
-      if (logo) {
-          formData.append('logoFile', logo, logo.name);
-      }
-      if (cover) {
-          formData.append('coverFile', cover, cover.name);
-      }
+    console.log('Event created successfully:', response.data);
+    setSuccess('Sự kiện đã được tạo thành công!');
 
-      // --- Bước 5: Gọi API Thực Tế (Thay thế hàm mock) ---
-      try {
-          console.log("Chuẩn bị gửi FormData đến API:");
-          // Log các entry trong FormData để kiểm tra (không log được trực tiếp object FormData)
-          for (let [key, value] of formData.entries()) {
-              console.log(`${key}:`, value);
-          }
-
-          // --- !!! THAY THẾ BẰNG LỜI GỌI API THỰC TẾ CỦA BẠN !!! ---
-          // Ví dụ:
-          // const response = await yourApiFunctionToCreateEvent(formData);
-          // console.log('API Response:', response);
-          // --- KẾT THÚC PHẦN THAY THẾ ---
-
-          // --- Tạm thời giả lập API thành công để reset form ---
-          // Bạn có thể xóa phần giả lập này khi có API thật
-          await new Promise(resolve => setTimeout(resolve, 1000)); // Giả lập độ trễ mạng
-          alert('FormData đã sẵn sàng (API thực tế chưa được gọi)!');
-          // --- Kết thúc phần giả lập ---
-
-          setIsLoading(false);
-
-          // --- Bước 6: Reset Form sau khi thành công ---
-          setEventName('');
-          setDescription('');
-          setStartDate('');
-          setEndDate('');
-          setCapacity('');
-          setLogo(null);
-          setCover(null);
-          setAttendanceType(ATTENDANCE_TYPES.OFFLINE);
-          setLocation('');
-          setSelectedTags([]);
-          setFileErrors({});
-          // Cố gắng reset input file
-           if(e.target.elements.logo) e.target.elements.logo.value = null;
-           if(e.target.elements.cover) e.target.elements.cover.value = null;
-
-           // Có thể chuyển hướng người dùng sau khi thành công
-           // navigate('/admin/my-events'); // Ví dụ
-
-      } catch (apiError) { // Bắt lỗi từ API thực tế
-          setIsLoading(false);
-          console.error("Lỗi khi gọi API tạo sự kiện:", apiError);
-          // Hiển thị lỗi từ API cho người dùng (nếu có response lỗi cụ thể)
-          const message = apiError.response?.data?.message || apiError.message || 'Đã xảy ra lỗi khi tạo sự kiện bằng API.';
-          setError(message);
-          // Xử lý thêm các trường hợp lỗi cụ thể từ API nếu cần
-      }
-  };
-
-
+    // Reset form sau khi thành công
+    setEventName('');
+    setDescription('');
+    setStartDate('');
+    setEndDate('');
+    setCapacity('');
+    setAttendanceType(ATTENDANCE_TYPES.OFFLINE);
+    setLocation('');
+    setSelectedTags([]);
+    setTimeout(() => {
+      navigate('/admin/my-events'); // Redirect to events page after success
+    }, 2000); // Redirect after 2 seconds
+  } catch (err) {
+    console.error('Error creating event:', err);
+    const errorMessage = err.response?.data?.message || 'Đã xảy ra lỗi khi tạo sự kiện.';
+    setError(errorMessage);
+  } finally {
+    setIsLoading(false);
+  }
+};
 
   return (
     
