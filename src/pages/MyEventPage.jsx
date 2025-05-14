@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
 import styled from 'styled-components';
 import { getAllEvents } from '../services/mockData';
+import { eventService } from '../services/api';
 import { useAuth } from '../hooks/useAuth';
 import EventCard from '../components/features/Events/EventCard/EventCard';
 import Button from '../components/common/Button/Button';
@@ -35,17 +36,22 @@ const MyEventsPage = () => {
                 setIsLoading(false);
                 setMyEvents([]); // Không có sự kiện nào nếu không xác định được host
                 // Có thể đặt lỗi nếu user role đúng nhưng thiếu faculty
-                 if (user && (user.role === ROLES.EVENT_CREATOR || user.role === ROLES.UNION)) {
+                if (user && (user.role === ROLES.EVENT_CREATOR || user.role === ROLES.UNION)) {
                     setError("Không thể xác định đơn vị tổ chức của bạn.");
-                 }
+                }
                 return;
             }
 
             setIsLoading(true);
             setError(null);
+            console.log('Fetching events for faculty:', user.faculty);
             try {
-                const response = await getAllEvents();
+
+                const response = await eventService.getAllEvents();
+                const allEventsMockData = await getAllEvents();
+                console.log('Mock data:', allEventsMockData);
                 const allEvts = response.data || [];
+                console.log('Fetched events:', allEvts);
                 // Lọc sự kiện: host_id của sự kiện phải khớp với faculty của user
                 const filtered = allEvts.filter(event => event.host_id === user.faculty);
                 // Sắp xếp theo ngày tạo mới nhất hoặc ngày diễn ra gần nhất (tùy chọn)

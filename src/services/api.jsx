@@ -39,7 +39,15 @@ export const authService = {
 
 export const eventService = {
   getAllEvents: async () => {
-    return api.get('/events');
+    try{
+      const response = await api.get('/events');
+      console.log('Response:', response);
+      return response;
+    }
+    catch (error) {
+      console.error('Error during getAllEvents:', error);
+      throw error;
+    }
   },
   getEvent: async (id) => {
     return api.get(`/events/${id}`);
@@ -72,14 +80,55 @@ export const categoryService = {
 };
 
 export const registrationService = {
-  registerForEvent: async (eventId, registrationData) => {
-    return api.post(`/events/${eventId}/registrations`, registrationData);
+  registerUserForEvent: async (userId, eventId)=>{
+    try{
+      const response = await api.post(`/registrations/${userId}/${eventId}`);
+      console.log('Response:', response);
+      return response.data;
+    }
+    catch (error) {
+      console.error('Error during registerUserForEvent:', error);
+      throw error;
+    }
   },
-  getRegistrations: async (eventId) => {
-    return api.get(`/events/${eventId}/registrations`);
+  // Lấy danh sách tất cả các đăng ký
+  getAllRegistrations: async () => {
+    try {
+      const response = await api.get('/registrations');
+      return response.data; // Trả về danh sách đăng ký
+    } catch (error) {
+      console.error('Error fetching all registrations:', error);
+      throw error;
+    }
   },
-  cancelRegistration: async (registrationId) => {
-    return api.delete(`/registrations/${registrationId}`);
+  // Lấy danh sách người dùng đã đăng ký cho một sự kiện
+  getUsersRegisteredForEvent: async (eventId) => {
+    try {
+      const response = await api.get(`/registrations/Users/${eventId}`);
+      return response.data; // Trả về danh sách người dùng
+    } catch (error) {
+      console.error(`Error fetching users registered for event ${eventId}:`, error);
+      throw error;
+    }
+  },
+  // Lấy danh sách sự kiện mà một người dùng đã đăng ký
+  getEventsUserRegisteredFor: async (userId) => {
+    try {
+      const response = await api.get(`/registrations/Events/${userId}`);
+      return response.data; // Trả về danh sách sự kiện
+    } catch (error) {
+      console.error(`Error fetching events registered for user ${userId}:`, error);
+      throw error;
+    }
+  },
+  removeRegistration: async (registrationId) => {
+    try {
+      const response = await api.delete(`/registrations/${registrationId}`);
+      return response.data; // Trả về kết quả hủy đăng ký
+    } catch (error) {
+      console.error(`Error removing registration ${registrationId}:`, error);
+      throw error;
+    }
   },
 };
 
