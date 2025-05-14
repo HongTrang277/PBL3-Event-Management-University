@@ -6,6 +6,7 @@ import { ATTENDANCE_TYPES, TAGS } from '../utils/constants';
 import { useAuth } from '../hooks/useAuth';
 import Input from '../components/common/Input/Input';
 import { eventService } from '../services/api'; // Thay thế import từ mockData
+import { Navigate } from 'react-router-dom';
 
 // --- Styled Components ---
 
@@ -361,17 +362,16 @@ const CreateEventPage = () => {
   try {
     // Chuẩn bị dữ liệu cho API
     const eventData = {
-      eventName: eventName.trim(),
-      description: description.trim(),
-      attendanceType: attendanceType,
-      location: attendanceType === ATTENDANCE_TYPES.ONLINE ? location.trim() || 'Online Platform' : location.trim(),
-      startDate: new Date(startDate).toISOString(),
-      endDate: new Date(endDate).toISOString(),
-      capacity: parseInt(capacity, 10),
-      hostId: user?.id || '', // Lấy ID người dùng từ context
-      planLink: '', // Nếu có thêm trường này, bạn có thể bổ sung
-      logoUrl: '', // Nếu cần gửi URL logo
-      coverUrl: '', // Nếu cần gửi URL cover
+      event_name: eventName.trim(),
+    description: description.trim(),
+    attendance_type: attendanceType,
+    location: attendanceType === ATTENDANCE_TYPES.ONLINE ? (location.trim() || 'Online Platform') : location.trim(),
+    start_date: new Date(startDate).toISOString(),
+    end_date: new Date(endDate).toISOString(),
+    capacity: parseInt(capacity, 10),
+    host_id: user?.id || '',
+    logo_url: '', // Tạm thời
+    cover_url: '', // Tạm thời
     };
 
     console.log('Sending event data:', eventData);
@@ -391,6 +391,9 @@ const CreateEventPage = () => {
     setAttendanceType(ATTENDANCE_TYPES.OFFLINE);
     setLocation('');
     setSelectedTags([]);
+    setTimeout(() => {
+    navigate('/admin/my-events');
+}, 1500);
   } catch (err) {
     console.error('Error creating event:', err);
     const errorMessage = err.response?.data?.message || 'Đã xảy ra lỗi khi tạo sự kiện.';
