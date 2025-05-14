@@ -102,7 +102,7 @@ const EventCard = ({
     const handleMainActionClick = () => {
         if (!isAuthenticated) {
             // Nếu chưa đăng nhập, chuyển đến trang login và lưu lại trang sự kiện để quay lại sau
-            navigate('/login', { state: { from: `/events/${event.event_id}` } });
+            navigate('/login', { state: { from: `/events/${event.eventId}` } });
             return;
         }
 
@@ -112,16 +112,16 @@ const EventCard = ({
             if (isRegisteredView || isAlreadyRegistered) {
                 // Nếu có hàm onUnregister được truyền vào -> gọi nó
                 if (onUnregister) {
-                    onUnregister(event.event_id, user.id);
+                    onUnregister(event.eventId, user.id);
                 } else {
-                    console.warn("EventCard: onUnregister callback is missing for event:", event.event_name);
+                    console.warn("EventCard: onUnregister callback is missing for event:", event.eventName);
                 }
             } else { // Nếu chưa đăng ký
                 // Nếu có hàm onRegister được truyền vào -> gọi nó
                 if (onRegister) {
-                    onRegister(event.event_id, user.id);
+                    onRegister(event.eventId, user.id);
                 } else {
-                    console.warn("EventCard: onRegister callback is missing for event:", event.event_name);
+                    console.warn("EventCard: onRegister callback is missing for event:", event.eventName);
                 }
             }
         } else if (user?.role !== ROLES.STUDENT) {
@@ -134,7 +134,7 @@ const EventCard = ({
     const renderActionButtons = () => {
         // Nút Xem chi tiết luôn hiển thị
         const detailButton = (
-            <StyledLink to={`/events/${event.event_id}`}>
+            <StyledLink to={`/events/${event.eventId}`}>
                 <Button variant="primary" size="small">
                     Xem chi tiết
                 </Button>
@@ -174,14 +174,14 @@ const EventCard = ({
             // Kiểm tra xem đây có phải sự kiện do user này tạo không
             // Dựa vào việc so sánh event.host_id với user.faculty (chứa tên khoa/đoàn trường)
             let isMyEvent = false;
-            if (event.host_id === user.faculty) {
+            if (event.hostId === user.faculty) {
                 isMyEvent = true;
             }
 
             // Nếu là sự kiện của tôi -> hiển thị nút "Sửa"
             if (isMyEvent) {
                 actionButton = (
-                    <StyledLink to={`/admin/edit-event/${event.event_id}`}>
+                    <StyledLink to={`/admin/edit-event/${event.eventId}`}>
                         <Button variant="secondary" size="small">Sửa</Button>
                     </StyledLink>
                 );
@@ -203,37 +203,37 @@ const EventCard = ({
     return (
         <CardWrapper>
             <ImageContainer>
-                {event.cover_url ? (
-                    <Image src={event.cover_url} alt={`${event.event_name} cover`} />
-                ) : event.logo_url ? (
-                    <Image src={event.logo_url} alt={`${event.event_name} logo`} fit="contain" />
+                {event.coverUrl ? (
+                    <Image src={event.coverUrl} alt={`${event.eventName} cover`} />
+                ) : event.logoUrl ? (
+                    <Image src={event.logoUrl} alt={`${event.eventName} logo`} fit="contain" />
                 ) : (
                     "No Image Available" // Hoặc một ảnh placeholder
                 )}
-                {event.cover_url && event.logo_url && (
+                {event.coverUrl && event.logoUrl && (
                     <SmallLogoOverlay
-                        src={event.logo_url}
-                        alt={`${event.event_name} logo`}
+                        src={event.logoUrl}
+                        alt={`${event.eventName} logo`}
                         onError={handleImageError}
                     />
                 )}
             </ImageContainer>
             <ContentArea>
-                <Title title={event.event_name}>
-                    {event.event_name}
+                <Title title={event.eventName}>
+                    {event.eventName}
                 </Title>
                 <HostInfo>
-                    Tổ chức bởi: <span>{event.host_id}</span>
+                    Tổ chức bởi: <span>{event.hostId}</span>
                 </HostInfo>
                 <DetailsSection>
                     <DetailItem>
                         <CalendarIcon />
-                        <span>{formatDate(event.start_date)}</span>
+                        <span>{formatDate(event.startDate)}</span>
                     </DetailItem>
                     <DetailItem>
                         <LocationIcon />
                         <DetailText title={event.location}>
-                            {event.attendance_type === ATTENDANCE_TYPES.ONLINE ? 'Online' : (event.location || 'Chưa xác định')}
+                            {event.attendanceType === ATTENDANCE_TYPES.ONLINE ? 'Online' : (event.location || 'Chưa xác định')}
                         </DetailText>
                     </DetailItem>
                 </DetailsSection>

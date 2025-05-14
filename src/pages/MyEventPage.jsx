@@ -2,11 +2,12 @@
 import React, { useState, useEffect } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
 import styled from 'styled-components';
-import { getAllEvents } from '../services/mockData';
+// import { getAllEvents } from '../services/mockData';
+import { eventService } from '../services/api';
 import { useAuth } from '../hooks/useAuth';
 import EventCard from '../components/features/Events/EventCard/EventCard';
 import Button from '../components/common/Button/Button';
-
+import { ROLES } from '../utils/constants';
 // --- Styled Components (Giữ nguyên) ---
 const PageWrapper = styled.div` width: 100%; max-width: 1280px; margin-left: auto; margin-right: auto; padding: 1.5rem; `;
 const HeaderContainer = styled.div` display: flex; flex-direction: column; justify-content: space-between; align-items: flex-start; margin-bottom: 1.5rem; gap: 1rem; @media (min-width: 640px) { flex-direction: row; align-items: center; } `;
@@ -29,38 +30,56 @@ const MyEventsPage = () => {
     const [error, setError] = useState(null);
 
     useEffect(() => {
-        const fetchAndFilterEvents = async () => {
-            // Chỉ fetch nếu user đã load và có faculty (định danh host)
-            if (!user?.faculty) {
-                setIsLoading(false);
-                setMyEvents([]); // Không có sự kiện nào nếu không xác định được host
-                // Có thể đặt lỗi nếu user role đúng nhưng thiếu faculty
-                 if (user && (user.role === ROLES.EVENT_CREATOR || user.role === ROLES.UNION)) {
-                    setError("Không thể xác định đơn vị tổ chức của bạn.");
-                 }
-                return;
+        const fetchMyEvents = async () => {
+        if (!user?.id) { // KIỂM TRA user.id
+            setIsLoading(false);
+            setMyEvents([]);
+            if (user && (user.role === ROLES.EVENT_CREATOR || user.role === ROLES.UNION)) {
+                setError("Không thể xác định thông tin người dùng (ID) để tải sự kiện của bạn.");
+            } else if (user) {
+                setError("Thông tin người dùng không đầy đủ (thiếu ID).");
             }
+            return;
+        }
 
-            setIsLoading(true);
-            setError(null);
-            try {
-                const response = await getAllEvents();
-                const allEvts = response.data || [];
-                // Lọc sự kiện: host_id của sự kiện phải khớp với faculty của user
-                const filtered = allEvts.filter(event => event.host_id === user.faculty);
-                // Sắp xếp theo ngày tạo mới nhất hoặc ngày diễn ra gần nhất (tùy chọn)
-                filtered.sort((a, b) => new Date(b.create_on) - new Date(a.create_on));
-                setMyEvents(filtered);
-            } catch (err) {
-                setError(err.message || 'Không thể tải danh sách sự kiện.');
-                setMyEvents([]);
-            } finally {
-                setIsLoading(false);
-            }
-        };
+        setIsLoading(true);
+        setError(null);
+        try {
+            const response = await eventService.getAllEvents(); // SỬ DỤNG API SERVICE
+             console.log('MyEventPage: RAW API response.data:', response.data); // LOG ĐẦY ĐỦ Ở ĐÂY
 
-        fetchAndFilterEvents();
-    }, [user]); // Chạy lại khi user thay đổi
+            // Kiểm tra cấu trúc response từ API của bạn
+            const allEvts = Array.isArray(response.data) ? response.data : (response.data?.data || []);
+            console.log('MyEventPage: All events extracted from server (allEvtsFromServer):', allEvts); // Xem mảng này chứa gì
+
+            // Lọc sự kiện theo user.id
+            const filtered = allEvts.filter(event => event.hostId === user.id); 
+
+            // Sắp xếp sự kiện (ví dụ: theo ngày tạo)
+            filtered.sort((a, b) => {
+                // Đảm bảo API trả về 'create_on' hoặc 'created_at'
+                const dateA = new Date(a.createAt || 0); 
+                const dateB = new Date(b.createAt || 0);
+                return dateB - dateA; 
+            });
+
+            setMyEvents(filtered);
+        } catch (err) {
+            console.error("Error fetching my events:", err);
+            setError(err.message || 'Không thể tải danh sách sự kiện của bạn.');
+            setMyEvents([]);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    if (user) { // Chỉ fetch khi user đã được load
+        fetchMyEvents();
+    } else {
+         setIsLoading(false);
+         setMyEvents([]);
+    }
+}, [user]); // Chạy lại khi user thay đổi
 
 
     if (isLoading) {
@@ -85,10 +104,11 @@ const MyEventsPage = () => {
 
             {myEvents.length > 0 ? (
                 <EventGrid>
-                    {myEvents.map((event) => (
-                        // Chỉ cần truyền event, EventCard sẽ tự xử lý nút "Sửa"
-                        <EventCard key={event.event_id} event={event} />
-                    ))}
+                    {myEvents.map((event) =>{
+                        // ✅ BẠN ĐÃ ĐẶT CONSOLE.LOG Ở ĐÚNG CHỖ NÀY
+                        console.log('MyEventPage - Event data being passed to EventCard:', event); 
+                        return <EventCard key={event.eventId || event.id} event={event} />;
+                    })}
                 </EventGrid>
             ) : (
                 <EmptyStateContainer>
