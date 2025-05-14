@@ -1,12 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect} from 'react';
 import { useNavigate } from 'react-router-dom';
 import styled from 'styled-components';
-import Button from '../components/common/Button/Button';
+import Button from '../components/common/Button/Button'; // Assume Button is styled or accepts className
+import { eventService } from '../services/api'; // Import your API service
 import { ATTENDANCE_TYPES, TAGS } from '../utils/constants';
 import { useAuth } from '../hooks/useAuth';
-import Input from '../components/common/Input/Input';
-import { eventService } from '../services/api'; // Thay thế import từ mockData
-import { Navigate } from 'react-router-dom';
+import Input from '../components/common/Input/Input'; // Assume Input is styled or accepts className
 
 // --- Styled Components ---
 
@@ -69,24 +68,6 @@ const ErrorMessage = styled.div`
   padding: 1rem; /* p-4 */
   margin-bottom: 1.5rem; /* mb-6 */
   border-radius: 0.25rem; /* Added for consistency */
-
-  p {
-    margin: 0;
-  }
-  p:first-child {
-     font-weight: 700; /* font-bold */
-  }
-`;
-
-const SuccessMessage = styled.div`
-  /* bg-green-100 border-l-4 border-green-500 text-green-700 p-4 mb-6 */
-  background-color: #dcfce7; /* bg-green-100 */
-  border-left-width: 4px;
-  border-color: #22c55e; /* border-green-500 */
-  color: #15803d; /* text-green-700 */
-  padding: 1rem; /* p-4 */
-  margin-bottom: 1.5rem; /* mb-6 */
-  border-radius: 0.25rem;
 
   p {
     margin: 0;
@@ -225,96 +206,154 @@ const TagGrid = styled.div`
 `;
 
 const TagLabel = styled.label`
-  /* flex items-center px-3 py-2 rounded-lg border cursor-pointer transition-colors */
-  display: flex;
+  /* inline-flex items-center bg-gray-100 px-3 py-1 rounded-full text-sm text-gray-700 hover:bg-gray-200 cursor-pointer */
+  display: inline-flex;
   align-items: center;
-  padding: 0.5rem 0.75rem;
-  border-radius: 0.5rem;
-  border: 1px solid #d1d5db;
+  background-color: #f3f4f6; /* bg-gray-100 */
+  padding: 0.25rem 0.75rem; /* px-3 py-1 */
+  border-radius: 9999px; /* rounded-full */
+  font-size: 0.875rem; /* text-sm */
+  line-height: 1.25rem;
+  color: #374151; /* text-gray-700 */
   cursor: pointer;
-  transition: background-color 0.2s, border-color 0.2s;
+  transition: background-color 0.2s ease-in-out;
 
   &:hover {
-    background-color: #f9fafb; /* bg-gray-50 */
+    background-color: #e5e7eb; /* hover:bg-gray-200 */
   }
 
   input[type="checkbox"] {
-    /* form-checkbox text-indigo-600 mr-2 */
-    appearance: none;
-    padding: 0;
-    color-adjust: exact;
-    display: inline-block;
-    vertical-align: middle;
-    background-origin: border-box;
-    user-select: none;
-    flex-shrink: 0;
-    height: 1rem;
-    width: 1rem;
-    border-radius: 0.25rem;
-    border: 1px solid #d1d5db;
-    margin-right: 0.5rem; /* mr-2 */
+    /* form-checkbox rounded text-indigo-600 mr-2 focus:ring-indigo-500 */
+     appearance: none;
+     border-radius: 0.25rem; /* rounded */
+     width: 1em;
+     height: 1em;
+     border: 1px solid #d1d5db;
+     transition: border-color 0.2s ease-in-out, background-color 0.2s ease-in-out;
+     margin-right: 0.5rem; /* mr-2 */
+     position: relative; /* For the checkmark */
+     cursor: pointer;
 
-    &:checked {
-      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='white'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M5 13l4 4L19 7'/%3E%3C/svg%3E");
-      background-color: #4f46e5; /* text-indigo-600 */
-      background-position: center;
-      background-repeat: no-repeat;
-      background-size: 0.75rem;
-      border-color: #4f46e5;
+     &:checked {
+        border-color: #4f46e5; /* indigo-600 */
+        background-color: #4f46e5; /* indigo-600 */
+     }
+      &:checked::after { /* Simple checkmark */
+        content: '';
+        display: block;
+        width: 0.3em;
+        height: 0.6em;
+        border: solid white;
+        border-width: 0 2px 2px 0;
+        transform: rotate(45deg) translate(-10%, -10%);
+        position: absolute;
+        left: 0.25em;
+        top: 0.05em;
     }
-
-    &:focus {
-      outline: none;
-      box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.5);
-    }
+     &:focus {
+       outline: none;
+       box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.5); /* focus:ring-indigo-500 */
+     }
   }
 `;
 
 const ActionContainer = styled.div`
-  /* flex justify-end gap-4 */
+  /* flex justify-end space-x-3 pt-4 */
   display: flex;
   justify-content: flex-end;
-  gap: 1rem; /* space-x-4 */
+  gap: 0.75rem; /* space-x-3 */
+  padding-top: 1rem; /* pt-4 */
 `;
 
 // --- Component ---
 
+// const [logoUrl, setLogoUrl] = useState(null);
+// const [coverUrl, setCoverUrl] = useState(null);
+
+// useEffect(() => {
+//   if (!logo) {
+//     setLogoUrl(null);
+//     return;
+//   }
+//   const objectUrl = URL.createObjectURL(logo);
+//   setLogoUrl(objectUrl);
+
+//   // Cleanup function: revoke URL khi logo thay đổi hoặc component unmount
+//   return () => URL.revokeObjectURL(objectUrl);
+// }, [logo]); // Chỉ chạy lại khi state 'logo' thay đổi
+
+// // Tương tự cho cover preview
+// useEffect(() => {
+//   if (!cover) {
+//     setCoverUrl(null);
+//     return;
+//   }
+//   const objectUrl = URL.createObjectURL(cover);
+//   setCoverUrl(objectUrl);
+//   return () => URL.revokeObjectURL(objectUrl);
+// }, [cover]);
+
 const CreateEventPage = () => {
     const navigate = useNavigate();
-    const { user } = useAuth();
-    
-    // Form state
+    const { user } = useAuth(); // Lấy thông tin người dùng đang đăng nhập
+    const [success, setSuccess] = useState(null); // Thông báo thành công
     const [eventName, setEventName] = useState('');
     const [description, setDescription] = useState('');
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
-    const [logo, setLogo] = useState(null);
-    const [cover, setCover] = useState(null);
     const [capacity, setCapacity] = useState('');
+    const [logo, setLogo] = useState(null); // File object
+    const [cover, setCover] = useState(null); // File object
     const [attendanceType, setAttendanceType] = useState(ATTENDANCE_TYPES.OFFLINE);
     const [location, setLocation] = useState('');
     const [selectedTags, setSelectedTags] = useState([]);
-    const [fileErrors, setFileErrors] = useState({});
 
-    // UI state
     const [isLoading, setIsLoading] = useState(false);
-    const [error, setError] = useState(null);
-    const [success, setSuccess] = useState(null);
+    const [error, setError] = useState(null); // String or object for detailed error
+    const [logoUrl, setLogoUrl] = useState(null); // Khai báo state cho URL xem trước logo
+    const [coverUrl, setCoverUrl] = useState(null); // Khai báo state cho URL xem trước cover
+    const [fileErrors, setFileErrors] = useState({}); // <--- DÒNG CẦN THÊM
+    useEffect(() => {
+      if (!logo) {
+        setLogoUrl(null); // Nếu không có file logo, đặt URL là null
+        return;
+      }
+      // Tạo object URL từ file logo
+      const objectUrl = URL.createObjectURL(logo);
+      setLogoUrl(objectUrl); // Cập nhật state logoUrl
 
-    // Handle file changes
+      // Cleanup: Thu hồi object URL khi component unmount hoặc file logo thay đổi
+      return () => URL.revokeObjectURL(objectUrl);
+    }, [logo]); // Hook này chạy lại mỗi khi state 'logo' thay đổi
+
+    // Tương tự cho ảnh bìa (cover)
+    useEffect(() => {
+      if (!cover) {
+        setCoverUrl(null); // Nếu không có file cover, đặt URL là null
+        return;
+      }
+      // Tạo object URL từ file cover
+      const objectUrl = URL.createObjectURL(cover);
+      setCoverUrl(objectUrl); // Cập nhật state coverUrl
+
+      // Cleanup: Thu hồi object URL
+      return () => URL.revokeObjectURL(objectUrl);
+    }, [cover]); // Hook này chạy lại mỗi khi state 'cover' thay đổi
+
+
     const handleFileChange = (fieldName, setter) => (event) => {
       const file = event.target.files[0];
-      const newErrors = { ...fileErrors }; 
+      const newErrors = { ...fileErrors }; // Copy lỗi cũ
       if (file && (file.type === 'image/jpeg' || file.type === 'image/png')) {
           setter(file);
-          delete newErrors[fieldName]; 
+          delete newErrors[fieldName]; // Xóa lỗi cho trường này nếu hợp lệ
           setFileErrors(newErrors);
       } else {
           setter(null);
-          if (file) { 
+          if (file) { // Chỉ báo lỗi nếu người dùng đã chọn file sai loại
              newErrors[fieldName] = 'Vui lòng chọn file ảnh định dạng JPG hoặc PNG.';
           } else {
-             delete newErrors[fieldName]; 
+             delete newErrors[fieldName]; // Xóa lỗi nếu người dùng hủy chọn file
           }
           setFileErrors(newErrors);
       }
@@ -330,12 +369,15 @@ const CreateEventPage = () => {
     };
 
     const validateForm = () => {
+        // Validation logic remains the same
+         const today = new Date().toISOString().split('T')[0];
          const startTime = new Date(startDate);
          const endTime = new Date(endDate);
 
          if (!eventName.trim()) return "Tên sự kiện không được để trống.";
          if (!description.trim()) return "Mô tả sự kiện không được để trống.";
          if (!startDate) return "Ngày bắt đầu không được để trống.";
+         //if (startDate < today) return "Ngày bắt đầu phải là một ngày trong tương lai."; // Check might need adjustment for datetime-local
          if (!endDate) return "Ngày kết thúc không được để trống.";
          if (endTime <= startTime) return "Ngày kết thúc phải sau ngày bắt đầu.";
          if (!capacity || parseInt(capacity, 10) <= 0) return "Số lượng tham gia phải là số dương.";
@@ -346,18 +388,22 @@ const CreateEventPage = () => {
     }
 
     const handleSubmit = async (e) => {
-  e.preventDefault();
-  setError(null);
-  setSuccess(null);
+      e.preventDefault();
+      setError(null); // Reset lỗi chung
+      setFileErrors({}); // Reset lỗi file
 
-  // Validate form
-  const validationError = validateForm();
-  if (validationError) {
-    setError(validationError);
-    return;
-  }
+      // --- Bước 1: Validate Form và File Inputs ---
+      const validationError = validateForm();
+      // (Giả sử fileErrors được cập nhật đúng trong handleFileChange)
+      const hasFileErrors = Object.keys(fileErrors).length > 0;
 
-  setIsLoading(true);
+      if (validationError || hasFileErrors) {
+          setError(validationError || "Vui lòng kiểm tra lại thông tin file tải lên.");
+          // Có thể hiển thị fileErrors chi tiết hơn ở đây nếu muốn
+          return;
+      }
+
+      setIsLoading(true);
 
   try {
     // Chuẩn bị dữ liệu cho API
@@ -406,22 +452,17 @@ const CreateEventPage = () => {
 };
 
   return (
+    
     <PageWrapper>
       <Title>Tạo sự kiện mới</Title>
-      
+      {logoUrl && <PreviewImage src={logoUrl} alt="Logo Preview" />}
+{coverUrl && <PreviewImageCover src={coverUrl} alt="Cover Preview" />}
       <StyledForm onSubmit={handleSubmit}>
         {error && (
           <ErrorMessage role="alert">
             <p>Lỗi</p>
             <p>{error}</p>
           </ErrorMessage>
-        )}
-        
-        {success && (
-          <SuccessMessage role="alert">
-            <p>Thành công</p>
-            <p>{success}</p>
-          </SuccessMessage>
         )}
 
         {/* Use Input component as before */}
@@ -491,7 +532,7 @@ const CreateEventPage = () => {
             type="file"
             accept="image/jpeg, image/png"
             onChange={handleFileChange('logo',setLogo)}
-            required={false}
+            required
             // These classNames style the *internal* parts of the file input via Tailwind
             inputClassName="text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
           />
@@ -501,7 +542,7 @@ const CreateEventPage = () => {
             type="file"
             accept="image/jpeg, image/png"
             onChange={handleFileChange('cover',setCover)}
-            required={false}
+            required
             inputClassName="text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-violet-50 file:text-violet-700 hover:file:bg-violet-100"
           />
         </GridContainer>
