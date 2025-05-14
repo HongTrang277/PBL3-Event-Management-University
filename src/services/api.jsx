@@ -55,7 +55,7 @@ export const eventService = {
   createEvent: async (eventData) => {
     // Gửi dữ liệu sự kiện qua endpoint /events
     try {
-      console.log('Sending event data:', eventData);
+      console.log('Sending eventtt data:', eventData);
       const response = await api.post('/events', eventData);
       console.log('Response:', response);
       return response;

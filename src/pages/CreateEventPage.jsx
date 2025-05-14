@@ -361,17 +361,19 @@ const CreateEventPage = () => {
 
   try {
     // Chuẩn bị dữ liệu cho API
+    
     const eventData = {
-      event_name: eventName.trim(),
-    description: description.trim(),
-    attendance_type: attendanceType,
-    location: attendanceType === ATTENDANCE_TYPES.ONLINE ? (location.trim() || 'Online Platform') : location.trim(),
-    start_date: new Date(startDate).toISOString(),
-    end_date: new Date(endDate).toISOString(),
-    capacity: parseInt(capacity, 10),
-    host_id: user?.id || '',
-    logo_url: '', // Tạm thời
-    cover_url: '', // Tạm thời
+      EventName: eventName.trim(),
+      description: description.trim(),
+      attendanceType: attendanceType,
+      location: attendanceType === ATTENDANCE_TYPES.ONLINE ? location.trim() || 'Online Platform' : location.trim(),
+      startDate: new Date(startDate).toISOString(),
+      endDate: new Date(endDate).toISOString(),
+      capacity: parseInt(capacity, 10),
+      hostId: user?.id || '', // Lấy ID người dùng từ context
+      planLink: '', // Nếu có thêm trường này, bạn có thể bổ sung
+      logoUrl: '', // Nếu cần gửi URL logo
+      coverUrl: '', // Nếu cần gửi URL cover
     };
 
     console.log('Sending event data:', eventData);
@@ -392,8 +394,8 @@ const CreateEventPage = () => {
     setLocation('');
     setSelectedTags([]);
     setTimeout(() => {
-    navigate('/admin/my-events');
-}, 1500);
+      navigate('/admin/my-events'); // Redirect to events page after success
+    }, 2000); // Redirect after 2 seconds
   } catch (err) {
     console.error('Error creating event:', err);
     const errorMessage = err.response?.data?.message || 'Đã xảy ra lỗi khi tạo sự kiện.';
