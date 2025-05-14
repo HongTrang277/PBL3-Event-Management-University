@@ -1,8 +1,8 @@
 // src/pages/AllEventPage.jsx
 import React, { useState, useEffect, useMemo } from 'react';
 import styled, { ThemeProvider } from 'styled-components'; // Thêm ThemeProvider nếu cần ở đây
-import { getAllEvents } from '../services/mockData';
 import EventSearchBar from '../components/features/Search/EventSearchBar/EventSearchBar';
+import { eventService } from '../services/api';
 import EventCard from '../components/features/Events/EventCard/EventCard';
 // import { ROLES } from '../utils/constants'; // Bỏ comment nếu dùng
 import { FACULTIES } from '../utils/constants'; // Import FACULTIES
@@ -132,35 +132,38 @@ const AdminAllEventsPage = () => {
     const [selectedFaculty, setSelectedFaculty] = useState('');
 
     useEffect(() => {
-      const fetchAllEvents = async () => {
-          setIsLoading(true);
-          setError(null);
-          try {
-              const response = await getAllEvents();
-              // Sắp xếp theo ngày bắt đầu gần nhất trước
-              const sortedEvents = (response.data || []).sort((a, b) => new Date(b.start_date) - new Date(a.start_date));
-              setAllEvents(sortedEvents);
-          } catch (err) {
-              setError(err.message || 'Không thể tải danh sách sự kiện.');
-              setAllEvents([]);
-          } finally {
-              setIsLoading(false);
-          }
-      };
-      fetchAllEvents();
-    }, []);
+    const fetchAllEvents = async () => {
+        setIsLoading(true);
+        setError(null);
+        try {
+            const response = await eventService.getAllEvents();
+            const eventsData = Array.isArray(response.data) ? response.data : (response.data?.data || []);
+            const sortedEvents = eventsData.sort((a, b) => {
+                const dateA = a.startDate ? new Date(a.startDate) : 0; // Kiểm tra null/undefined cho startDate
+                const dateB = b.startDate ? new Date(b.startDate) : 0; // Kiểm tra null/undefined cho startDate
+                return dateB - dateA; // Ngày mới hơn (lớn hơn) sẽ đứng trước
+            });
+            setAllEvents(sortedEvents);
+        } catch (err) {
+            setError(err.message || 'Không thể tải danh sách sự kiện.');
+            setAllEvents([]);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+    fetchAllEvents();
+}, []);
 
     const filteredEvents = useMemo(() => {
         return allEvents.filter(event => {
             const lowerSearchTerm = searchTerm.toLowerCase();
             const matchesSearch = searchTerm === '' ||
-                event.event_name.toLowerCase().includes(lowerSearchTerm) ||
-                event.description.toLowerCase().includes(lowerSearchTerm) ||
-                (event.tags && event.tags.some(tag => tag.toLowerCase().includes(lowerSearchTerm)));
-
-            const matchesStatus = selectedStatus === '' || event.approval_status === selectedStatus;
-            const matchesFaculty = selectedFaculty === '' || event.host_id === selectedFaculty;
-
+                (event.eventName && event.eventName.toLowerCase().includes(lowerSearchTerm)) ||
+                (event.description && event.description.toLowerCase().includes(lowerSearchTerm)) ||
+                // Tìm kiếm tags an toàn hơn nếu API có thể không trả về tags
+                (event.tags && Array.isArray(event.tags) && event.tags.some(tag => typeof tag === 'string' && tag.toLowerCase().includes(lowerSearchTerm)));
+            const matchesStatus = selectedStatus === '' || (event.approvalStatus === selectedStatus);
+            const matchesFaculty = selectedFaculty === '' || event.hostId === selectedFaculty;
             return matchesSearch && matchesStatus && matchesFaculty;
         });
     }, [allEvents, searchTerm, selectedStatus, selectedFaculty]);
@@ -221,7 +224,7 @@ const AdminAllEventsPage = () => {
                                 {filteredEvents.map((event) => (
                                      // Truyền isAdminView để hiện nút Sửa
                                      // EventCard giờ sẽ nhận theme từ ThemeProvider cha
-                                    <EventCard key={event.event_id} event={event} isAdminView={true} />
+                                    <EventCard key={event.eventId} event={event} isAdminView={true} />
                                 ))}
                             </EventGrid>
                         ) : (

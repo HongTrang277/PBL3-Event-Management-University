@@ -3,7 +3,8 @@ import React, { useState, useEffect } from 'react';
 import styled, { ThemeProvider } from 'styled-components';
 import EventSearchBar from '../components/features/Search/EventSearchBar/EventSearchBar';
 import EventCard from '../components/features/Events/EventCard/EventCard';
-import { getAllEvents, getRegisteredEventsForStudent, registerForEvent, unregisterForEvent } from '../services/mockData'; // Import các hàm API mock
+import { getRegisteredEventsForStudent, registerForEvent, unregisterForEvent } from '../services/mockData'; // Import các hàm API mock
+import { eventService, registrationService } from '../services/api';
 import Slider from "react-slick";
 import "slick-carousel/slick/slick.css";
 import "slick-carousel/slick/slick-theme.css";
@@ -103,19 +104,20 @@ const HomePage = () => {
             setRegisteredEventIds(new Set()); // Reset registered IDs on re-fetch
             try {
                 // Fetch all events first
-                const eventsResponse = await getAllEvents();
-                const approved = (eventsResponse.data || [])
-                    .filter(event => event.approval_status === 'approved')
-                    .sort((a, b) => new Date(a.start_date) - new Date(b.start_date)); // Sắp xếp sự kiện gần nhất trước
-                setAllApprovedEvents(approved);
+                const eventsResponse = await eventService.getAllEvents();
+                const eventsData = Array.isArray(eventsResponse.data) ? eventsResponse.data : (eventsResponse.data?.data || []);
+                const eventsToDisplay = eventsData
+            .sort((a, b) => new Date(a.startDate) - new Date(b.startDate));
 
+        setAllApprovedEvents(eventsToDisplay);
                 // If user is logged in as student, fetch their registered events
                 if (isAuthenticated && user?.role === ROLES.STUDENT && user?.id) {
                     const registeredResponse = await getRegisteredEventsForStudent(user.id);
-                    const ids = new Set((registeredResponse.data || []).map(e => e.event_id));
+                    const ids = new Set((registeredResponse.data || []).map(e => e.eventId || e.event_id));
                     setRegisteredEventIds(ids);
                 }
             } catch (err) {
+                console.error("HomePage - Error fetching initial data:", err);
                 setError(err.message || 'Không thể tải dữ liệu sự kiện.');
                 setAllApprovedEvents([]); // Clear events on error
             } finally {
@@ -132,7 +134,7 @@ const HomePage = () => {
         } else {
             const lowerSearchTerm = searchTerm.toLowerCase();
             const filtered = allApprovedEvents.filter(event =>
-                event.event_name.toLowerCase().includes(lowerSearchTerm) ||
+                event.eventName.toLowerCase().includes(lowerSearchTerm) ||
                 event.description.toLowerCase().includes(lowerSearchTerm) ||
                 (event.tags && event.tags.some(tag => tag.toLowerCase().includes(lowerSearchTerm)))
             );
@@ -233,11 +235,11 @@ const HomePage = () => {
                                     <EventGrid>
                                         {displayedEvents.map((event) => (
                                             <EventCard
-                                                key={event.event_id}
+                                                key={event.eventId || event.id}
                                                 event={event}
-                                                isAlreadyRegistered={isAuthenticated && user?.role === ROLES.STUDENT ? registeredEventIds.has(event.event_id) : false}
-                                                onRegister={handleRegister}
-                                                onUnregister={handleUnregister}
+                                                isAlreadyRegistered={isAuthenticated && user?.role === ROLES.STUDENT ? registeredEventIds.has(event.eventId) : false}
+                                                onRegister={() => handleRegister(event.eventId || event.event_id)}
+                                                onUnregister={() => handleUnregister(event.eventId || event.event_id)}
                                             />
                                         ))}
                                     </EventGrid>
@@ -246,10 +248,10 @@ const HomePage = () => {
                                     <Slider {...sliderSettings}>
                                         {displayedEvents.map((event) => (
                                             // Slider requires a wrapper div for each slide
-                                            <div key={event.event_id}>
+                                            <div key={event.eventId}>
                                                 <EventCard
                                                     event={event}
-                                                    isAlreadyRegistered={isAuthenticated && user?.role === ROLES.STUDENT ? registeredEventIds.has(event.event_id) : false}
+                                                    isAlreadyRegistered={isAuthenticated && user?.role === ROLES.STUDENT ? registeredEventIds.has(event.eventId || event.event_id) : false}
                                                     onRegister={handleRegister}
                                                     onUnregister={handleUnregister}
                                                 />
