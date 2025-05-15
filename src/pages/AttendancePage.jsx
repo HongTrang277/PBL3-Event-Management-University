@@ -2,8 +2,10 @@ import React, { useState, useEffect } from 'react';
 import styled from 'styled-components';
 import { useAuth } from '../hooks/useAuth';
 import { eventService } from '../services/api';
+import { attendanceService, registrationService } from '../services/api';
 import { mockEvents } from '../services/mockData';
 // --- Styled Components ---
+
 const PageWrapper = styled.div`
   padding: 1.5rem;
   max-width: 1280px;
@@ -97,101 +99,204 @@ const ErrorText = styled(StatusText)`
 `;
 
 // --- Component ---
-const AttendancePage = () => {
-  const { user } = useAuth();
-  const [events, setEvents] = useState([]);
-  const [selectedEvent, setSelectedEvent] = useState(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState(null);
 
-    // Fetch events when component mounts
-    
-    
+  const AttendancePage = () => {
+    const { user } = useAuth();
+    const [registeredEvents, setRegisteredEvents] = useState([]);
+    const [selectedEvent, setSelectedEvent] = useState(null);
+    const [isLoading, setIsLoading] = useState(true);
+    const [error, setError] = useState(null);
+  
+    // ...fetch events...
+    const mapEventData = (eventItem) => {
+        if (!eventItem) return null;
+        let correctedEndDate = eventItem.endDate;
+        if (typeof eventItem.endDate === 'string' && eventItem.endDate.includes("-25T")) {
+            console.warn(`Ngày kết thúc không hợp lệ: ${eventItem.endDate} cho sự kiện ${eventItem.eventName}. Sửa thành null.`);
+            correctedEndDate = null;
+        }
+        return {
+            ...eventItem,
+            coverUrl: eventItem.coverUrl1 || eventItem.coverUrl,
+            logoUrl: eventItem.logoUrl1 || eventItem.logoUrl,
+            hostId: eventItem.hostID || eventItem.hostId,
+            endDate: correctedEndDate,
+        };
+    };
+
     useEffect(() => {
-      const fetchEvents = async () => {
-        setIsLoading(true);
-        setError(null);
+            const fetchRegisteredEvents = async () => {
+                if (!user?.id) {
+                    setError("Vui lòng đăng nhập để xem sự kiện đã đăng ký.");
+                    setIsLoading(false);
+                    setRegisteredEvents([]);
+                    setSelectedEvent(null);
+                    return;
+                }
     
-        try {
-          // Sử dụng mockData thay vì gọi API
-          // const response = await eventService.getAllEvents();
-          // setEvents(response.data || []);
-          setTimeout(() => {
-            setEvents(mockEvents); // mockEvents là một mảng các sự kiện mẫu
-            setIsLoading(false);
-          }, 500); // Giả lập loading
-        } catch (err) {
-          setError('Không thể tải danh sách sự kiện.');
-          setIsLoading(false);
-        }
-      };
+                setIsLoading(true);
+                setError(null);
+                try {
+                    const eventDataFromApi = await registrationService.getEventsUserRegisteredFor(user.id);
+                    
+                    if (Array.isArray(eventDataFromApi)) {
+                        const mappedEvents = eventDataFromApi.map(mapEventData).filter(Boolean); // Lọc bỏ null nếu mapEventData trả về null
+                        //lọc các sự kiện có thời gian hiện tại nằm giữa thời gian bắt đầu và kết thúc
+                        const currentDate = new Date();
+                        const filteredEvents = mappedEvents.filter(event => {
+                            const startDate = new Date(event.startDate || event.start_date);
+                            const endDate = new Date(event.endDate || event.end_date);
+                            return currentDate >= startDate && currentDate <= endDate;
+                        });
+                        setRegisteredEvents(filteredEvents);
     
-      fetchEvents();
-    }, []);
-  const handleAttendance = async () => {
-    if (!navigator.geolocation) {
-      alert('Trình duyệt của bạn không hỗ trợ GPS.');
-      return;
-    }
+                        if (mappedEvents.length > 0) {
+                            // Nếu chưa có sự kiện nào được chọn, hoặc sự kiện đang được chọn không còn trong danh sách mới
+                            if (!selectedEvent || !mappedEvents.find(e => e.eventId === selectedEvent.eventId)) {
+                               setSelectedEvent(mappedEvents[0]); // Chọn sự kiện đầu tiên
+                            }
+                        } else {
+                            setSelectedEvent(null); // Không có sự kiện nào, không chọn gì cả
+                            setError(null);
+                        }
+                    } else {
+                        console.error("API không trả về một mảng:", eventDataFromApi);
+                        setError("Dữ liệu sự kiện đã đăng ký trả về không hợp lệ.");
+                        setRegisteredEvents([]);
+                        setSelectedEvent(null);
+                    }
+                } catch (err) {
+                    console.error("Lỗi khi tải sự kiện đã đăng ký:", err);
+                    let errorMessage = 'Không thể tải danh sách sự kiện đã đăng ký.';
+                    if (err.response) {
+                        if (err.response.status === 404) {
+                            setError(null); 
+                        } else if (err.response.data?.message) {
+                            errorMessage = err.response.data.message;
+                            setError(errorMessage);
+                        } else {
+                            setError(errorMessage);
+                        }
+                    } else {
+                        setError(err.message || errorMessage);
+                    }
+                    setRegisteredEvents([]);
+                    setSelectedEvent(null);
+                } finally {
+                    setIsLoading(false);
+                }
+            };
+    
+            if (user && user.id) {
+                fetchRegisteredEvents();
+            } else if (user === null) { // User đã load xong, nhưng không đăng nhập
+                setError("Vui lòng đăng nhập để xem sự kiện đã đăng ký.");
+                setIsLoading(false);
+                setRegisteredEvents([]);
+                setSelectedEvent(null);
+            } else { // user là undefined (đang trong quá trình useAuth xác thực)
+                setIsLoading(true); // Tiếp tục loading
+            }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        }, [user]); // Chỉ fetch lại khi user thay đổi
 
-    navigator.geolocation.getCurrentPosition(
-      async (position) => {
-        const { latitude, longitude } = position.coords;
-        console.log('GPS Coordinates:', { latitude, longitude });
-
-        try {
-          // Gửi tọa độ GPS đến backend
-          const response = await eventService.markAttendance(selectedEvent.event_id, {
-            userId: user.id,
-            latitude,
-            longitude,
-          });
-
-          alert(response.data.message || 'Điểm danh thành công!');
-        } catch (err) {
-          alert(err.response?.data?.message || 'Điểm danh thất bại.');
-        }
-      },
-      (error) => {
-        alert('Không thể lấy tọa độ GPS. Vui lòng thử lại.');
-        console.error('GPS Error:', error);
+    
+    const handleAttendance = async () => {
+      if (!user?.id) {
+        alert('Bạn cần đăng nhập để điểm danh.');
+        return;
       }
-    );
-  };
-
+      if (!navigator.geolocation) {
+        alert('Trình duyệt của bạn không hỗ trợ GPS.');
+        return;
+      }
+  
+      navigator.geolocation.getCurrentPosition(
+        async (position) => {
+          //! const { latitude, longitude } = position.coords;
+          const latitude=0.0;
+          const longitude=0.0;
+          //convert latitude, longitude to double
+          const latitudeDouble = parseFloat(latitude);
+          const longitudeDouble = parseFloat(longitude);
+          try {
+            // Lấy danh sách đăng ký của user
+           const registrations = await registrationService.getAllRegistrations();
+               console.log("Danh sách đăng ký:", registrations);
+               // Tìm registrationId theo eventId
+               const registration = registrations.find(r => r.eventId === selectedEvent.eventId && r.userId === user.id);
+               const registrationId = registration?.registrationId;
+               console.log("registrationId:", registrationId);
+            if (!registrationId) {
+              alert('Bạn chưa đăng ký sự kiện này hoặc không tìm thấy đăng ký.');
+              return;
+            }
+            // Gửi điểm danh
+            console.log("Gửi điểm danh với tọa độ:", latitude, longitude);
+            console.log("registrationId:", registrationId);
+            console.log({
+  registrationId,
+  latitude: latitudeDouble,
+  longitude: longitudeDouble
+});
+            await attendanceService.markAttendance({ registrationId, latitude, longitude });
+            
+            alert('Điểm danh thành công!');
+          } catch (err) {
+            alert(err.response?.data?.message || 'Điểm danh thất bại.');
+          }
+        },
+        (error) => {
+          alert('Không thể lấy tọa độ GPS. Vui lòng thử lại.');
+          console.error('GPS Error:', error);
+        }
+      );
+    };
+  
+    // ...UI giữ nguyên...
   return (
     <PageWrapper>
-      <Title>Điểm danh sự kiện</Title>
+      <Title>Sự kiện đã đăng ký</Title>
 
       {isLoading && <StatusText>Đang tải danh sách sự kiện...</StatusText>}
       {error && <ErrorText>Lỗi: {error}</ErrorText>}
       {!isLoading && !error && (
         <>
-          {selectedEvent ? (
+          {registeredEvents.length === 0 ? (
+            <StatusText>Bạn chưa đăng ký sự kiện nào.</StatusText>
+          ) : selectedEvent ? (
             <DetailWrapper>
-              <DetailTitle>{selectedEvent.event_name}</DetailTitle>
+              <DetailTitle>{selectedEvent.eventName}</DetailTitle>
               <DetailText>{selectedEvent.description}</DetailText>
               <DetailText>
-                <strong>Thời gian:</strong> {new Date(selectedEvent.start_date).toLocaleString()} -{' '}
-                {new Date(selectedEvent.end_date).toLocaleString()}
+                <strong>Thời gian:</strong> {new Date(selectedEvent.startDate || selectedEvent.start_date).toLocaleString()} 
+                {selectedEvent.endDate && ` - ${new Date(selectedEvent.endDate).toLocaleString()}`}
               </DetailText>
               <DetailText>
                 <strong>Địa điểm:</strong> {selectedEvent.location}
+              </DetailText>
+              <DetailText>
+                <strong>Trạng thái:</strong> {selectedEvent.status || "Đã đăng ký"}
               </DetailText>
               <AttendanceButton onClick={handleAttendance}>Điểm danh</AttendanceButton>
               <AttendanceButton
                 style={{ marginLeft: '1rem', backgroundColor: '#6b7280' }}
                 onClick={() => setSelectedEvent(null)}
               >
-                Quay lại
+                Quay lại danh sách
               </AttendanceButton>
             </DetailWrapper>
           ) : (
             <EventGrid>
-              {events.map((event) => (
-                <EventCard key={event.event_id} onClick={() => setSelectedEvent(event)}>
-                  <EventTitle>{event.event_name}</EventTitle>
-                  <EventDescription>{event.description}</EventDescription>
+              {registeredEvents.map((event) => (
+                <EventCard key={event.eventId} onClick={() => setSelectedEvent(event)}>
+                  <EventTitle>{event.eventName}</EventTitle>
+                  <EventDescription>
+                    {new Date(event.startDate || event.start_date).toLocaleDateString()}
+                  </EventDescription>
+                  <EventDescription>
+                    Trạng thái: {event.status || "Đã đăng ký"}
+                  </EventDescription>
                 </EventCard>
               ))}
             </EventGrid>
@@ -201,5 +306,6 @@ const AttendancePage = () => {
     </PageWrapper>
   );
 };
+
 
 export default AttendancePage;
