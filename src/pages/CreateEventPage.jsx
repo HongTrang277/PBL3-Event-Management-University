@@ -407,7 +407,6 @@ const CreateEventPage = () => {
 
   try {
     // Chuẩn bị dữ liệu cho API
-    
     const eventData = {
   EventName: eventName.trim(),
   Description: description.trim(),
@@ -424,7 +423,6 @@ const CreateEventPage = () => {
   longitude: 0,
   latitude: 0,
 };
-
     console.log('Sending event data:', eventData);
 
     // Gọi API để tạo sự kiện
