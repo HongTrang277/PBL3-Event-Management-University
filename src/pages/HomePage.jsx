@@ -87,7 +87,8 @@ const StatusText = styled.p`
 // --- Component Logic ---
 const HomePage = () => {
     const { user, isAuthenticated } = useAuth();
-    const navigate = useNavigate(); // <<< KHỞI TẠO NAVIGATE
+    const navigate = useNavigate();
+
     const [allApprovedEvents, setAllApprovedEvents] = useState([]);
     const [displayedEvents, setDisplayedEvents] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -104,7 +105,6 @@ const HomePage = () => {
             try {
                 const eventsFromApi = await eventService.getAllEvents();
                 const approved = (eventsFromApi || [])
-                    // .filter(event => event.approvalStatus === 'approved') // Tạm thời bỏ filter theo yêu cầu trước
                     .sort((a, b) => new Date(a.startDate) - new Date(b.startDate));
                 setAllApprovedEvents(approved);
 
@@ -129,7 +129,7 @@ const HomePage = () => {
             }
         };
         fetchInitialData();
-    }, [user, isAuthenticated, navigate]); // Thêm navigate vào dependency array nếu navigate được dùng trong useEffect (hiện tại không)
+    }, [user, isAuthenticated]);
 
     // Update displayed events
     useEffect(() => {
@@ -151,21 +151,23 @@ const HomePage = () => {
 
     const handleSearch = (term) => setSearchTerm(term);
 
-    // --- Handler for registering an event - ĐÃ SỬA ---
     const handleRegister = async (eventId) => {
-        if (!isAuthenticated) { // Bước 1: Kiểm tra đã đăng nhập chưa
+        if (!isAuthenticated) {
             alert("Vui lòng đăng nhập để đăng ký sự kiện.");
-            navigate('/login', { state: { from: `/events/${eventId}` } }); // Chuyển hướng tới trang login
+            navigate('/login', {
+                state: {
+                    from: `/events/${eventId}`, 
+                    eventIdToRegister: eventId 
+                }
+            });
             return;
         }
 
-        // Bước 2: Nếu đã đăng nhập, kiểm tra vai trò và user.id
         if (user?.role !== ROLES.STUDENT || !user?.id) {
             alert("Chỉ có sinh viên mới có thể đăng ký sự kiện.");
             return;
         }
 
-        // Bước 3: Tiến hành đăng ký
         try {
             const responseData = await registrationService.registerUserForEvent(user.id, eventId);
             if (responseData && responseData.registrationId) {
@@ -181,22 +183,19 @@ const HomePage = () => {
         }
     };
 
-    // --- Handler for unregistering an event - ĐÃ SỬA ---
     const handleUnregister = async (eventId) => {
-        if (!isAuthenticated) { // Bước 1: Kiểm tra đã đăng nhập chưa
+        if (!isAuthenticated) { 
             alert("Vui lòng đăng nhập để hủy đăng ký sự kiện.");
-            navigate('/login', { state: { from: `/events/${eventId}` } }); // Chuyển hướng tới trang login
+            navigate('/login', { state: { from: `/events/${eventId}` } }); 
             return;
         }
 
-        // Bước 2: Nếu đã đăng nhập, kiểm tra vai trò và user.id
         if (user?.role !== ROLES.STUDENT || !user?.id) {
             alert("Chỉ có sinh viên mới có thể hủy đăng ký sự kiện.");
             return;
         }
 
-        // Bước 3: Lấy registrationId và tiến hành hủy đăng ký
-        const registrationId = registeredEventMap.get(eventId); // <<< LẤY REGISTRATION ID TỪ MAP
+        const registrationId = registeredEventMap.get(eventId); 
         if (!registrationId) {
             alert("Hủy đăng ký thất bại: Không tìm thấy thông tin đăng ký cho sự kiện này.");
             console.error("Cannot unregister: RegistrationId not found for eventId:", eventId);
@@ -204,7 +203,7 @@ const HomePage = () => {
         }
 
         try {
-            await registrationService.removeRegistration(registrationId); // Sử dụng registrationId đã lấy
+            await registrationService.removeRegistration(registrationId); 
             setRegisteredEventMap(prevMap => {
                 const newMap = new Map(prevMap);
                 newMap.delete(eventId);
@@ -216,19 +215,44 @@ const HomePage = () => {
         }
     };
 
-    // Slick slider settings
+    // Slick slider settings - ĐÃ CẬP NHẬT
     const sliderSettings = {
-        dots: true,
-        infinite: displayedEvents.length > 5,
-        speed: 500,
-        slidesToShow: 5,
-        slidesToScroll: 1,
-        arrows: true,
+        dots: true, // Giữ lại dots, có thể ẩn nếu muốn giao diện marquee thuần túy
+        infinite: displayedEvents.length > 1, // Chạy vô hạn nếu có nhiều hơn 1 sự kiện
+        speed: 8000, // Tốc độ chuyển slide (ví dụ: 8000ms = 8 giây). Càng cao càng chậm.
+        autoplay: true, // Tự động chạy
+        autoplaySpeed: 0, // Thời gian chờ giữa các lần chuyển slide. Đặt là 0 với cssEase: 'linear' để chạy liên tục.
+        cssEase: 'linear', // Kiểu chuyển động đều, không tăng/giảm tốc
+        slidesToShow: 5, // Số lượng slide hiển thị cùng lúc
+        slidesToScroll: 1, // Số lượng slide chạy mỗi lần
+        arrows: true, // Giữ lại nút điều hướng, có thể ẩn nếu muốn
+        pauseOnHover: true, // Tạm dừng khi rê chuột vào
         responsive: [
-            { breakpoint: 1280, settings: { slidesToShow: 4 } },
-            { breakpoint: 1024, settings: { slidesToShow: 3 } },
-            { breakpoint: 768, settings: { slidesToShow: 2 } },
-            { breakpoint: 640, settings: { slidesToShow: 1 } }
+            { 
+                breakpoint: 1280, 
+                settings: { 
+                    slidesToShow: 4 
+                    // Các cài đặt autoplay, speed, cssEase sẽ được kế thừa
+                } 
+            },
+            { 
+                breakpoint: 1024, 
+                settings: { 
+                    slidesToShow: 3 
+                } 
+            },
+            { 
+                breakpoint: 768, 
+                settings: { 
+                    slidesToShow: 2 
+                } 
+            },
+            { 
+                breakpoint: 640, 
+                settings: { 
+                    slidesToShow: 1 
+                } 
+            }
         ]
     };
 

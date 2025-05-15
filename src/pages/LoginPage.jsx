@@ -9,6 +9,7 @@ import { useAuth } from '../hooks/useAuth';
 import Button from '../components/common/Button/Button';
 import Input from '../components/common/Input/Input';
 import { ROLES } from '../utils/constants';
+import { registrationService } from '../services/api'; // Import service thật
 
 // Lấy theme từ tailwind.config.js (giả định bạn có cách import hoặc định nghĩa lại)
 // Ví dụ định nghĩa lại theme dựa trên config:
@@ -312,8 +313,6 @@ const LoginPage = () => {
     const navigate = useNavigate();
     const location = useLocation();
 
-    const from = location.state?.from?.pathname || "/";
-
     const handleSubmit = async (e) => {
         e.preventDefault();
         setError(null);
@@ -323,16 +322,44 @@ const LoginPage = () => {
             const userData = await login({ username, password });
             setIsLoading(false);
 
-             // Điều hướng dựa trên role
-            if (userData.role === ROLES.STUDENT) {
-                 console.log("Redirecting STUDENT to /dashboard");
-                 navigate('/dashboard', { replace: true });
-            } else if (userData.role === ROLES.EVENT_CREATOR || userData.role === ROLES.UNION) {
-                 console.log("Redirecting CREATOR/UNION to /admin/my-events");
-                 navigate('/admin/my-events', { replace: true });
+            const eventIdForAutoRegister = location.state?.eventIdToRegister;
+            // `fromPath` là đường dẫn người dùng muốn đến sau khi login (và có thể cả tự động đăng ký)
+            // Nó được truyền từ HomePage (là /events/eventId) hoặc từ trang khác (vd: EventDetailsPage)
+            const fromPath = location.state?.from;
+
+            if (eventIdForAutoRegister && userData.role === ROLES.STUDENT && userData.id) {
+                // Có eventId và user là student -> tự động đăng ký
+                try {
+                    console.log(`Attempting to auto-register user ${userData.id} for event ${eventIdForAutoRegister}`);
+                    await registrationService.registerUserForEvent(userData.id, eventIdForAutoRegister);
+                    alert("Đăng nhập thành công! Sự kiện đã được tự động đăng ký.");
+                    // Điều hướng đến trang chi tiết sự kiện (fromPath đã được set từ HomePage)
+                    // Truyền state để EventDetailsPage có thể hiển thị thông báo
+                    navigate(fromPath, { // fromPath ở đây là `/events/${eventIdForAutoRegister}`
+                        replace: true,
+                        state: { autoRegistrationSuccess: true, eventId: eventIdForAutoRegister }
+                    });
+                } catch (regError) {
+                    console.error("Auto-registration failed:", regError);
+                    alert(`Đăng nhập thành công, nhưng tự động đăng ký sự kiện thất bại: ${regError.response?.data?.message || regError.message}. Bạn sẽ được chuyển đến trang sự kiện để thử lại.`);
+                    // Vẫn điều hướng đến trang chi tiết sự kiện để người dùng thử đăng ký thủ công
+                    navigate(fromPath, { // fromPath ở đây là `/events/${eventIdForAutoRegister}`
+                        replace: true,
+                        state: { autoRegistrationError: true, eventId: eventIdForAutoRegister }
+                    });
+                }
             } else {
-                 console.log(`Redirecting ${userData.role} to home`);
-                 navigate(from, { replace: true }); // Hoặc navigate('/', { replace: true });
+                // Không tự động đăng ký, điều hướng như bình thường
+                if (userData.role === ROLES.EVENT_CREATOR || userData.role === ROLES.UNION) {
+                    navigate('/admin/my-events', { replace: true });
+                } else if (userData.role === ROLES.STUDENT) {
+                    // Nếu có fromPath (ví dụ: từ EventDetailsPage khi chưa login), điều hướng đến đó.
+                    // Nếu không, điều hướng đến dashboard.
+                    navigate(fromPath || '/dashboard', { replace: true });
+                } else {
+                    // Các role khác, điều hướng đến fromPath (nếu có) hoặc trang chủ.
+                    navigate(fromPath || '/', { replace: true });
+                }
             }
 
         } catch (err) {
