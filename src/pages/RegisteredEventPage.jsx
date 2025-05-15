@@ -316,14 +316,17 @@ const EventDetailDisplay = ({ event, onUnregisterRequest, currentUser }) => {
                  {/* Nút hủy đăng ký chỉ hiển thị cho student và nếu sự kiện này đang được xem */}
                 {currentUser?.role === ROLES.STUDENT && (
                     <DetailActions>
-                        <Button
-                            variant="danger"
-                            onClick={() => onUnregisterRequest(event.eventId)}
-                            // disabled={isCurrentlyUnregistering} // Thêm state nếu cần
-                        >
-                            {/* {isCurrentlyUnregistering ? 'Đang hủy...' : 'Hủy đăng ký'} */}
-                            Hủy đăng ký
-                        </Button>
+                        <button
+      style={{ background: '#dc2626', color: '#fff', padding: '0.5rem 1.5rem', borderRadius: '6px', border: 'none', cursor: 'pointer' }}
+      onClick={() => {
+        if (window.confirm('Bạn chắc chắn muốn hủy đăng ký sự kiện này?')) {
+        
+          onUnregisterRequest(event.eventId);
+        }
+      }}
+    >
+      Hủy đăng ký
+    </button>
                     </DetailActions>
                 )}
             </DetailContentPadding>
@@ -341,6 +344,7 @@ const RegisteredEventsPage = () => {
     const [error, setError] = useState(null);
 
     // Hàm ánh xạ dữ liệu sự kiện (giống như trước)
+
     const mapEventData = (eventItem) => {
         if (!eventItem) return null;
         let correctedEndDate = eventItem.endDate;
@@ -427,20 +431,39 @@ const RegisteredEventsPage = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [user]); // Chỉ fetch lại khi user thay đổi
 
-    const handleUnregister = async (eventIdToUnregister) => {
-        alert("Chức năng hủy đăng ký cần được cập nhật ở backend để cung cấp registrationId, hoặc cho phép hủy bằng userId và eventId.");
-        console.error("Không thể hủy đăng ký: registrationId không được cung cấp bởi API getEventsUserRegisteredFor cho eventId:", eventIdToUnregister);
-        
-        // Nếu chức năng hủy đăng ký hoạt động và thành công:
-        // 1. Gọi API hủy đăng ký
-        // 2. Cập nhật lại state `registeredEvents`
-        // const updatedEvents = registeredEvents.filter(event => event.eventId !== eventIdToUnregister);
-        // setRegisteredEvents(updatedEvents);
-        // 3. Cập nhật `selectedEvent`:
-        // if (selectedEvent?.eventId === eventIdToUnregister) {
-        //     setSelectedEvent(updatedEvents.length > 0 ? updatedEvents[0] : null);
-        // }
-    };
+    
+    const handleUnregister = async (eventId) => {
+  if (!user.id || !eventId) {
+    console.error("userId hoặc eventId không hợp lệ.");
+    return;
+  }
+  setIsLoading(true);
+  setError(null);
+  console.log("Bắt đầu hủy đăng ký sự kiện với eventId:", eventId);
+  try {
+    // Lấy danh sách đăng ký của user
+    const registrations = await registrationService.getAllRegistrations();
+    console.log("Danh sách đăng ký:", registrations);
+    // Tìm registrationId theo eventId
+    const registration = registrations.find(r => r.eventId === eventId && r.userId === user.id);
+    const registrationId = registration?.registrationId;
+    console.log("Đăng ký tìm thấy:", registration);
+    if (registrationId) {
+      await registrationService.removeRegistration(registrationId);
+      setRegisteredEvents((prevEvents) => prevEvents.filter(event => event.eventId !== eventId));
+      setSelectedEvent(null);
+    } else {
+      setError("Không tìm thấy đăng ký phù hợp để hủy.");
+    }
+    console.log("Đã hủy đăng ký sự kiện với eventId:", eventId);
+
+  } catch (err) {
+    setError("Không thể hủy đăng ký sự kiện.");
+    console.error("Lỗi khi hủy đăng ký:", err);
+  } finally {
+    setIsLoading(false);
+  }
+};
 
     const handleCardClick = (eventItem) => {
         setSelectedEvent(eventItem); // eventItem đã được map khi setRegisteredEvents

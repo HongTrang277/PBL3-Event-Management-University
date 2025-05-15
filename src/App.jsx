@@ -23,6 +23,7 @@ import StatisticsPage from './pages/StatisticsPage';
 import MyEventsPage from './pages/MyEventPage';
 import RegisteredEventsPage from './pages/RegisteredEventPage';
 import AdminAllEventsPage from './pages/AllEventPage';
+import AttendancePage from './pages/AttendancePage';
 // import AchievementsPage from './pages/AchievementsPage'; 
 //  import AttendancePage from './pages/AttendancePage'; 
 // import ProfilePage from './pages/ProfilePage'; 
@@ -80,12 +81,9 @@ function App() {
                 </ProtectedRoute>}/>
             <Route path="/attendance" element={
                 <ProtectedRoute allowedRoles={['student']}>
-                    <RegisteredEventsPage/>
+                    <AttendancePage/>
                 </ProtectedRoute>}/>
-            <Route path="/attendance" element={
-                <ProtectedRoute allowedRoles={['student']}>
-                    {/* <CheckinPage /> Trang điểm danh - Thiên Phú phát triển */}
-                </ProtectedRoute>}/>
+            
             <Route path="/profile" element={
                 <ProtectedRoute allowedRoles={['student', 'event_creator', 'union']}>
                      {/* <ProfilePage />   Trang để điền các thông tin cá nhân và xác thực outlook - Thiên Phú phát triển */}

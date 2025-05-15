@@ -573,6 +573,7 @@ const CreateEventPage = () => {
     };
 
 
+
   return (
     <ThemeProvider theme={theme}>
       <GlobalStyle />
@@ -755,5 +756,6 @@ const CreateEventPage = () => {
     </ThemeProvider>
   );
 };
+
 
 export default CreateEventPage;

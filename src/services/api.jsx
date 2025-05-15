@@ -88,17 +88,7 @@ export const registrationService = {
       // console.log('Response from registerUserForEvent:', response);
       return response.data;
     } catch (error) {
-      // console.error('Error during registerUserForEvent:', error.response?.data || error.message);
-      throw error;
-    }
-  },
-  getAllRegistrations: async () => {
-    try {
-      // Swagger: GET /api/Registrations
-      const response = await api.get('/Registrations'); // Đảm bảo viết hoa 'R'
-      return response.data;
-    } catch (error) {
-      // console.error('Error fetching all registrations:', error.response?.data || error.message);
+      console.error('Error during registerUserForEvent:', error.response?.data || error.message);
       throw error;
     }
   },
@@ -107,7 +97,7 @@ export const registrationService = {
       const response = await api.get(`/Registrations/Users/${eventId}`);
       return response.data;
     } catch (error) {
-      // console.error(`Error fetching users registered for event ${eventId}:`, error.response?.data || error.message);
+      console.error(`Error fetching users registered for event ${eventId}:`, error.response?.data || error.message);
       throw error;
     }
   },
@@ -116,7 +106,7 @@ export const registrationService = {
       const response = await api.get(`/Registrations/Events/${userId}`);
       return response.data;
     } catch (error) {
-      // console.error(`Error fetching events registered for user ${userId}:`, error.response?.data || error.message);
+      console.error(`Error fetching events registered for user ${userId}:`, error.response?.data || error.message);
       throw error;
     }
   },
@@ -126,11 +116,60 @@ export const registrationService = {
       const response = await api.delete(`/Registrations/${registrationId}`); // Đảm bảo viết hoa 'R'
       return response.data;
     } catch (error) {
-      // console.error(`Error removing registration ${registrationId}:`, error.response?.data || error.message);
+      console.error(`Error removing registration ${registrationId}:`, error.response?.data || error.message);
       throw error;
     }
   },
+  getAllRegistrations: async () => {
+    try {
+      // Swagger: GET /api/Registrations
+      const response = await api.get('/Registrations'); // Đảm bảo viết hoa 'R'
+      return response.data;
+    } catch (error) {
+       console.error('Error fetching all registrations:', error.response?.data || error.message);
+      throw error;
+    }
+  }
+
+  
 };
+export const attendanceService = {
+  // Lấy tất cả attendance
+  getAllAttendances: async () => {
+    const response = await api.get('/Attendances');
+    return response.data;
+  },
+  // Lấy attendance theo registrationId
+  getAttendanceByRegistrationId: async (registrationId) => {
+    const response = await api.get(`/Attendances/${registrationId}`);
+    return response.data;
+  },
+  // Chấm công (điểm danh)
+  markAttendance: async ({ registrationId, latitude = 0, longitude = 0 }) => {
+    const response = await api.post('/Attendances/Mark', {
+      registrationId,
+      latitude,
+      longitude,
+    });
+    return response.data;
+  },
+  // Lấy danh sách user đã điểm danh cho 1 event
+  getUsersMarkedAttendanceForEvent: async (eventId) => {
+    const response = await api.get(`/Attendances/Users/${eventId}`);
+    return response.data;
+  },
+  // Lấy danh sách event user đã điểm danh
+  getEventsUserMarkedAttendanceFor: async (userId) => {
+    const response = await api.get(`/Attendances/Events/${userId}`);
+    return response.data;
+  },
+  // Xóa attendance
+  removeAttendance: async (attendanceId) => {
+    const response = await api.delete(`/Attendances/${attendanceId}`);
+    return response.data;
+  },
+};
+
 
 export const uploadService = {
   uploadFile: async (file) => {
