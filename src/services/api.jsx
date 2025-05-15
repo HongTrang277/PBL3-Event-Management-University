@@ -92,16 +92,6 @@ export const registrationService = {
       throw error;
     }
   },
-  getAllRegistrations: async () => {
-    try {
-      // Swagger: GET /api/Registrations
-      const response = await api.get('/Registrations'); // Đảm bảo viết hoa 'R'
-      return response.data;
-    } catch (error) {
-       console.error('Error fetching all registrations:', error.response?.data || error.message);
-      throw error;
-    }
-  },
   getUsersRegisteredForEvent: async (eventId) => {
     try {
       const response = await api.get(`/Registrations/Users/${eventId}`);
