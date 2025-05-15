@@ -407,21 +407,22 @@ const CreateEventPage = () => {
 
   try {
     // Chuẩn bị dữ liệu cho API
-    
     const eventData = {
-      EventName: eventName.trim(),
-      description: description.trim(),
-      attendanceType: attendanceType,
-      location: attendanceType === ATTENDANCE_TYPES.ONLINE ? location.trim() || 'Online Platform' : location.trim(),
-      startDate: new Date(startDate).toISOString(),
-      endDate: new Date(endDate).toISOString(),
-      capacity: parseInt(capacity, 10),
-      hostId: user?.id || '', // Lấy ID người dùng từ context
-      planLink: '', // Nếu có thêm trường này, bạn có thể bổ sung
-      logoUrl: '', // Nếu cần gửi URL logo
-      coverUrl: '', // Nếu cần gửi URL cover
-    };
-
+  EventName: eventName.trim(),
+  Description: description.trim(),
+  AttendanceType: attendanceType,
+  Location: attendanceType === ATTENDANCE_TYPES.ONLINE ? location.trim() || 'Online Platform' : location.trim(),
+  StartDate: new Date(startDate).toISOString(),
+  EndDate: new Date(endDate).toISOString(),
+  Capacity: parseInt(capacity, 10),
+  HostId: user?.id || '',
+  PlanLink: 'some-link', // Thay thế bằng link thực tế nếu cần
+  LogoUrl: 'some-link', // Thay thế bằng link thực tế nếu cần
+  CoverUrl: 'some-link', // Thay thế bằng link thực tế nếu cần
+  CreateAt: new Date().toISOString(),
+  longitude: 0,
+  latitude: 0,
+};
     console.log('Sending event data:', eventData);
 
     // Gọi API để tạo sự kiện

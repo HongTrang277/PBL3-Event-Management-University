@@ -1,16 +1,17 @@
 // src/pages/HomePage.jsx
 import React, { useState, useEffect } from 'react';
 import styled, { ThemeProvider } from 'styled-components';
+import { useNavigate } from 'react-router-dom'; // Import useNavigate
 import EventSearchBar from '../components/features/Search/EventSearchBar/EventSearchBar';
 import EventCard from '../components/features/Events/EventCard/EventCard';
-import { getAllEvents, getRegisteredEventsForStudent, registerForEvent, unregisterForEvent } from '../services/mockData'; // Import các hàm API mock
+import { eventService, registrationService } from '../services/api';
 import Slider from "react-slick";
 import "slick-carousel/slick/slick.css";
 import "slick-carousel/slick/slick-theme.css";
 import { useAuth } from '../hooks/useAuth';
-import { ROLES } from '../utils/constants'; // Import ROLES
+import { ROLES } from '../utils/constants';
 
-// --- Theme ---
+// --- Theme (Giữ nguyên) ---
 const theme = {
     colors: {
         primary: '#a8e0fd', 'primary-1': "#47c1ff", 'primary-2': "#ddf4ff",
@@ -21,7 +22,7 @@ const theme = {
     fontFamily: { 'nutito-sans': ['"Nunito Sans"', 'sans-serif'], 'dm-sans': ['"DM Sans"', 'sans-serif'] }
 };
 
-// --- Styled Components ---
+// --- Styled Components (Giữ nguyên) ---
 const HomePageWrapper = styled.div`
     background-color: ${props => props.theme.colors['primary-2']};
     color: ${props => props.theme.colors['custom-gray'][800]};
@@ -33,7 +34,7 @@ const HeroSection = styled.section`
     padding: 3rem 1.5rem; width: 100%; box-sizing: border-box; display: flex;
     align-items: center; justify-content: space-evenly; gap: 2rem;
     text-align: center; color: ${props => props.theme.colors.white};
-    @media (max-width: 992px) { flex-direction: column; } /* Stack columns on smaller screens */
+    @media (max-width: 992px) { flex-direction: column; }
 `;
 const HeroTextContent = styled.div`
     flex: 1 1 50%; max-width: 600px; display: flex; flex-direction: column;
@@ -54,13 +55,11 @@ const SiteTitle = styled.h1`
 const Subtitle = styled.p`
     font-size: 1.125rem; margin-bottom: 2rem; color: ${props => props.theme.colors['primary-2']};
     max-width: 600px; line-height: 1.6;
-    /* margin-left/right auto removed for left align on desktop */
-    @media (max-width: 992px) { margin-left: auto; margin-right: auto; } /* Center on mobile */
+    @media (max-width: 992px) { margin-left: auto; margin-right: auto; }
 `;
 const SearchContainer = styled.div`
-    margin-bottom: 1rem; max-width: 700px; width: 100%; /* Ensure search takes width */
-    /* margin-left/right auto removed for left align on desktop */
-     @media (max-width: 992px) { margin-left: auto; margin-right: auto; padding: 0 1rem; } /* Center on mobile */
+    margin-bottom: 1rem; max-width: 700px; width: 100%;
+    @media (max-width: 992px) { margin-left: auto; margin-right: auto; padding: 0 1rem; }
 `;
 const EventsSectionWrapper = styled.section`
     padding: 2rem 0; flex-grow: 1; width: 100%;
@@ -88,100 +87,141 @@ const StatusText = styled.p`
 // --- Component Logic ---
 const HomePage = () => {
     const { user, isAuthenticated } = useAuth();
+    const navigate = useNavigate(); // <<< KHỞI TẠO NAVIGATE
     const [allApprovedEvents, setAllApprovedEvents] = useState([]);
     const [displayedEvents, setDisplayedEvents] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState(null);
     const [searchTerm, setSearchTerm] = useState('');
-    const [registeredEventIds, setRegisteredEventIds] = useState(new Set());
+    const [registeredEventMap, setRegisteredEventMap] = useState(new Map());
 
     // Fetch initial events and registered status
     useEffect(() => {
         const fetchInitialData = async () => {
             setIsLoading(true);
             setError(null);
-            setRegisteredEventIds(new Set()); // Reset registered IDs on re-fetch
+            setRegisteredEventMap(new Map());
             try {
-                // Fetch all events first
-                const eventsResponse = await getAllEvents();
-                const approved = (eventsResponse.data || [])
-                    .filter(event => event.approval_status === 'approved')
-                    .sort((a, b) => new Date(a.start_date) - new Date(b.start_date)); // Sắp xếp sự kiện gần nhất trước
+                const eventsFromApi = await eventService.getAllEvents();
+                const approved = (eventsFromApi || [])
+                    // .filter(event => event.approvalStatus === 'approved') // Tạm thời bỏ filter theo yêu cầu trước
+                    .sort((a, b) => new Date(a.startDate) - new Date(b.startDate));
                 setAllApprovedEvents(approved);
 
-                // If user is logged in as student, fetch their registered events
                 if (isAuthenticated && user?.role === ROLES.STUDENT && user?.id) {
-                    const registeredResponse = await getRegisteredEventsForStudent(user.id);
-                    const ids = new Set((registeredResponse.data || []).map(e => e.event_id));
-                    setRegisteredEventIds(ids);
+                    const registeredResponse = await registrationService.getEventsUserRegisteredFor(user.id);
+                    const newMap = new Map();
+                    if (Array.isArray(registeredResponse)) {
+                        registeredResponse.forEach(reg => {
+                            const eventIdToUse = reg.event?.eventId || reg.eventId;
+                            if (eventIdToUse && reg.registrationId) {
+                                newMap.set(eventIdToUse, reg.registrationId);
+                            }
+                        });
+                    }
+                    setRegisteredEventMap(newMap);
                 }
             } catch (err) {
-                setError(err.message || 'Không thể tải dữ liệu sự kiện.');
-                setAllApprovedEvents([]); // Clear events on error
+                setError(err.response?.data?.message || err.message || 'Không thể tải dữ liệu sự kiện.');
+                setAllApprovedEvents([]);
             } finally {
                 setIsLoading(false);
             }
         };
         fetchInitialData();
-    }, [user, isAuthenticated]); // Re-run when user or auth state changes
+    }, [user, isAuthenticated, navigate]); // Thêm navigate vào dependency array nếu navigate được dùng trong useEffect (hiện tại không)
 
-    // Update displayed events based on search term or all approved events
+    // Update displayed events
     useEffect(() => {
         if (searchTerm === '') {
             setDisplayedEvents(allApprovedEvents);
         } else {
             const lowerSearchTerm = searchTerm.toLowerCase();
-            const filtered = allApprovedEvents.filter(event =>
-                event.event_name.toLowerCase().includes(lowerSearchTerm) ||
-                event.description.toLowerCase().includes(lowerSearchTerm) ||
-                (event.tags && event.tags.some(tag => tag.toLowerCase().includes(lowerSearchTerm)))
-            );
+            const filtered = allApprovedEvents.filter(event => {
+                const eventName = event.eventName || "";
+                const eventDescription = event.description || "";
+                const eventTagsArray = Array.isArray(event.tagsList) ? event.tagsList : (Array.isArray(event.tags) ? event.tags : []);
+                return eventName.toLowerCase().includes(lowerSearchTerm) ||
+                       eventDescription.toLowerCase().includes(lowerSearchTerm) ||
+                       (eventTagsArray.some(tag => String(tag).toLowerCase().includes(lowerSearchTerm)));
+            });
             setDisplayedEvents(filtered);
         }
     }, [searchTerm, allApprovedEvents]);
 
-    // Handler for search input
     const handleSearch = (term) => setSearchTerm(term);
 
-    // Handler for registering an event
-    const handleRegister = async (eventId, studentId) => {
-        // Basic guard, though EventCard already checks isAuthenticated
-        if (!isAuthenticated || user?.role !== ROLES.STUDENT) return;
+    // --- Handler for registering an event - ĐÃ SỬA ---
+    const handleRegister = async (eventId) => {
+        if (!isAuthenticated) { // Bước 1: Kiểm tra đã đăng nhập chưa
+            alert("Vui lòng đăng nhập để đăng ký sự kiện.");
+            navigate('/login', { state: { from: `/events/${eventId}` } }); // Chuyển hướng tới trang login
+            return;
+        }
+
+        // Bước 2: Nếu đã đăng nhập, kiểm tra vai trò và user.id
+        if (user?.role !== ROLES.STUDENT || !user?.id) {
+            alert("Chỉ có sinh viên mới có thể đăng ký sự kiện.");
+            return;
+        }
+
+        // Bước 3: Tiến hành đăng ký
         try {
-            await registerForEvent(eventId, studentId);
-            // Update the set of registered event IDs to reflect the change immediately
-            setRegisteredEventIds(prev => new Set(prev).add(eventId));
-            alert("Đăng ký thành công!");
+            const responseData = await registrationService.registerUserForEvent(user.id, eventId);
+            if (responseData && responseData.registrationId) {
+                const eventIdToMap = responseData.eventId || eventId;
+                setRegisteredEventMap(prevMap => new Map(prevMap).set(eventIdToMap, responseData.registrationId));
+                alert("Đăng ký thành công!");
+            } else {
+                alert("Đăng ký thành công, nhưng có lỗi khi cập nhật trạng thái. Vui lòng làm mới trang.");
+                console.warn("Registration successful but API response missing registrationId or eventId:", responseData);
+            }
         } catch (err) {
-            // Display specific error messages if available
-            alert(`Đăng ký thất bại: ${err.message}`);
+            alert(`Đăng ký thất bại: ${err.response?.data?.message || err.message}`);
         }
     };
 
-    // Handler for unregistering an event
-    const handleUnregister = async (eventId, studentId) => {
-        // Basic guard
-        if (!isAuthenticated || user?.role !== ROLES.STUDENT) return;
+    // --- Handler for unregistering an event - ĐÃ SỬA ---
+    const handleUnregister = async (eventId) => {
+        if (!isAuthenticated) { // Bước 1: Kiểm tra đã đăng nhập chưa
+            alert("Vui lòng đăng nhập để hủy đăng ký sự kiện.");
+            navigate('/login', { state: { from: `/events/${eventId}` } }); // Chuyển hướng tới trang login
+            return;
+        }
+
+        // Bước 2: Nếu đã đăng nhập, kiểm tra vai trò và user.id
+        if (user?.role !== ROLES.STUDENT || !user?.id) {
+            alert("Chỉ có sinh viên mới có thể hủy đăng ký sự kiện.");
+            return;
+        }
+
+        // Bước 3: Lấy registrationId và tiến hành hủy đăng ký
+        const registrationId = registeredEventMap.get(eventId); // <<< LẤY REGISTRATION ID TỪ MAP
+        if (!registrationId) {
+            alert("Hủy đăng ký thất bại: Không tìm thấy thông tin đăng ký cho sự kiện này.");
+            console.error("Cannot unregister: RegistrationId not found for eventId:", eventId);
+            return;
+        }
+
         try {
-            await unregisterForEvent(eventId, studentId);
-            // Update the set of registered event IDs
-            setRegisteredEventIds(prev => {
-                const newSet = new Set(prev);
-                newSet.delete(eventId);
-                return newSet;
+            await registrationService.removeRegistration(registrationId); // Sử dụng registrationId đã lấy
+            setRegisteredEventMap(prevMap => {
+                const newMap = new Map(prevMap);
+                newMap.delete(eventId);
+                return newMap;
             });
             alert("Hủy đăng ký thành công!");
         } catch (err) {
-            alert(`Hủy đăng ký thất bại: ${err.message}`);
+            alert(`Hủy đăng ký thất bại: ${err.response?.data?.message || err.message}`);
         }
     };
 
     // Slick slider settings
     const sliderSettings = {
         dots: true,
-        infinite: displayedEvents.length > 5, // Enable infinite loop only if enough items
+        infinite: displayedEvents.length > 5,
         speed: 500,
-        slidesToShow: 5, // Adjust based on preference and screen size
+        slidesToShow: 5,
         slidesToScroll: 1,
         arrows: true,
         responsive: [
@@ -192,7 +232,6 @@ const HomePage = () => {
         ]
     };
 
-    // --- JSX Rendering ---
     return (
         <ThemeProvider theme={theme}>
             <HomePageWrapper>
@@ -209,7 +248,7 @@ const HomePage = () => {
                     </HeroTextContent>
                     <HeroImageContainer>
                         <img
-                            src="https://i.pinimg.com/736x/1c/89/62/1c89623c82775c76242435eb02b5b69b.jpg" // Replace with your actual image URL
+                            src="https://i.pinimg.com/736x/1c/89/62/1c89623c82775c76242435eb02b5b69b.jpg"
                             alt="Sinh viên Đại học Bách Khoa DUT tham gia sự kiện"
                         />
                     </HeroImageContainer>
@@ -221,46 +260,40 @@ const HomePage = () => {
                             {searchTerm ? `Kết quả tìm kiếm cho "${searchTerm}"` : 'Sự kiện Sắp Diễn Ra & Nổi Bật'}
                         </SectionTitle>
 
-                        {/* Loading and Error States */}
                         {isLoading && <StatusText>Đang tải sự kiện...</StatusText>}
                         {error && <StatusText style={{ color: 'red' }}>Lỗi: {error}</StatusText>}
 
-                        {/* Event Display Logic */}
                         {!isLoading && !error && (
                             displayedEvents.length > 0 ? (
                                 searchTerm ? (
-                                    // Display as Grid when searching
                                     <EventGrid>
                                         {displayedEvents.map((event) => (
                                             <EventCard
-                                                key={event.event_id}
+                                                key={event.eventId}
                                                 event={event}
-                                                isAlreadyRegistered={isAuthenticated && user?.role === ROLES.STUDENT ? registeredEventIds.has(event.event_id) : false}
-                                                onRegister={handleRegister}
-                                                onUnregister={handleUnregister}
+                                                isAlreadyRegistered={isAuthenticated && user?.role === ROLES.STUDENT ? registeredEventMap.has(event.eventId) : false}
+                                                onRegister={() => handleRegister(event.eventId)}
+                                                onUnregister={() => handleUnregister(event.eventId)}
                                             />
                                         ))}
                                     </EventGrid>
                                 ) : (
-                                    // Display as Slider when not searching (and events exist)
                                     <Slider {...sliderSettings}>
                                         {displayedEvents.map((event) => (
-                                            // Slider requires a wrapper div for each slide
-                                            <div key={event.event_id}>
+                                            <div key={event.eventId}>
                                                 <EventCard
                                                     event={event}
-                                                    isAlreadyRegistered={isAuthenticated && user?.role === ROLES.STUDENT ? registeredEventIds.has(event.event_id) : false}
-                                                    onRegister={handleRegister}
-                                                    onUnregister={handleUnregister}
+                                                    isAlreadyRegistered={isAuthenticated && user?.role === ROLES.STUDENT ? registeredEventMap.has(event.eventId) : false}
+                                                    onRegister={() => handleRegister(event.eventId)}
+                                                    onUnregister={() => handleUnregister(event.eventId)}
                                                 />
                                             </div>
                                         ))}
                                     </Slider>
                                 )
                             ) : (
-                                // No events found message
                                 <StatusText>
-                                    {searchTerm ? 'Không tìm thấy sự kiện nào phù hợp.' : 'Hiện chưa có sự kiện nào được phê duyệt.'}
+                                    {searchTerm ? 'Không tìm thấy sự kiện nào phù hợp.' : (allApprovedEvents.length === 0 && !isLoading ? 'Hiện chưa có sự kiện nào.' : 'Hiện chưa có sự kiện nào được phê duyệt.')}
                                 </StatusText>
                             )
                         )}

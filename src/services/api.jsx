@@ -42,7 +42,7 @@ export const eventService = {
     try{
       const response = await api.get('/events');
       console.log('Response:', response);
-      return response;
+      return response.data;
     }
     catch (error) {
       console.error('Error during getAllEvents:', error);
@@ -63,6 +63,7 @@ export const eventService = {
       console.error('Error during createEvent:', error);
       throw error;
     }
+    
   },
   updateEvent: async (id, eventData) => {
     return api.put(`/events/${id}`, eventData);
@@ -80,58 +81,81 @@ export const categoryService = {
 };
 
 export const registrationService = {
-  registerUserForEvent: async (userId, eventId)=>{
-    try{
-      const response = await api.post(`/registrations/${userId}/${eventId}`);
-      console.log('Response:', response);
+  registerUserForEvent: async (userId, eventId) => {
+    try {
+      // Swagger: POST /api/Registrations/{userId}/{eventId}
+      const response = await api.post(`/Registrations/${userId}/${eventId}`); // Đảm bảo viết hoa 'R'
+      // console.log('Response from registerUserForEvent:', response);
       return response.data;
-    }
-    catch (error) {
-      console.error('Error during registerUserForEvent:', error);
+    } catch (error) {
+      // console.error('Error during registerUserForEvent:', error.response?.data || error.message);
       throw error;
     }
   },
-  // Lấy danh sách tất cả các đăng ký
   getAllRegistrations: async () => {
     try {
-      const response = await api.get('/registrations');
-      return response.data; // Trả về danh sách đăng ký
+      // Swagger: GET /api/Registrations
+      const response = await api.get('/Registrations'); // Đảm bảo viết hoa 'R'
+      return response.data;
     } catch (error) {
-      console.error('Error fetching all registrations:', error);
+      // console.error('Error fetching all registrations:', error.response?.data || error.message);
       throw error;
     }
   },
-  // Lấy danh sách người dùng đã đăng ký cho một sự kiện
   getUsersRegisteredForEvent: async (eventId) => {
     try {
-      const response = await api.get(`/registrations/Users/${eventId}`);
-      return response.data; // Trả về danh sách người dùng
+      const response = await api.get(`/Registrations/Users/${eventId}`);
+      return response.data;
     } catch (error) {
-      console.error(`Error fetching users registered for event ${eventId}:`, error);
+      // console.error(`Error fetching users registered for event ${eventId}:`, error.response?.data || error.message);
       throw error;
     }
   },
-  // Lấy danh sách sự kiện mà một người dùng đã đăng ký
   getEventsUserRegisteredFor: async (userId) => {
     try {
-      const response = await api.get(`/registrations/Events/${userId}`);
-      return response.data; // Trả về danh sách sự kiện
+      const response = await api.get(`/Registrations/Events/${userId}`);
+      return response.data;
     } catch (error) {
-      console.error(`Error fetching events registered for user ${userId}:`, error);
+      // console.error(`Error fetching events registered for user ${userId}:`, error.response?.data || error.message);
       throw error;
     }
   },
   removeRegistration: async (registrationId) => {
     try {
-      const response = await api.delete(`/registrations/${registrationId}`);
-      return response.data; // Trả về kết quả hủy đăng ký
+      // Swagger: DELETE /api/Registrations/{registrationId}
+      const response = await api.delete(`/Registrations/${registrationId}`); // Đảm bảo viết hoa 'R'
+      return response.data;
     } catch (error) {
-      console.error(`Error removing registration ${registrationId}:`, error);
+      // console.error(`Error removing registration ${registrationId}:`, error.response?.data || error.message);
       throw error;
     }
   },
-  
+};
 
+export const uploadService = {
+  uploadFile: async (file) => {
+    // Tạo đối tượng FormData
+    const formData = new FormData();
+    // 'file' là key mà API controller mong đợi (IFormFile file)
+    formData.append('file', file);
+
+    try {
+      const response = await api.post('/uploads', formData, {
+        headers: {
+        'Content-Type': null, // Hoặc 'Content-Type': undefined
+         }
+      });
+      console.log('File uploaded successfully:', response.data);
+      return response.data; // API trả về kết quả từ _uploadService.SaveFileAsync(file)
+    } catch (error) {
+      console.error('Error uploading file:', error.response?.data || error.message);
+      throw error;
+    }
+  },
+  // Nếu bạn muốn có một hàm để lấy URL xem file (tương ứng với ViewFile)
+  getFileUrl: (fileName) => {
+    return `${API_URL}/uploads/${fileName}`;
+  }
 };
 
 export default api;

@@ -1,260 +1,342 @@
-import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate, Link as RouterLink } from 'react-router-dom';
-import styled from 'styled-components';
-import { getEventById, registerForEvent } from '../services/mockData';
+import React, { useState, useEffect, useMemo } from 'react';
+import { useParams, useNavigate, Link as RouterLink, useLocation } from 'react-router-dom';
+import styled, { keyframes } from 'styled-components'; // Thêm keyframes nếu cần animation
+import { eventService, registrationService } from '../services/api';
 import { useAuth } from '../hooks/useAuth';
 import { ROLES, ATTENDANCE_TYPES } from '../utils/constants';
 import { formatDateTime } from '../utils/helpers';
-import Button from '../components/common/Button/Button'; // Assume Button is styled or accepts className
+import Button from '../components/common/Button/Button'; // Giả định Button đã được style đẹp
 
-// --- Styled Components ---
+// --- Định nghĩa màu sắc và theme cơ bản ---
+const themeColors = {
+  primary: '#005A9C', // Xanh dương đậm cho điểm nhấn chính (lấy cảm hứng từ header "BK Events")
+  primaryLight: '#E6F3FF', // Xanh dương rất nhạt cho nền tag, highlight nhẹ
+  primaryDarkText: '#003D6B', // Chữ xanh đậm trên nền xanh nhạt
+  textPrimary: '#1A202C',    // Gần đen cho nội dung chính
+  textSecondary: '#4A5568',  // Xám đậm cho thông tin phụ
+  textMuted: '#718096',      // Xám nhạt hơn cho label hoặc thông tin ít quan trọng
+  border: '#CBD5E0',          // Xám rất nhạt cho đường viền
+  backgroundLight: '#F7FAFC', // Nền xám cực nhạt cho page (nếu muốn page wrapper nổi bật)
+  white: '#FFFFFF',
+  error: '#E53E3E',          // Đỏ cho lỗi
+  success: '#38A169',        // Xanh lá cho thành công
+  coverPlaceholderBg: '#D6E4F0', // Màu nền nhẹ nhàng cho ảnh bìa khi chưa tải
+};
+
+// --- Styled Components đã được làm mới ---
+
+const fadeIn = keyframes`
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+`;
 
 const StatusContainer = styled.div`
-  /* text-center py-10 */
   text-align: center;
-  padding-top: 2.5rem;
-  padding-bottom: 2.5rem;
+  padding: 4rem 1.5rem;
+  font-size: 1.125rem;
+  color: ${themeColors.textSecondary};
+  animation: ${fadeIn} 0.5s ease-out;
 `;
+
 const ErrorStatusContainer = styled(StatusContainer)`
-  color: #dc2626; /* text-red-600 */
-  p { margin-bottom: 1rem; } /* Add some space before button */
+  color: ${themeColors.error};
+  p { margin-bottom: 1.5rem; font-weight: 500; }
 `;
 
 const PageWrapper = styled.div`
-  /* bg-white shadow-lg rounded-lg overflow-hidden max-w-4xl mx-auto my-6 */
-  background-color: #ffffff;
-  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05); /* shadow-lg */
-  border-radius: 0.5rem; /* rounded-lg */
+  background-color: ${themeColors.white};
+  border-radius: 16px; // Bo góc lớn hơn, mềm mại hơn
+  box-shadow: 0 20px 40px -15px rgba(0, 70, 128, 0.15); // Đổ bóng xanh dương nhẹ, tinh tế hơn
   overflow: hidden;
-  max-width: 56rem; /* max-w-4xl */
-  margin-left: auto;
-  margin-right: auto;
-  margin-top: 1.5rem; /* my-6 */
-  margin-bottom: 1.5rem; /* my-6 */
+  max-width: 64rem; // Tăng nhẹ max-width
+  margin: 2.5rem auto; // Tăng khoảng cách với viewport
+  border: 1px solid ${themeColors.border};
+  animation: ${fadeIn} 0.3s ease-out;
 `;
 
 const CoverImageContainer = styled.div`
-  /* h-48 md:h-64 bg-gray-200 */
-  height: 12rem; /* h-48 */
-  background-color: #e5e7eb; /* bg-gray-200 */
-  @media (min-width: 768px) { /* md */
-    height: 16rem; /* md:h-64 */
+  height: 16rem; // Tăng chiều cao
+  background-color: ${themeColors.coverPlaceholderBg};
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: ${themeColors.textMuted};
+  font-size: 1.25rem;
+  position: relative;
+
+  &::before { // Lớp phủ gradient nhẹ nhàng
+    content: "";
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: linear-gradient(to bottom, rgba(0,0,0,0) 0%, rgba(0,0,0,0.1) 70%, rgba(0,0,0,0.25) 100%);
+    z-index: 1; // Đảm bảo gradient nằm trên ảnh nền nhưng dưới ảnh chính
+  }
+
+  @media (min-width: 768px) {
+    height: 22rem; // Tăng đáng kể cho desktop
   }
 `;
 
 const CoverImage = styled.img`
-  /* w-full h-full object-cover */
   width: 100%;
   height: 100%;
   object-fit: cover;
+  position: relative;
+  z-index: 2; // Ảnh chính nằm trên gradient
 `;
 
 const ContentPadding = styled.div`
-  /* p-4 md:p-8 */
-  padding: 1rem; /* p-4 */
-  @media (min-width: 768px) { /* md */
-    padding: 2rem; /* md:p-8 */
+  padding: 2rem; // Tăng padding cơ bản
+  @media (min-width: 768px) {
+    padding: 3rem; // Tăng padding cho desktop
   }
 `;
 
 const HeaderSection = styled.div`
-  /* flex flex-col sm:flex-row items-start sm:items-center mb-6 */
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  margin-bottom: 1.5rem; /* mb-6 */
+  margin-bottom: 2.5rem; // Tăng khoảng cách
+  position: relative;
 
-  @media (min-width: 640px) { /* sm */
+  @media (min-width: 640px) {
     flex-direction: row;
-    align-items: center;
+    align-items: flex-end; // Canh logo và text theo baseline dưới
   }
 `;
 
 const LogoImageContainer = styled.div`
-  /* flex-shrink-0 w-24 h-24 md:w-32 md:h-32 rounded-full border-4 border-white -mt-12 md:-mt-16 shadow-md bg-white overflow-hidden mb-4 sm:mb-0 sm:mr-6 */
   flex-shrink: 0;
-  width: 6rem; /* w-24 */
-  height: 6rem; /* h-24 */
-  border-radius: 9999px; /* rounded-full */
-  border: 4px solid white;
-  margin-top: -3rem; /* -mt-12 */
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); /* shadow-md */
-  background-color: white;
+  width: 8rem; // Tăng kích thước logo
+  height: 8rem;
+  border-radius: 50%;
+  border: 6px solid ${themeColors.white}; // Border dày hơn
+  margin-top: -5rem; // Điều chỉnh để logo chồng lên ảnh bìa nhiều hơn
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1), 0 4px 8px rgba(0,0,0,0.08); // Bóng rõ hơn
+  background-color: ${themeColors.white};
   overflow: hidden;
-  margin-bottom: 1rem; /* mb-4 */
+  margin-bottom: 1rem;
+  z-index: 3; // Logo luôn ở trên cùng
 
-  @media (min-width: 640px) { /* sm */
-     margin-bottom: 0; /* sm:mb-0 */
-     margin-right: 1.5rem; /* sm:mr-6 */
+  @media (min-width: 640px) {
+    margin-bottom: 0;
+    margin-right: 2rem; // Tăng khoảng cách với title
   }
-  @media (min-width: 768px) { /* md */
-     width: 8rem; /* md:w-32 */
-     height: 8rem; /* md:h-32 */
-     margin-top: -4rem; /* md:-mt-16 */
+  @media (min-width: 768px) {
+    width: 9rem;
+    height: 9rem;
+    margin-top: -6rem;
   }
 `;
 
 const LogoImage = styled.img`
-  /* w-full h-full object-contain */
   width: 100%;
   height: 100%;
   object-fit: contain;
 `;
 
 const TitleContainer = styled.div`
-  /* flex-grow */
   flex-grow: 1;
+  @media (min-width: 640px) {
+     padding-bottom: 0.5rem; // Nâng text lên một chút so với logo
+  }
 `;
 
 const EventTitle = styled.h1`
-  /* text-2xl md:text-4xl font-bold text-gray-800 font-dm-sans mb-1 */
-  font-size: 1.5rem; /* text-2xl */
-  line-height: 2rem;
-  font-weight: 700; /* font-bold */
-  color: #1f2937; /* text-gray-800 */
-  font-family: 'DM Sans', sans-serif; /* font-dm-sans */
-  margin-bottom: 0.25rem; /* mb-1 */
+  font-size: 2rem; // Tăng size chữ
+  line-height: 1.25;
+  font-weight: 700;
+  color: ${themeColors.textPrimary};
+  font-family: 'DM Sans', sans-serif; // Giữ font DM Sans
+  margin-bottom: 0.625rem;
 
-  @media (min-width: 768px) { /* md */
-    font-size: 2.25rem; /* md:text-4xl */
-    line-height: 2.5rem;
+  @media (min-width: 768px) {
+    font-size: 2.75rem; // Size lớn hơn cho desktop
   }
 `;
 
 const HostInfo = styled.p`
-  /* text-md text-gray-600 */
-  font-size: 1rem; /* text-md is not standard, assuming 1rem */
-  line-height: 1.5rem;
-  color: #4b5563; /* text-gray-600 */
-  margin: 0;
+  font-size: 1.125rem; // Tăng size
+  line-height: 1.6;
+  color: ${themeColors.textSecondary};
+  margin-bottom: 1rem;
+  font-style: italic;
 `;
 
 const SemiBold = styled.span`
-    font-weight: 600; /* font-semibold */
+  font-weight: 600;
+  color: ${themeColors.primary}; // Nhấn mạnh tên Host bằng màu primary
+  font-style: normal; // Bỏ italic nếu chỉ muốn SemiBold
 `;
 
 const EditButtonContainer = styled.div`
-  /* mt-4 sm:mt-0 sm:ml-auto */
-  margin-top: 1rem; /* mt-4 */
-  @media (min-width: 640px) { /* sm */
+  margin-top: 1rem;
+  width: 100%; // Cho mobile
+  @media (min-width: 640px) {
     margin-top: 0;
     margin-left: auto;
+    width: auto; // Reset width cho desktop
+    align-self: center; // Canh giữa với TitleContainer trên desktop
   }
 `;
 
 const DetailsGrid = styled.div`
-  /* grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8 mb-6 */
   display: grid;
-  grid-template-columns: repeat(1, minmax(0, 1fr));
-  gap: 1.5rem; /* gap-6 */
-  margin-bottom: 1.5rem; /* mb-6 */
+  grid-template-columns: 1fr;
+  gap: 2.5rem; // Tăng gap
+  margin-bottom: 2.5rem;
 
-  @media (min-width: 768px) { /* md */
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 2rem; /* md:gap-8 */
+  @media (min-width: 1024px) { // Chuyển sang 2 cột ở màn hình lớn hơn
+    grid-template-columns: minmax(0, 2.5fr) minmax(0, 1.5fr); // Tỉ lệ cho description và info
+    gap: 3rem;
   }
 `;
 
 const DescriptionColumn = styled.div`
-  /* md:col-span-2 */
-  @media (min-width: 768px) { /* md */
-     grid-column: span 2 / span 2;
-  }
+  animation: ${fadeIn} 0.5s ease-out 0.2s backwards; // Animation trễ nhẹ
 `;
 
 const InfoColumn = styled.div`
-  /* md:col-span-1 space-y-4 */
-  & > * + * { margin-top: 1rem; } /* space-y-4 */
+  background-color: ${themeColors.backgroundLight}; // Nền nhẹ cho cột thông tin
+  padding: 1.5rem;
+  border-radius: 12px;
+  border: 1px solid ${themeColors.border};
+  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+  animation: ${fadeIn} 0.5s ease-out 0.3s backwards;
 
-  @media (min-width: 768px) { /* md */
-     grid-column: span 1 / span 1;
+  @media (min-width: 1024px) {
+    padding: 2rem;
   }
 `;
 
 const SectionTitle = styled.h2`
-  /* text-xl font-semibold text-gray-700 mb-3 font-dm-sans */
-  font-size: 1.25rem; /* text-xl */
-  line-height: 1.75rem;
-  font-weight: 600; /* font-semibold */
-  color: #374151; /* text-gray-700 */
-  margin-bottom: 0.75rem; /* mb-3 */
-  font-family: 'DM Sans', sans-serif; /* font-dm-sans */
+  font-size: 1.5rem; // Tăng size
+  line-height: 1.4;
+  font-weight: 600;
+  color: ${themeColors.primary};
+  margin-bottom: 1.25rem;
+  font-family: 'DM Sans', sans-serif;
+  padding-bottom: 0.625rem;
+  border-bottom: 2px solid ${themeColors.primaryLight};
+  display: flex;
+  align-items: center;
+
+  svg { // Style cho icon nếu có (ví dụ)
+    margin-right: 0.75rem;
+    width: 1.25em;
+    height: 1.25em;
+    opacity: 0.8;
+  }
 `;
 
 const DescriptionText = styled.p`
-  /* text-gray-700 whitespace-pre-wrap leading-relaxed */
-  color: #374151; /* text-gray-700 */
+  color: ${themeColors.textSecondary};
   white-space: pre-wrap;
-  line-height: 1.625; /* leading-relaxed */
+  line-height: 1.75; // Tăng line-height
+  font-size: 1rem;
   margin: 0;
+
+  a { // Style cho link trong mô tả (nếu có)
+    color: ${themeColors.primary};
+    text-decoration: underline;
+    font-weight: 500;
+    &:hover {
+      color: ${themeColors.primaryDarkText};
+    }
+  }
+`;
+
+// Component mới để nhóm InfoLabel và InfoText, tạo khoảng cách đều
+const InfoBlock = styled.div`
+  margin-bottom: 1.75rem; // Tăng khoảng cách giữa các khối thông tin
+  &:last-child {
+    margin-bottom: 0;
+  }
 `;
 
 const InfoLabel = styled.h3`
-  /* text-sm font-medium text-gray-500 */
-  font-size: 0.875rem; /* text-sm */
+  font-size: 0.8rem; // Chữ nhỏ hơn cho label
   line-height: 1.25rem;
-  font-weight: 500; /* font-medium */
-  color: #6b7280; /* text-gray-500 */
-  margin-bottom: 0.25rem; /* mb-1 implicit in some cases */
+  font-weight: 600; // Đậm hơn
+  color: ${themeColors.textMuted};
+  margin-bottom: 0.5rem;
+  text-transform: uppercase;
+  letter-spacing: 0.075em; // Tăng letter spacing
 `;
 
 const InfoText = styled.p`
-  /* text-gray-900 */
-  color: #111827; /* text-gray-900 */
+  color: ${themeColors.textPrimary};
+  font-size: 1rem;
+  line-height: 1.6;
   margin: 0;
-  text-transform: capitalize; /* capitalize class */
+  
+  ${SemiBold} { // SemiBold trong InfoText giữ màu text chính
+    color: ${themeColors.textPrimary}; 
+    font-weight: 600; // Đảm bảo độ đậm
+  }
 `;
 
 const TagContainer = styled.div`
-  /* flex flex-wrap gap-2 */
   display: flex;
   flex-wrap: wrap;
-  gap: 0.5rem; /* gap-2 */
+  gap: 0.75rem; // Tăng gap
 `;
 
 const TagBadge = styled.span`
-  /* px-3 py-1 bg-blue-100 text-blue-800 text-xs font-medium rounded-full */
-  padding: 0.25rem 0.75rem; /* px-3 py-1 */
-  background-color: #dbeafe; /* bg-blue-100 */
-  color: #1e40af; /* text-blue-800 */
-  font-size: 0.75rem; /* text-xs */
-  line-height: 1rem;
-  font-weight: 500; /* font-medium */
-  border-radius: 9999px; /* rounded-full */
+  padding: 0.5rem 1rem; // Tăng padding
+  background-color: ${themeColors.primaryLight};
+  color: ${themeColors.primaryDarkText};
+  font-size: 0.875rem; // Tăng nhẹ size chữ
+  font-weight: 500;
+  border-radius: 20px; // Bo tròn hơn
+  line-height: 1;
+  transition: all 0.2s ease-in-out;
+  cursor: default; // Hoặc cursor: pointer nếu tag có thể click
+
+  &:hover {
+    background-color: ${themeColors.primary};
+    color: ${themeColors.white};
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 90, 156, 0.2);
+  }
 `;
 
 const RegistrationSection = styled.div`
-  /* mt-8 pt-6 border-t border-gray-200 text-center */
-  margin-top: 2rem; /* mt-8 */
-  padding-top: 1.5rem; /* pt-6 */
-  border-top: 1px solid #e5e7eb; /* border-t border-gray-200 */
+  margin-top: 3rem;
+  padding-top: 2.5rem;
+  border-top: 1px solid ${themeColors.border};
   text-align: center;
 `;
 
 const StatusMessage = styled.p`
-  /* text-green-600 font-semibold */
-  color: #16a34a; /* text-green-600 */
-  font-weight: 600; /* font-semibold */
-  margin: 0;
-  margin-bottom: 0.5rem; /* Implicit spacing */
-`;
-const ErrorRegMessage = styled(StatusMessage)`
-   color: #dc2626; /* text-red-600 */
-   margin-bottom: 0.5rem; /* mb-2 */
+  font-weight: 500; // Giảm độ đậm một chút
+  margin-bottom: 1.25rem;
+  font-size: 1.05rem; // Tăng nhẹ size
+  color: ${themeColors.success};
+  animation: ${fadeIn} 0.3s ease-out;
 `;
 
+const ErrorRegMessage = styled(StatusMessage)`
+  color: ${themeColors.error};
+`;
 
 const BackButtonContainer = styled.div`
-  /* mt-6 text-center */
-  margin-top: 1.5rem; /* mt-6 */
+  margin-top: 3rem;
   text-align: center;
 `;
 
-// --- Component ---
 
+// --- Component EventDetailsPage ---
 const EventDetailsPage = () => {
-    const { eventId } = useParams(); // Lấy eventId từ URL
+    const { eventId } = useParams();
     const navigate = useNavigate();
+    const location = useLocation();
     const { user, isAuthenticated } = useAuth();
 
     const [event, setEvent] = useState(null);
@@ -262,49 +344,82 @@ const EventDetailsPage = () => {
     const [error, setError] = useState(null);
     const [isRegistering, setIsRegistering] = useState(false);
     const [registrationMessage, setRegistrationMessage] = useState('');
-    const [registrationError, setRegistrationError] = useState(null); // Separate error for registration
+    const [registrationError, setRegistrationError] = useState('');
+    const [isCurrentlyRegistered, setIsCurrentlyRegistered] = useState(false);
 
 
     useEffect(() => {
-        const fetchEvent = async () => {
+        const fetchEventDetails = async () => {
+            if (!eventId) {
+                setIsLoading(false);
+                setError("Không tìm thấy ID sự kiện.");
+                return;
+            }
             setIsLoading(true);
             setError(null);
             setRegistrationMessage('');
-            setRegistrationError(null); // Clear errors on load
+            setRegistrationError('');
+            setIsCurrentlyRegistered(false);
+
             try {
-                const response = await getEventById(eventId);
-                setEvent(response.data);
+                const response = await eventService.getEvent(eventId);
+                const eventData = response.data;
+                setEvent(eventData);
+
+                if (isAuthenticated && user?.role === ROLES.STUDENT && user?.id && eventData?.eventId) {
+                    try {
+                        const registeredEvents = await registrationService.getEventsUserRegisteredFor(user.id);
+                        if (Array.isArray(registeredEvents)) {
+                            const currentEventApiId = eventData.eventId;
+                            if (registeredEvents.some(reg => (reg.event?.eventId || reg.eventId) === currentEventApiId)) {
+                                setIsCurrentlyRegistered(true);
+                            }
+                        }
+                    } catch (regError) {
+                        console.error("Lỗi khi kiểm tra trạng thái đăng ký:", regError);
+                    }
+                }
             } catch (err) {
-                setError(err.message || 'Không thể tải thông tin sự kiện.');
+                setError(err.response?.data?.message || err.message || 'Không thể tải thông tin sự kiện.');
                 setEvent(null);
             } finally {
                 setIsLoading(false);
             }
         };
-
-        fetchEvent();
-    }, [eventId]);
+        fetchEventDetails();
+    }, [eventId, isAuthenticated, user]);
 
     const handleRegister = async () => {
-        if (!isAuthenticated || !user || user.role !== ROLES.STUDENT) {
-            navigate('/login', { state: { from: window.location } });
+        if (!isAuthenticated) {
+            navigate('/login', { state: { from: location.pathname } });
             return;
         }
-
+        if (!user || !user.id || user.role !== ROLES.STUDENT) {
+            setRegistrationError("Chỉ sinh viên mới có thể đăng ký sự kiện.");
+            return;
+        }
         setIsRegistering(true);
         setRegistrationMessage('');
-        setRegistrationError(null);
-
+        setRegistrationError('');
         try {
-            const result = await registerForEvent(eventId, user.id);
-            setRegistrationMessage(result.message || "Đăng ký thành công!");
-            // setEvent(prev => ({ ...prev, isRegistered: true })); // Optional update
+            const responseData = await registrationService.registerUserForEvent(user.id, eventId);
+            if (responseData && responseData.registrationId) {
+                setRegistrationMessage("Đăng ký thành công!");
+                setIsCurrentlyRegistered(true);
+            } else {
+                setRegistrationError(responseData?.message || "Đăng ký thành công nhưng phản hồi không như mong đợi.");
+            }
         } catch (err) {
-            setRegistrationError(err.message || "Đăng ký thất bại. Vui lòng thử lại.");
+            setRegistrationError(err.response?.data?.message || err.message || "Đăng ký thất bại. Vui lòng thử lại.");
         } finally {
             setIsRegistering(false);
         }
-    }
+    };
+
+    const eventTags = useMemo(() => {
+        if (!event) return [];
+        return Array.isArray(event.tagsList) ? event.tagsList : (Array.isArray(event.tags) ? event.tags : []);
+    }, [event]);
 
     if (isLoading) {
         return <StatusContainer>Đang tải thông tin sự kiện...</StatusContainer>;
@@ -314,8 +429,7 @@ const EventDetailsPage = () => {
         return (
             <ErrorStatusContainer>
                 <p>Lỗi: {error}</p>
-                {/* Assuming Button accepts variant and onClick */}
-                <Button onClick={() => navigate(-1)} variant="secondary">
+                <Button onClick={() => navigate(-1)} variant="secondary" size="large">
                     Quay lại
                 </Button>
             </ErrorStatusContainer>
@@ -327,136 +441,136 @@ const EventDetailsPage = () => {
     }
 
     const isHost = isAuthenticated &&
-        (user?.role === ROLES.EVENT_CREATOR || user?.role === ROLES.UNION) &&
-        (user?.faculty === event.host_id || user?.name === event.host_id);
+        user?.id &&
+        event?.hostId &&
+        (user.role === ROLES.EVENT_CREATOR || user.role === ROLES.UNION) &&
+        String(user.id) === String(event.hostId);
 
+    return (
+        <PageWrapper>
+            <CoverImageContainer>
+                {event.coverUrl ? (
+                    <CoverImage
+                        src={event.coverUrl}
+                        alt={`${event.eventName || 'Sự kiện'} cover`}
+                        onError={(e) => { e.target.style.display = 'none'; }}
+                    />
+                ) : (
+                    <span>Ảnh bìa sự kiện</span>
+                )}
+            </CoverImageContainer>
 
-  return (
-    <PageWrapper>
-      <CoverImageContainer>
-        {event.cover_url && (
-          <CoverImage
-            src={event.cover_url}
-            alt={`${event.event_name} cover`}
-            onError={(e) => e.target.style.display='none'}
-          />
-        )}
-       </CoverImageContainer>
+            <ContentPadding>
+                <HeaderSection>
+                    {event.logoUrl && (
+                        <LogoImageContainer>
+                            <LogoImage
+                                src={event.logoUrl}
+                                alt={`${event.eventName || 'Sự kiện'} logo`}
+                                onError={(e) => { e.target.style.display = 'none';}}
+                            />
+                        </LogoImageContainer>
+                    )}
+                    <TitleContainer>
+                        <EventTitle>{event.eventName}</EventTitle>
+                        <HostInfo>
+                            Tổ chức bởi: <SemiBold>{event.hostId /* Cần map sang tên thật */}</SemiBold>
+                        </HostInfo>
+                    </TitleContainer>
+                    {isHost && (
+                        <EditButtonContainer>
+                             <RouterLink to={`/admin/edit-event/${event.eventId || eventId}`}>
+                                <Button variant="outline" size="medium"> {/* Nút chỉnh sửa có thể là outline */}
+                                    Chỉnh sửa
+                                </Button>
+                            </RouterLink>
+                        </EditButtonContainer>
+                    )}
+                </HeaderSection>
 
-       <ContentPadding>
-           <HeaderSection>
-              {event.logo_url && (
-                <LogoImageContainer>
-                  <LogoImage
-                    src={event.logo_url}
-                    alt={`${event.event_name} logo`}
-                    onError={(e) => e.target.style.display='none'}
-                  />
-                </LogoImageContainer>
-              )}
-              <TitleContainer>
-                <EventTitle>
-                    {event.event_name}
-                </EventTitle>
-                <HostInfo>
-                    Tổ chức bởi: <SemiBold>{event.host_id}</SemiBold>
-                </HostInfo>
-              </TitleContainer>
-              {isHost && (
-                <EditButtonContainer>
-                    {/* Assuming Button can be used as a Link or wraps a Link */}
-                     <RouterLink to={`/admin/edit-event/${eventId}`}>
-                       <Button variant="secondary" size="small">
-                          Chỉnh sửa
-                       </Button>
-                     </RouterLink>
-                </EditButtonContainer>
-              )}
-           </HeaderSection>
+                <DetailsGrid>
+                    <DescriptionColumn>
+                        <SectionTitle>
+                            {/* Thêm icon nếu muốn, ví dụ: <SomeIcon /> */}
+                            Mô tả sự kiện
+                        </SectionTitle>
+                        <DescriptionText>
+                            {event.description || "Không có mô tả."}
+                        </DescriptionText>
+                    </DescriptionColumn>
 
-           <DetailsGrid>
-               <DescriptionColumn>
-                   <SectionTitle>Mô tả sự kiện</SectionTitle>
-                   <DescriptionText>
-                        {event.description || "Không có mô tả."}
-                   </DescriptionText>
-               </DescriptionColumn>
-
-               <InfoColumn>
-                   <div>
-                        <InfoLabel>Thời gian</InfoLabel>
-                        <InfoText>
-                            <SemiBold>Bắt đầu:</SemiBold> {formatDateTime(event.start_date)}
-                        </InfoText>
-                        <InfoText>
-                            <SemiBold>Kết thúc:</SemiBold> {formatDateTime(event.end_date)}
-                        </InfoText>
-                   </div>
-                   <div>
-                        <InfoLabel>Hình thức & Địa điểm</InfoLabel>
-                        <InfoText>
-                            {event.attendance_type === ATTENDANCE_TYPES.ONLINE ? 'Trực tuyến (Online)' : 'Trực tiếp (Offline)'}
-                        </InfoText>
-                        {event.location && (
-                             <InfoText>
-                                {event.attendance_type === ATTENDANCE_TYPES.ONLINE ? 'Nền tảng: ' : 'Địa điểm: '}
-                                <SemiBold>{event.location}</SemiBold>
-                             </InfoText>
+                    <InfoColumn>
+                        <InfoBlock>
+                            <InfoLabel>Thời gian</InfoLabel>
+                            <InfoText>
+                                <SemiBold>Bắt đầu:</SemiBold> {formatDateTime(event.startDate)}
+                            </InfoText>
+                            <InfoText>
+                                <SemiBold>Kết thúc:</SemiBold> {formatDateTime(event.endDate)}
+                            </InfoText>
+                        </InfoBlock>
+                        <InfoBlock>
+                            <InfoLabel>Hình thức & Địa điểm</InfoLabel>
+                            <InfoText>
+                                {event.attendanceType === ATTENDANCE_TYPES.ONLINE ? 'Trực tuyến (Online)' : 'Trực tiếp (Offline)'}
+                            </InfoText>
+                            {event.location && (
+                                <InfoText>
+                                    {event.attendanceType === ATTENDANCE_TYPES.ONLINE ? 'Nền tảng: ' : 'Địa điểm: '}
+                                    <SemiBold>{event.location}</SemiBold>
+                                </InfoText>
+                            )}
+                        </InfoBlock>
+                        <InfoBlock>
+                            <InfoLabel>Số lượng</InfoLabel>
+                            <InfoText>
+                                Tối đa: <SemiBold>{event.capacity} người</SemiBold>
+                            </InfoText>
+                        </InfoBlock>
+                        {eventTags && eventTags.length > 0 && (
+                            <InfoBlock>
+                                <InfoLabel>Thể loại</InfoLabel>
+                                <TagContainer>
+                                    {eventTags.map((tag, index) => (
+                                        <TagBadge key={`${tag}-${index}`}>
+                                            {tag}
+                                        </TagBadge>
+                                    ))}
+                                </TagContainer>
+                            </InfoBlock>
                         )}
-                   </div>
-                   <div>
-                        <InfoLabel>Số lượng</InfoLabel>
-                        <InfoText>
-                            Tối đa: <SemiBold>{event.capacity} người</SemiBold>
-                        </InfoText>
-                        {/* Optional: Display registered count */}
-                        {/* <InfoText>Đã đăng ký: X / {event.capacity}</InfoText> */}
-                   </div>
-                   {event.tags && event.tags.length > 0 && (
-                        <div>
-                            <InfoLabel>Thể loại</InfoLabel>
-                            <TagContainer>
-                               {event.tags.map(tag => (
-                                    <TagBadge key={tag}>
-                                       {tag}
-                                    </TagBadge>
-                               ))}
-                            </TagContainer>
-                        </div>
-                   )}
-               </InfoColumn>
-           </DetailsGrid>
+                    </InfoColumn>
+                </DetailsGrid>
 
-           {isAuthenticated && user?.role === ROLES.STUDENT && (
-             <RegistrationSection>
-               {registrationMessage ? (
-                 <StatusMessage>{registrationMessage}</StatusMessage>
-               ) : (
-                 <>
-                   {registrationError && <ErrorRegMessage>{registrationError}</ErrorRegMessage>}
-                   <Button
-                     onClick={handleRegister}
-                     isLoading={isRegistering} // Pass prop
-                     // disabled={isRegistering /* || event.isRegistered */}
-                     // className="w-full sm:w-auto" // Pass className if Button supports it for sizing
-                   >
-                     {isRegistering ? 'Đang xử lý...' : 'Đăng ký tham gia'}
-                     {/* {event.isRegistered ? 'Đã đăng ký' : 'Đăng ký tham gia'} */}
-                   </Button>
-                 </>
-               )}
-             </RegistrationSection>
-           )}
+                {isAuthenticated && user?.role === ROLES.STUDENT && (
+                    <RegistrationSection>
+                        {registrationMessage ? (
+                            <StatusMessage>{registrationMessage}</StatusMessage>
+                        ) : (
+                            <>
+                                {registrationError && <ErrorRegMessage>{registrationError}</ErrorRegMessage>}
+                                <Button
+                                    onClick={handleRegister}
+                                    isLoading={isRegistering}
+                                    disabled={isRegistering || isCurrentlyRegistered || !!registrationMessage}
+                                    variant={isCurrentlyRegistered || !!registrationMessage ? "success" : "primary"} // Đổi màu nút nếu đã đăng ký
+                                    size="large" // Nút đăng ký to, rõ ràng
+                                >
+                                    {isRegistering ? 'Đang xử lý...' : (isCurrentlyRegistered || !!registrationMessage) ? 'Đã đăng ký' : 'Đăng ký tham gia'}
+                                </Button>
+                            </>
+                        )}
+                    </RegistrationSection>
+                )}
 
-           <BackButtonContainer>
-               <Button onClick={() => navigate(-1)} variant="secondary">
-                   &larr; Quay lại danh sách
-               </Button>
-           </BackButtonContainer>
-
-       </ContentPadding>
-    </PageWrapper>
-  );
+                <BackButtonContainer>
+                    <Button onClick={() => navigate(-1)} variant="secondary" size="medium">
+                        &larr; Quay lại danh sách
+                    </Button>
+                </BackButtonContainer>
+            </ContentPadding>
+        </PageWrapper>
+    );
 };
 
 export default EventDetailsPage;

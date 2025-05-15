@@ -2,12 +2,13 @@
 import React, { useState, useEffect } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
 import styled from 'styled-components';
-import { getAllEvents } from '../services/mockData';
+import { eventService } from '../services/api'; // Import service API thật
 import { useAuth } from '../hooks/useAuth';
 import EventCard from '../components/features/Events/EventCard/EventCard';
 import Button from '../components/common/Button/Button';
+import { ROLES } from '../utils/constants';
 
-// --- Styled Components (Giữ nguyên) ---
+// --- Styled Components (Giữ nguyên như trong file của bạn) ---
 const PageWrapper = styled.div` width: 100%; max-width: 1280px; margin-left: auto; margin-right: auto; padding: 1.5rem; `;
 const HeaderContainer = styled.div` display: flex; flex-direction: column; justify-content: space-between; align-items: flex-start; margin-bottom: 1.5rem; gap: 1rem; @media (min-width: 640px) { flex-direction: row; align-items: center; } `;
 const Title = styled.h1` font-size: 1.5rem; line-height: 2rem; font-weight: 700; font-family: 'DM Sans', sans-serif; color: #1f2937; @media (min-width: 768px) { font-size: 1.875rem; line-height: 2.25rem; } `;
@@ -23,44 +24,86 @@ const ErrorStatusContainer = styled(StatusContainer)` color: #dc2626; `;
 
 // --- Component ---
 const MyEventsPage = () => {
-    const { user } = useAuth(); // Lấy thông tin user để lọc sự kiện
+    const { user } = useAuth();
     const [myEvents, setMyEvents] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [isDeleting, setIsDeleting] = useState(false); // State cho việc đang xóa
 
-    useEffect(() => {
-        const fetchAndFilterEvents = async () => {
-            // Chỉ fetch nếu user đã load và có faculty (định danh host)
-            if (!user?.faculty) {
+    const fetchMyEvents = async () => { // Tách hàm fetch để có thể gọi lại
+        if (!user?.id) {
+            setIsLoading(false);
+            setMyEvents([]);
+            if (user && (user.role === ROLES.EVENT_CREATOR || user.role === ROLES.UNION)) {
+                setError("Không thể xác định người dùng để tải sự kiện.");
+            }
+            return;
+        }
+
+        setIsLoading(true);
+        setError(null);
+        try {
+            const allEventsData = await eventService.getAllEvents();
+            if (!Array.isArray(allEventsData)) {
+                console.error("API did not return an array of events:", allEventsData);
+                setError("Dữ liệu sự kiện trả về không hợp lệ.");
+                setMyEvents([]);
                 setIsLoading(false);
-                setMyEvents([]); // Không có sự kiện nào nếu không xác định được host
-                // Có thể đặt lỗi nếu user role đúng nhưng thiếu faculty
-                 if (user && (user.role === ROLES.EVENT_CREATOR || user.role === ROLES.UNION)) {
-                    setError("Không thể xác định đơn vị tổ chức của bạn.");
-                 }
                 return;
             }
+            const filtered = allEventsData.filter(event => {
+                const hostIdFromEvent = event.hostId;
+                return String(hostIdFromEvent) === String(user.id);
+            });
+            filtered.sort((a, b) => {
+                const dateA = a.createAt || a.startDate;
+                const dateB = b.createAt || b.startDate;
+                return new Date(dateB) - new Date(dateA);
+            });
+            setMyEvents(filtered);
+        } catch (err) {
+            console.error("Error fetching events:", err);
+            setError(err.response?.data?.message || err.message || 'Không thể tải danh sách sự kiện của bạn.');
+            setMyEvents([]);
+        } finally {
+            setIsLoading(false);
+        }
+    };
 
-            setIsLoading(true);
-            setError(null);
+    useEffect(() => {
+        if (user) {
+            fetchMyEvents();
+        } else {
+            setIsLoading(false);
+            setMyEvents([]);
+        }
+    }, [user]);
+
+    const handleDeleteEvent = async (eventId) => {
+        if (!eventId) {
+            console.error("Event ID is missing for delete operation.");
+            alert("Lỗi: Không có ID sự kiện để xóa.");
+            return;
+        }
+
+        const eventToDelete = myEvents.find(event => event.eventId === eventId);
+        const eventName = eventToDelete ? eventToDelete.eventName : "sự kiện này";
+
+        if (window.confirm(`Bạn có chắc chắn muốn xóa sự kiện "${eventName}" không? Thao tác này không thể hoàn tác.`)) {
+            setIsDeleting(true); // Bắt đầu trạng thái đang xóa
             try {
-                const response = await getAllEvents();
-                const allEvts = response.data || [];
-                // Lọc sự kiện: host_id của sự kiện phải khớp với faculty của user
-                const filtered = allEvts.filter(event => event.host_id === user.faculty);
-                // Sắp xếp theo ngày tạo mới nhất hoặc ngày diễn ra gần nhất (tùy chọn)
-                filtered.sort((a, b) => new Date(b.create_on) - new Date(a.create_on));
-                setMyEvents(filtered);
+                await eventService.deleteEvent(eventId);
+                // Cập nhật UI bằng cách lọc ra sự kiện đã xóa
+                setMyEvents(prevEvents => prevEvents.filter(event => event.eventId !== eventId));
+                alert(`Sự kiện "${eventName}" đã được xóa thành công.`);
             } catch (err) {
-                setError(err.message || 'Không thể tải danh sách sự kiện.');
-                setMyEvents([]);
+                console.error("Error deleting event:", err);
+                alert(`Xóa sự kiện thất bại: ${err.response?.data?.message || err.message}`);
             } finally {
-                setIsLoading(false);
+                setIsDeleting(false); // Kết thúc trạng thái đang xóa
             }
-        };
-
-        fetchAndFilterEvents();
-    }, [user]); // Chạy lại khi user thay đổi
+        }
+    };
 
 
     if (isLoading) {
@@ -76,35 +119,51 @@ const MyEventsPage = () => {
                 <Title>
                     Sự kiện của tôi ({myEvents.length})
                 </Title>
-                <RouterLink to="/admin/create-event">
-                    <Button variant="primary">
-                        + Tạo sự kiện mới
-                    </Button>
-                </RouterLink>
+                { (user?.role === ROLES.EVENT_CREATOR || user?.role === ROLES.UNION) && (
+                    <RouterLink to="/admin/create-event">
+                        <Button variant="primary" disabled={isDeleting}> {/* Vô hiệu hóa nút khi đang xóa */}
+                            + Tạo sự kiện mới
+                        </Button>
+                    </RouterLink>
+                )}
             </HeaderContainer>
+
+            {isDeleting && <StatusContainer>Đang xóa sự kiện...</StatusContainer>}
 
             {myEvents.length > 0 ? (
                 <EventGrid>
-                    {myEvents.map((event) => (
-                        // Chỉ cần truyền event, EventCard sẽ tự xử lý nút "Sửa"
-                        <EventCard key={event.event_id} event={event} />
-                    ))}
+                    {myEvents.map((event) => {
+                        const eventKey = event.eventId || `event-fallback-${Math.random()}`; // Cung cấp fallback key nếu eventId không có
+                        if (!event || !event.eventId) { 
+                            console.error("Event object is invalid or missing an eventId:", event);
+                            return <div key={eventKey}>Sự kiện không hợp lệ</div>; // Hiển thị lỗi hoặc bỏ qua
+                        }
+                        return (
+                            <EventCard
+                                key={eventKey}
+                                event={event}
+                                isAdminView={true}
+                                onDeleteRequest={handleDeleteEvent} // Truyền hàm xử lý xóa
+                            />
+                        );
+                    })}
                 </EventGrid>
             ) : (
                 <EmptyStateContainer>
                     <EmptyStateIcon xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                        {/* Icon khác hoặc giữ nguyên */}
                     </EmptyStateIcon>
                     <EmptyStateTitle>Chưa có sự kiện nào được tạo</EmptyStateTitle>
                     <EmptyStateText>Hãy tạo sự kiện đầu tiên cho đơn vị của bạn!</EmptyStateText>
-                    <EmptyStateLinkContainer>
-                        <RouterLink to="/admin/create-event">
-                            <Button variant="primary">
-                                + Tạo sự kiện mới
-                            </Button>
-                        </RouterLink>
-                    </EmptyStateLinkContainer>
+                    {(user?.role === ROLES.EVENT_CREATOR || user?.role === ROLES.UNION) && (
+                        <EmptyStateLinkContainer>
+                            <RouterLink to="/admin/create-event">
+                                <Button variant="primary" disabled={isDeleting}>
+                                    + Tạo sự kiện mới
+                                </Button>
+                            </RouterLink>
+                        </EmptyStateLinkContainer>
+                    )}
                 </EmptyStateContainer>
             )}
         </PageWrapper>
