@@ -7,30 +7,43 @@
  * @returns {string} Chuỗi ngày đã định dạng hoặc chuỗi rỗng nếu input không hợp lệ
  */
 export const formatDateTime = (dateInput) => {
-    if (!dateInput) return '';
-    try {
-      const date = new Date(dateInput);
-      // Kiểm tra xem date có hợp lệ không
-      if (isNaN(date.getTime())) {
-          return '';
-      }
-  
-      const options = {
-        weekday: 'long', // "Thứ Hai"
-        year: 'numeric', // "2025"
-        month: 'long', // "tháng 6"
-        day: 'numeric', // "15"
-        hour: '2-digit', // "09"
-        minute: '2-digit', // "00"
-        hour12: false // Sử dụng định dạng 24h
-      };
-      // Sử dụng locale 'vi-VN' để có định dạng tiếng Việt
-      return new Intl.DateTimeFormat('vi-VN', options).format(date);
-    } catch (error) {
-      console.error("Error formatting date:", error);
-      return ''; // Trả về chuỗi rỗng nếu có lỗi
+  console.log("[formatDateTime] Nhận đầu vào:", dateInput);
+
+  if (!dateInput) {
+    console.log("[formatDateTime] Đầu vào rỗng, trả về ''");
+    return '';
+  }
+  try {
+    const date = new Date(dateInput);
+    console.log("[formatDateTime] Đối tượng Date sau khi parse:", date.toString()); // Xem giờ local của trình duyệt
+    console.log("[formatDateTime] Đối tượng Date (UTC):", date.toUTCString());    // Xem giờ UTC
+
+    if (isNaN(date.getTime())) {
+      console.warn("[formatDateTime] Ngày không hợp lệ cho đầu vào:", dateInput);
+      return '';
     }
-  };
+
+    const options = {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+      timeZone: 'Asia/Ho_Chi_Minh' // Quan trọng!
+    };
+    console.log("[formatDateTime] Sử dụng options:", JSON.stringify(options));
+
+    const formattedDate = new Intl.DateTimeFormat('vi-VN', options).format(date);
+    console.log("[formatDateTime] Kết quả định dạng (cho Asia/Ho_Chi_Minh):", formattedDate); // Đây phải là "8 giờ 8 phút"
+    console.log("[formatDateTime] Kết quả định dạng (cho Asia/Ho_Chi_Minh):", formattedDate); // DÒNG LOG QUAN TRỌNG
+    return formattedDate;
+  } catch (error) {
+    console.error("[formatDateTime] Lỗi định dạng ngày:", dateInput, error);
+    return '';
+  }
+};
   
   /**
    * Định dạng chuỗi ngày ISO hoặc đối tượng Date thành dạng Ngày/Tháng/Năm

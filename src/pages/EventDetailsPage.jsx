@@ -253,6 +253,14 @@ const EventDetailsPage = () => {
             try {
                 const response = await eventService.getEvent(eventId);
                 const eventData = response.data;
+                
+                if (eventData) { // Kiểm tra xem eventData có tồn tại không trước khi truy cập thuộc tính
+        console.log(">>> EventDetailsPage - RAW event.startDate TỪ API:", eventData.startDate);
+        console.log(">>> EventDetailsPage - RAW event.endDate TỪ API:", eventData.endDate);
+      } else {
+        console.log(">>> EventDetailsPage - eventData từ API là null hoặc undefined");
+      }
+      
                 setEvent(eventData);
                 if (isAuthenticated && user?.role === ROLES.STUDENT && user?.id && eventData?.eventId) {
                     const registeredEvents = await registrationService.getEventsUserRegisteredFor(user.id);

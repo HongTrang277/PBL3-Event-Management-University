@@ -532,6 +532,8 @@ const CreateEventPage = () => {
                     setIsLoading(false); return;
                 }
             }
+            console.log(">>> STATE 'startDate' TRƯỚC new Date():", startDate); // QUAN TRỌNG!
+  console.log(">>> STATE 'endDate' TRƯỚC new Date():", endDate);     // Để so sánh
 
             const eventData = {
                 EventName: eventName.trim(),
@@ -643,7 +645,10 @@ const CreateEventPage = () => {
                   label="Ngày giờ bắt đầu"
                   type="datetime-local"
                   value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
+                  onChange={(e) => {
+        console.log(">>> RAW INPUT VAL (startDate):", e.target.value);
+        setStartDate(e.target.value);
+    }}
                   required
                 />
               </FormGroup>
