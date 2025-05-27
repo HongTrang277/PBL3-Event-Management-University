@@ -1,7 +1,7 @@
 // src/pages/StudentDashboardPage.jsx
 import React, { useState, useEffect } from 'react';
 import styled from 'styled-components';
-import { useAuth } from '../hooks/useAuth';
+import { useAuth } from '../contexts/AuthContext';
 import { eventService, registrationService } from '../services/api';
 import EventSearchBar from '../components/features/Search/EventSearchBar/EventSearchBar';
 import EventCard from '../components/features/Events/EventCard/EventCard';
@@ -54,7 +54,7 @@ const ErrorText = styled.p`
 
 // --- Component ---
 const StudentDashboardPage = () => {
-  const { user, isAuthenticated } = useAuth();
+  const { user, userRoles, isAuthenticated } = useAuth();
   const [allEvents, setAllEvents] = useState([]); // Sẽ chứa tất cả sự kiện, không lọc approvalStatus
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -63,17 +63,27 @@ const StudentDashboardPage = () => {
 
   useEffect(() => {
     const fetchData = async () => {
-      if (!isAuthenticated || !user?.id || user?.role !== ROLES.STUDENT) {
-        setIsLoading(false);
-        setAllEvents([]);
-        setRegisteredEventMap(new Map());
-        if (user && user.role !== ROLES.STUDENT) {
-          setError("Trang này chỉ dành cho sinh viên.");
-        } else if (!isAuthenticated) {
-          setError("Vui lòng đăng nhập để xem trang này.");
-        }
-        return;
+      if (!isAuthenticated || !user?.id) {
+      setIsLoading(false);
+      setAllEvents([]);
+      setRegisteredEventMap(new Map());
+      if (!isAuthenticated) {
+        setError("Vui lòng đăng nhập để xem trang này.");
       }
+      return;
+    }
+
+    // Chấp nhận cả 'User' và 'STUDENT'
+    const isValidRole = user?.role === ROLES.STUDENT || user?.role === 'User' || 
+                       (Array.isArray(userRoles) && userRoles.some(r => 
+                         ['student', 'Student', 'User'].includes(r)
+                       ));
+    
+    if (!isValidRole) {
+      setError("Trang này chỉ dành cho sinh viên.");
+      setIsLoading(false);
+      return;
+    }
 
       setIsLoading(true);
       setError(null);
@@ -126,9 +136,12 @@ const StudentDashboardPage = () => {
         setIsLoading(false);
       }
     };
-
+    const isValidRole = user?.role === ROLES.STUDENT || user?.role === 'User' || 
+                   (Array.isArray(userRoles) && userRoles.some(r => 
+                     ['student', 'Student', 'User'].includes(r)
+                   ));
     // Chỉ fetch khi đã xác thực và là sinh viên
-    if (isAuthenticated && user?.id && user?.role === ROLES.STUDENT) {
+    if (isAuthenticated && user?.id && isValidRole) {
         fetchData();
     } else {
         // Xử lý trường hợp chưa đăng nhập hoặc không phải sinh viên ở đây nếu cần thiết

@@ -230,7 +230,7 @@ const EventDetailsPage = () => {
     const { eventId } = useParams();
     const navigate = useNavigate();
     const location = useLocation();
-    const { user, isAuthenticated } = useAuth();
+    const { user, userRoles, isAuthenticated } = useAuth();
 
     const [event, setEvent] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
@@ -254,7 +254,7 @@ const EventDetailsPage = () => {
                 const response = await eventService.getEvent(eventId);
                 const eventData = response.data;
                 setEvent(eventData);
-                if (isAuthenticated && user?.role === ROLES.STUDENT && user?.id && eventData?.eventId) {
+                if (isAuthenticated && userRoles.includes(ROLES.STUDENT) && user?.id && eventData?.eventId) {
                     const registeredEvents = await registrationService.getEventsUserRegisteredFor(user.id);
                     if (Array.isArray(registeredEvents) && registeredEvents.some(reg => (reg.event?.eventId || reg.eventId) === eventData.eventId)) {
                         setIsCurrentlyRegistered(true);
@@ -296,7 +296,12 @@ const EventDetailsPage = () => {
 
     const handleRegister = async () => {
         if (!isAuthenticated) { navigate('/login', { state: { from: location.pathname } }); return; }
-        if (!user || !user.id || user.role !== ROLES.STUDENT) { setRegistrationError("Chỉ sinh viên mới có thể đăng ký sự kiện."); return; }
+        if (!user || !user.id || !userRoles.includes(ROLES.STUDENT)) {
+          console.error("User is not authenticated or does not have the STUDENT role.");
+          console.log("User roles:", userRoles);
+          console.log("User object:", user);
+          console.log(ROLES.STUDENT===user.role);
+           setRegistrationError("Chỉ sinh viên mới có thể đăng ký sự kiệnddddđ."); return; }
         setIsRegistering(true); setRegistrationMessage(''); setRegistrationError('');
         try {
             const responseData = await registrationService.registerUserForEvent(user.id, eventId);

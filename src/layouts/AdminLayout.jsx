@@ -5,7 +5,7 @@ import styled from 'styled-components';
 import { useAuth } from '../hooks/useAuth'; // Đảm bảo đường dẫn đúng
 import { ROLES } from '../utils/constants'; // Đảm bảo đường dẫn đúng
 import AdminSidebar from '../components/features/Navigation/MainNav/AdminSidebar'; // Đảm bảo đường dẫn đúng
-
+import { useNavigate } from 'react-router-dom'; // Đảm bảo đã import useNavigate
 
 
 // --- Styled Components --- (Giữ nguyên)
@@ -30,28 +30,35 @@ const LoadingWrapper = styled.div`
     font-size: 1.2rem;
 `;
 
-// --- Component --- (Giữ nguyên logic, chỉ tách file)
 const AdminLayout = () => {
-    const { isAuthenticated, user, loading } = useAuth();
+  const { isAuthenticated, userRoles, hasAnyRole } = useAuth();
+  const navigate = useNavigate();
 
-    if (loading) {
-        return <LoadingWrapper>Loading...</LoadingWrapper>;
+  // Dùng useEffect để tránh kiểm tra liên tục khi render
+  React.useEffect(() => {
+    // Kiểm tra xem người dùng có quyền admin không
+    const adminRoles = ['Organizer', 'event_creator', 'EventCreator', 'union', 'Union', 'Admin'];
+    const hasAdminRole = hasAnyRole(adminRoles);
+
+    if (!isAuthenticated || !hasAdminRole) {
+      console.log('AdminLayout: Not authenticated or invalid role. Redirecting to login.');
+      navigate('/login', { replace: true });
     }
+  }, [isAuthenticated, userRoles, hasAnyRole, navigate]);
 
-    if (!isAuthenticated || (user?.role !== ROLES.EVENT_CREATOR && user?.role !== ROLES.UNION)) {
-         console.log("AdminLayout: Not authenticated or invalid role. Redirecting to login.");
-        return <Navigate to="/login" state={{ from: window.location }} replace />;
-    }
+  // Log debug để kiểm tra
+  console.log('AdminLayout rendering with roles:', userRoles);
 
-    console.log("AdminLayout: Rendering Admin Sidebar and Outlet.");
-    return (
-        <AdminWrapper>
-            <AdminSidebar />
-            <AdminContent>
-                <Outlet />
-            </AdminContent>
-        </AdminWrapper>
-    );
+  return (
+    <div className="admin-layout">
+      <div className="admin-sidebar">
+        {/* Sidebar content */}
+      </div>
+      <div className="admin-content">
+        <Outlet />
+      </div>
+    </div>
+  );
 };
 
 export default AdminLayout;

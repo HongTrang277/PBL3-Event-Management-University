@@ -1,9 +1,10 @@
-// src/components/features/Navigation/StudentNavbar/StudentNavbar.jsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { NavLink, useNavigate, Link } from 'react-router-dom';
 import styled from 'styled-components';
-import { useAuth } from '../../../../hooks/useAuth'; // Điều chỉnh đường dẫn
-import Button from '../../../common/Button/Button'; // Điều chỉnh đường dẫn
+// Sửa lại import path cho đúng
+import { useAuth } from '../../../../contexts/AuthContext';
+import Button from '../../../common/Button/Button';
+
 
 // --- Styled Components --- (Giữ nguyên như trong mã gốc)
 const Nav = styled.nav`
@@ -113,9 +114,19 @@ const HamburgerButton = styled.button`
 
 // --- Component ---
 const StudentNavbar = () => {
-    const { user, isAuthenticated, logout } = useAuth();
+    const { user, userRoles, isAuthenticated, hasAnyRole, logout } = useAuth();
     const navigate = useNavigate();
     const [isMenuOpen, setIsMenuOpen] = useState(false);
+    
+    // Debug thông tin role
+    useEffect(() => {
+        console.log('StudentNavbar - Auth info:', { 
+            user, 
+            isAuthenticated, 
+            userRoles,
+            isUser: hasAnyRole ? hasAnyRole(['User', 'student', 'Student']) : false
+        });
+    }, [user, isAuthenticated, userRoles, hasAnyRole]);
 
     const handleLogout = () => {
         logout();
@@ -131,9 +142,18 @@ const StudentNavbar = () => {
         setIsMenuOpen(false);
     };
 
+    // Kiểm tra nếu người dùng có quyền Student hoặc User
+    const isStudent = hasAnyRole ? hasAnyRole(['User', 'student', 'Student']) : 
+                     (user?.role === 'User' || user?.role === 'student' || user?.role === 'Student');
+
+    // Kiểm tra nếu người dùng là Organizer
+    const isOrganizer = hasAnyRole ? hasAnyRole(['Organizer', 'event_creator', 'EventCreator']) :
+                        (user?.role === 'Organizer' || user?.role === 'event_creator' || user?.role === 'EventCreator');
+
     const getHomeLink = () => {
         if (!isAuthenticated) return "/";
-        if (user?.role === 'student') return "/dashboard";
+        if (isStudent) return "/dashboard-student";
+        if (isOrganizer) return "/admin/my-events";
         // Add other roles if needed, otherwise default to home
         return "/";
     };
@@ -151,20 +171,32 @@ const StudentNavbar = () => {
 
                 {/* Các link điều hướng */}
                 <NavLinks $isOpen={isMenuOpen}>
-                    {/* <li><StyledNavLink to={getHomeLink()} onClick={closeMenu} end>Sự kiện</StyledNavLink></li> */}
-                    {isAuthenticated && user?.role === 'student' && (
+                    <li><StyledNavLink to="/" onClick={closeMenu} end>Trang chủ</StyledNavLink></li>
+                    
+                    {/* Menu cho User/Student */}
+                    {isAuthenticated && isStudent && (
                         <>
+                            <li><StyledNavLink to="/dashboard-student" onClick={closeMenu}>Dashboard</StyledNavLink></li>
                             <li><StyledNavLink to="/registered-events" onClick={closeMenu}>Đã đăng ký</StyledNavLink></li>
                             <li><StyledNavLink to="/achievements" onClick={closeMenu}>Thành tích</StyledNavLink></li>
                             <li><StyledNavLink to="/attendance" onClick={closeMenu}>Điểm danh</StyledNavLink></li>
-                            {/* <li><StyledNavLink to="/profile" onClick={closeMenu}>Hồ sơ</StyledNavLink></li> */}
+                            <li><StyledNavLink to="/profile" onClick={closeMenu}>Hồ sơ</StyledNavLink></li>
                         </>
                     )}
-                     {/* Có thể thêm link khác cho guest hoặc admin ở đây nếu cần */}
+                    
+                    {/* Menu cho Organizer */}
+                    {isAuthenticated && isOrganizer && (
+                        <>
+                            <li><StyledNavLink to="/admin/my-events" onClick={closeMenu}>Sự kiện của tôi</StyledNavLink></li>
+                            <li><StyledNavLink to="/admin/events" onClick={closeMenu}>Tất cả sự kiện</StyledNavLink></li>
+                            <li><StyledNavLink to="/admin/create-event" onClick={closeMenu}>Tạo sự kiện</StyledNavLink></li>
+                            <li><StyledNavLink to="/profile" onClick={closeMenu}>Hồ sơ</StyledNavLink></li>
+                        </>
+                    )}
                 </NavLinks>
 
                 {/* Phần xác thực */}
-                <AuthSection isOpen={isMenuOpen}>
+                <AuthSection $isOpen={isMenuOpen}>
                     {isAuthenticated ? (
                         <>
                             <UserInfo>{user?.name || user?.email}</UserInfo>

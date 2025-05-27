@@ -1,65 +1,63 @@
 // src/pages/LoginPage.jsx
-import React, { useState } from 'react';
-import { useNavigate, useLocation, Link as RouterLink } from 'react-router-dom';
-import styled, { ThemeProvider } from 'styled-components'; // Import ThemeProvider
-import { FaEye, FaEyeSlash, FaApple } from 'react-icons/fa'; // Icon cho password
-import { FcGoogle } from 'react-icons/fc'; // Icon Google
+import React, { useState, useEffect } from "react";
+import { useNavigate, useLocation, Link as RouterLink } from "react-router-dom";
+import styled, { ThemeProvider } from "styled-components";
+import { FaEye, FaEyeSlash, FaApple } from "react-icons/fa";
+import { FcGoogle } from "react-icons/fc";
 
-import { useAuth } from '../hooks/useAuth';
-import Button from '../components/common/Button/Button';
-import Input from '../components/common/Input/Input';
-import { ROLES } from '../utils/constants';
-import { registrationService } from '../services/api'; // Import service thật
+import { useAuth } from "../contexts/AuthContext"; // Sử dụng AuthContext đã cải tiến
+import Button from "../components/common/Button/Button";
+import { ROLES } from "../utils/constants";
+import { registrationService } from "../services/api";
 
 // Lấy theme từ tailwind.config.js (giả định bạn có cách import hoặc định nghĩa lại)
 // Ví dụ định nghĩa lại theme dựa trên config:
 const theme = {
     colors: {
-        primary: '#a8e0fd',
-        'primary-1': "#47c1ff",
-        'primary-2': "#ddf4ff",
-        'primary-3': "#003652",
-        'primary-4': "#5ba2dd",
-        'primary-5': "#b1dcff",
-        'primary-6': "#ceeeff",
-        'primary-7': "#003652", // Trùng primary-3, có thể là typo
-        'primary-8': "#02a533",
-        secondary: '#ffd3ec',
-        'secondary-1': "#eb7ebc",
+        primary: "#a8e0fd",
+        "primary-1": "#47c1ff",
+        "primary-2": "#ddf4ff",
+        "primary-3": "#003652",
+        "primary-4": "#5ba2dd",
+        "primary-5": "#b1dcff",
+        "primary-6": "#ceeeff",
+        "primary-7": "#003652", // Trùng primary-3, có thể là typo
+        "primary-8": "#02a533",
+        secondary: "#ffd3ec",
+        "secondary-1": "#eb7ebc",
         // ... các màu secondary khác
-        'custom-gray': {
-            100: '#f7fafc',
-            200: '#edf2f7',
-            300: '#e2e8f0',
-            400: '#cbd5e0',
-            500: '#a0aec0',
-            600: '#718096',
-            700: '#4a5568',
-            800: '#2d3748',
-            900: '#1a202c',
+        "custom-gray": {
+            100: "#f7fafc",
+            200: "#edf2f7",
+            300: "#e2e8f0",
+            400: "#cbd5e0",
+            500: "#a0aec0",
+            600: "#718096",
+            700: "#4a5568",
+            800: "#2d3748",
+            900: "#1a202c",
         },
-        white: '#ffffff',
+        white: "#ffffff",
         // Thêm màu focus nếu cần, ví dụ:
-        focusBorder: '#5ba2dd', // primary-4
-        inputBorder: '#cbd5e0', // custom-gray-400
-        placeholderText: '#a0aec0', // custom-gray-500
+        focusBorder: "#5ba2dd", // primary-4
+        inputBorder: "#cbd5e0", // custom-gray-400
+        placeholderText: "#a0aec0", // custom-gray-500
     },
     fontFamily: {
-        'nutito-sans': ['"Nunito Sans"', 'sans-serif'],
-        'dm-sans': ['"DM Sans"', 'sans-serif'],
+        "nutito-sans": ['"Nunito Sans"', "sans-serif"],
+        "dm-sans": ['"DM Sans"', "sans-serif"],
     },
     borderRadius: {
-        'lg': '0.5rem', // rounded-lg
-        'xl': '0.75rem', // Gần giống ảnh hơn
-        'md': '0.375rem', // rounded-md cho input/button nhỏ
-        'full': '9999px',
+        lg: "0.5rem", // rounded-lg
+        xl: "0.75rem", // Gần giống ảnh hơn
+        md: "0.375rem", // rounded-md cho input/button nhỏ
+        full: "9999px",
     },
     boxShadow: {
-        'md': '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
-        'lg': '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
+        md: "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)",
+        lg: "0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)",
     },
 };
-
 
 // --- Styled Components ---
 
@@ -69,22 +67,27 @@ const PageWrapper = styled.div`
   align-items: center;
   justify-content: center;
   /* Gradient nền dựa trên theme primary */
-  background: linear-gradient(135deg, ${props => props.theme.colors['primary-6']} 0%, ${props => props.theme.colors.white} 100%);
+  background: linear-gradient(
+    135deg,
+    ${(props) => props.theme.colors["primary-6"]} 0%,
+    ${(props) => props.theme.colors.white} 100%
+  );
   padding: 2rem 1rem;
 `;
 
 const LoginContainer = styled.div`
   width: 100%;
   max-width: 60rem; /* ~ max-w-6xl để chứa 2 cột */
-  background-color: ${props => props.theme.colors.white};
-  border-radius: ${props => props.theme.borderRadius['xl']};
-  box-shadow: ${props => props.theme.boxShadow['lg']};
+  background-color: ${(props) => props.theme.colors.white};
+  border-radius: ${(props) => props.theme.borderRadius["xl"]};
+  box-shadow: ${(props) => props.theme.boxShadow["lg"]};
   display: flex;
   overflow: hidden; /* Đảm bảo ảnh không tràn ra ngoài */
 
-  @media (max-width: 768px) { /* Stack columns on smaller screens */
-      flex-direction: column;
-      max-width: 28rem; /* max-w-md cho màn hình nhỏ */
+  @media (max-width: 768px) {
+    /* Stack columns on smaller screens */
+    flex-direction: column;
+    max-width: 28rem; /* max-w-md cho màn hình nhỏ */
   }
 `;
 
@@ -96,20 +99,21 @@ const LeftColumn = styled.div`
   justify-content: center; /* Căn giữa nội dung form */
 
   @media (max-width: 768px) {
-      order: 2; /* Form ở dưới ảnh trên mobile */
-      padding: 2rem 1.5rem;
+    order: 2; /* Form ở dưới ảnh trên mobile */
+    padding: 2rem 1.5rem;
   }
 `;
 
 const RightColumn = styled.div`
   flex: 1 1 50%;
   display: block; /* Hiển thị cột ảnh */
-  background-color: ${props => props.theme.colors['custom-gray'][100]}; /* Nền fallback */
+  background-color: ${(props) =>
+        props.theme.colors["custom-gray"][100]}; /* Nền fallback */
 
   @media (max-width: 768px) {
-      order: 1; /* Ảnh lên trên trên mobile */
-      min-height: 250px; /* Chiều cao tối thiểu cho ảnh */
-      flex-basis: auto; /* Reset basis */
+    order: 1; /* Ảnh lên trên trên mobile */
+    min-height: 250px; /* Chiều cao tối thiểu cho ảnh */
+    flex-basis: auto; /* Reset basis */
   }
 `;
 
@@ -120,7 +124,6 @@ const StyledImage = styled.img`
   display: block;
 `;
 
-
 const FormHeader = styled.div`
   margin-bottom: 1.5rem;
   /* Thêm logo nếu cần */
@@ -128,17 +131,17 @@ const FormHeader = styled.div`
 `;
 
 const Title = styled.h2`
-  font-family: ${props => props.theme.fontFamily['dm-sans']};
+  font-family: ${(props) => props.theme.fontFamily["dm-sans"]};
   font-size: 1.875rem; /* text-3xl */
   font-weight: 700;
-  color: ${props => props.theme.colors['primary-3']};
+  color: ${(props) => props.theme.colors["primary-3"]};
   margin-bottom: 0.5rem;
 `;
 
 const Subtitle = styled.p`
-  font-family: ${props => props.theme.fontFamily['nutito-sans']};
+  font-family: ${(props) => props.theme.fontFamily["nutito-sans"]};
   font-size: 0.875rem; /* text-sm */
-  color: ${props => props.theme.colors['custom-gray'][600]};
+  color: ${(props) => props.theme.colors["custom-gray"][600]};
   margin-bottom: 2rem;
 `;
 
@@ -160,36 +163,40 @@ const StyledInputGroup = styled.div`
     display: block;
     font-size: 0.875rem;
     font-weight: 500;
-    color: ${props => props.theme.colors['custom-gray'][700]};
+    color: ${(props) => props.theme.colors["custom-gray"][700]};
     margin-bottom: 0.3rem; /* Khoảng cách label và input */
   }
 
   input {
-      display: block;
-      width: 100%;
-      padding: 0.75rem 1rem; /* Tăng padding */
-      font-size: 0.875rem;
-      font-family: ${props => props.theme.fontFamily['nutito-sans']};
-      color: ${props => props.theme.colors['custom-gray'][900]};
-      background-color: ${props => props.theme.colors.white};
-      border: 1px solid ${props => props.error ? props.theme.colors.secondary : props.theme.colors.inputBorder};
-      border-radius: ${props => props.theme.borderRadius.md};
-      box-shadow: none; /* Bỏ shadow mặc định của Input component nếu có */
-      transition: border-color 0.2s;
+    display: block;
+    width: 100%;
+    padding: 0.75rem 1rem; /* Tăng padding */
+    font-size: 0.875rem;
+    font-family: ${(props) => props.theme.fontFamily["nutito-sans"]};
+    color: ${(props) => props.theme.colors["custom-gray"][900]};
+    background-color: ${(props) => props.theme.colors.white};
+    border: 1px solid
+      ${(props) =>
+        props.error
+            ? props.theme.colors.secondary
+            : props.theme.colors.inputBorder};
+    border-radius: ${(props) => props.theme.borderRadius.md};
+    box-shadow: none; /* Bỏ shadow mặc định của Input component nếu có */
+    transition: border-color 0.2s;
 
-      &::placeholder {
-          color: ${props => props.theme.colors.placeholderText};
-          opacity: 1;
-      }
+    &::placeholder {
+      color: ${(props) => props.theme.colors.placeholderText};
+      opacity: 1;
+    }
 
-      &:focus {
-          outline: none;
-          border-color: ${props => props.theme.colors.focusBorder};
-          /* box-shadow: 0 0 0 1px ${props => props.theme.colors.focusBorder}; */ /* Tùy chọn ring focus */
-      }
+    &:focus {
+      outline: none;
+      border-color: ${(props) => props.theme.colors.focusBorder};
+      /* box-shadow: 0 0 0 1px ${(props) =>
+        props.theme.colors.focusBorder}; */ /* Tùy chọn ring focus */
+    }
   }
 `;
-
 
 const PasswordWrapper = styled.div`
   position: relative;
@@ -202,7 +209,7 @@ const ToggleButton = styled.button`
   transform: translateY(-50%);
   background: none;
   border: none;
-  color: ${props => props.theme.colors['custom-gray'][500]};
+  color: ${(props) => props.theme.colors["custom-gray"][500]};
   cursor: pointer;
   padding: 0.25rem;
   display: flex;
@@ -219,22 +226,23 @@ const SubmitButton = styled(Button)`
   padding: 0.75rem 1rem; /* Điều chỉnh padding */
   font-size: 1rem;
   font-weight: 600;
-  background-color: ${props => props.theme.colors['primary-4']};
-  border-color: ${props => props.theme.colors['primary-4']};
-  color: ${props => props.theme.colors.white};
-  border-radius: ${props => props.theme.borderRadius.md};
+  background-color: ${(props) => props.theme.colors["primary-4"]};
+  border-color: ${(props) => props.theme.colors["primary-4"]};
+  color: ${(props) => props.theme.colors.white};
+  border-radius: ${(props) => props.theme.borderRadius.md};
   margin-top: 1.5rem; /* Khoảng cách trên nút submit */
 
   &:hover:not(:disabled) {
-    background-color: ${props => props.theme.colors['primary-3']}; /* Darker blue on hover */
-    border-color: ${props => props.theme.colors['primary-3']};
+    background-color: ${(props) =>
+        props.theme.colors["primary-3"]}; /* Darker blue on hover */
+    border-color: ${(props) => props.theme.colors["primary-3"]};
   }
 
-   &:focus {
-      /* Giữ lại focus style từ Button gốc hoặc định nghĩa lại */
-       box-shadow: 0 0 0 2px ${props => props.theme.colors.white}, 0 0 0 4px ${props => props.theme.colors['primary-4']};
-    }
-
+  &:focus {
+    /* Giữ lại focus style từ Button gốc hoặc định nghĩa lại */
+    box-shadow: 0 0 0 2px ${(props) => props.theme.colors.white},
+      0 0 0 4px ${(props) => props.theme.colors["primary-4"]};
+  }
 `;
 
 const AlternativeLogins = styled.div`
@@ -249,12 +257,12 @@ const AltButton = styled.button`
   align-items: center;
   justify-content: center;
   padding: 0.6rem 1rem;
-  border-radius: ${props => props.theme.borderRadius.md};
+  border-radius: ${(props) => props.theme.borderRadius.md};
   font-size: 0.875rem;
   font-weight: 500;
-  background-color: ${props => props.theme.colors['custom-gray'][100]};
-  color: ${props => props.theme.colors['custom-gray'][700]};
-  border: 1px solid ${props => props.theme.colors.inputBorder};
+  background-color: ${(props) => props.theme.colors["custom-gray"][100]};
+  color: ${(props) => props.theme.colors["custom-gray"][700]};
+  border: 1px solid ${(props) => props.theme.colors.inputBorder};
   cursor: pointer;
   transition: background-color 0.2s, border-color 0.2s;
 
@@ -264,29 +272,29 @@ const AltButton = styled.button`
   }
 
   &:hover {
-    background-color: ${props => props.theme.colors['custom-gray'][200]};
+    background-color: ${(props) => props.theme.colors["custom-gray"][200]};
   }
-   &:focus {
-      outline: none;
-      border-color: ${props => props.theme.colors.focusBorder};
-      box-shadow: 0 0 0 1px ${props => props.theme.colors.focusBorder};
-    }
+  &:focus {
+    outline: none;
+    border-color: ${(props) => props.theme.colors.focusBorder};
+    box-shadow: 0 0 0 1px ${(props) => props.theme.colors.focusBorder};
+  }
 `;
 
 const FooterText = styled.p`
   margin-top: 2rem; /* Khoảng cách trên footer */
   text-align: center;
   font-size: 0.875rem;
-  color: ${props => props.theme.colors['custom-gray'][600]};
+  color: ${(props) => props.theme.colors["custom-gray"][600]};
 `;
 
 const SignUpLink = styled(RouterLink)`
   font-weight: 600;
-  color: ${props => props.theme.colors['primary-4']};
+  color: ${(props) => props.theme.colors["primary-4"]};
   text-decoration: none;
   &:hover {
     text-decoration: underline;
-    color: ${props => props.theme.colors['primary-3']};
+    color: ${(props) => props.theme.colors["primary-3"]};
   }
 `;
 
@@ -295,23 +303,57 @@ const ErrorMessage = styled.div`
   border: 1px solid #fca5a5; /* border-red-400 */
   color: #b91c1c; /* text-red-700 */
   padding: 0.75rem 1rem;
-  border-radius: ${props => props.theme.borderRadius.md};
+  border-radius: ${(props) => props.theme.borderRadius.md};
   font-size: 0.875rem;
   margin-bottom: 1rem; /* Thêm margin nếu có lỗi */
 `;
 
-
 // --- Component ---
-
 const LoginPage = () => {
-    const [username, setUsername] = useState('');
-    const [password, setPassword] = useState('');
+    const [formData, setFormData] = useState({
+        email: "",
+        password: "",
+    });
     const [showPassword, setShowPassword] = useState(false);
     const [error, setError] = useState(null);
     const [isLoading, setIsLoading] = useState(false);
-    const { login } = useAuth();
+    const { login, isAuthenticated, user } = useAuth();
     const navigate = useNavigate();
     const location = useLocation();
+
+    // Redirect nếu đã đăng nhập
+    useEffect(() => {
+        if (isAuthenticated && user) {
+            const redirectPath = getRedirectPathBasedOnRole(user.role);
+            navigate(redirectPath, { replace: true });
+        }
+    }, [isAuthenticated, user, navigate]);
+
+    const getRedirectPathBasedOnRole = (role) => {
+        if (!role) return "/"; // Default to homepage if no role
+
+        const roleStr = String(role).toLowerCase();
+
+        if (roleStr.includes("event_creator") || roleStr.includes("eventcreator")) {
+            return "/admin/my-events";
+        }
+        if (roleStr.includes("union") || roleStr.includes("admin")) {
+            return "/admin/my-events";
+        }
+        if (roleStr.includes("student")) {
+            return "/dashboard";
+        }
+        return "/"; // Default path
+    };
+
+    const handleChange = (e) => {
+        const { id, value } = e.target;
+        setFormData((prev) => ({
+            ...prev,
+            [id]: value,
+        }));
+        setError(null);
+    };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -319,69 +361,60 @@ const LoginPage = () => {
         setIsLoading(true);
 
         try {
-            const userData = await login({ username, password });
-            setIsLoading(false);
+            // Sử dụng email thay vì username để phù hợp với backend API
+            console.log("Submitting login with:", formData);
+            const result = await login({
+                email: formData.email,
+                password: formData.password,
+            });
+            console.log("Login result:", result);
 
-            const eventIdForAutoRegister = location.state?.eventIdToRegister;
-            // `fromPath` là đường dẫn người dùng muốn đến sau khi login (và có thể cả tự động đăng ký)
-            // Nó được truyền từ HomePage (là /events/eventId) hoặc từ trang khác (vd: EventDetailsPage)
-            const fromPath = location.state?.from;
+            const userData = result.user || user;
+            console.log("User data after login:", userData);
+            if (userData) {
+                let redirectTo = "/";
+                // Check user role and decide where to redirect
+                if (userData.role) {
+                    redirectTo = getRedirectPathBasedOnRole(userData.role);
+                }
 
-            if (eventIdForAutoRegister && userData.role === ROLES.STUDENT && userData.id) {
-                // Có eventId và user là student -> tự động đăng ký
-                try {
-                    console.log(`Attempting to auto-register user ${userData.id} for event ${eventIdForAutoRegister}`);
-                    await registrationService.registerUserForEvent(userData.id, eventIdForAutoRegister);
-                    alert("Đăng nhập thành công! Sự kiện đã được tự động đăng ký.");
-                    // Điều hướng đến trang chi tiết sự kiện (fromPath đã được set từ HomePage)
-                    // Truyền state để EventDetailsPage có thể hiển thị thông báo
-                    navigate(fromPath, { // fromPath ở đây là `/events/${eventIdForAutoRegister}`
-                        replace: true,
-                        state: { autoRegistrationSuccess: true, eventId: eventIdForAutoRegister }
-                    });
-                } catch (regError) {
-                    console.error("Auto-registration failed:", regError);
-                    alert(`Đăng nhập thành công, nhưng tự động đăng ký sự kiện thất bại: ${regError.response?.data?.message || regError.message}. Bạn sẽ được chuyển đến trang sự kiện để thử lại.`);
-                    // Vẫn điều hướng đến trang chi tiết sự kiện để người dùng thử đăng ký thủ công
-                    navigate(fromPath, { // fromPath ở đây là `/events/${eventIdForAutoRegister}`
-                        replace: true,
-                        state: { autoRegistrationError: true, eventId: eventIdForAutoRegister }
-                    });
-                }
-            } else {
-                // Không tự động đăng ký, điều hướng như bình thường
-                if (userData.role === ROLES.EVENT_CREATOR || userData.role === ROLES.UNION) {
-                    navigate('/admin/my-events', { replace: true });
-                } else if (userData.role === ROLES.STUDENT) {
-                    // Nếu có fromPath (ví dụ: từ EventDetailsPage khi chưa login), điều hướng đến đó.
-                    // Nếu không, điều hướng đến dashboard.
-                    navigate(fromPath || '/dashboard', { replace: true });
-                } else {
-                    // Các role khác, điều hướng đến fromPath (nếu có) hoặc trang chủ.
-                    navigate(fromPath || '/', { replace: true });
-                }
+                console.log(
+                    `Redirecting to ${redirectTo} based on role: ${userData.role}`
+                );
+                navigate(redirectTo, { replace: true });
             }
-
+            else{
+                navigate("/", { replace: true });
+            }
         } catch (err) {
-            setError(err.message || 'Đăng nhập thất bại. Vui lòng thử lại.');
+            console.error("Login error:", err);
+            setError(
+                err.response?.data?.message ||
+                err.message ||
+                "Đăng nhập thất bại. Vui lòng kiểm tra email và mật khẩu."
+            );
+        } finally {
             setIsLoading(false);
         }
     };
 
+    const handleSocialLogin = (provider) => {
+        // Implement social login logic here
+        alert(`Login with ${provider} clicked! (Chức năng đang phát triển)`);
+    };
+
     return (
-        // Wrap component với ThemeProvider để các styled components có thể truy cập theme
         <ThemeProvider theme={theme}>
             <PageWrapper>
                 <LoginContainer>
                     {/* Cột trái - Form */}
                     <LeftColumn>
-                        <FormHeader>
-                             {/* <img src="/path/to/crextra-logo.png" alt="Crextra Logo" style={{ height: '30px' }} /> */}
-                             {/* Nếu bạn có logo thì thêm vào đây */}
-                        </FormHeader>
+                        <FormHeader>{/* Logo có thể thêm vào đây */}</FormHeader>
 
                         <Title>Đăng nhập hệ thống</Title>
-                        <Subtitle>Sử dụng tài khoản Khoa/Đoàn trường hoặc Gmail sinh viên của bạn.</Subtitle>
+                        <Subtitle>
+                            Sử dụng tài khoản Khoa/Đoàn trường hoặc Gmail sinh viên của bạn.
+                        </Subtitle>
 
                         {error && (
                             <ErrorMessage role="alert">
@@ -390,70 +423,77 @@ const LoginPage = () => {
                         )}
 
                         <StyledForm onSubmit={handleSubmit}>
-                            {/* Input Username */}
+                            {/* Input Email */}
                             <StyledInputGroup>
-                                <label htmlFor="username">Tên đăng nhập / Email</label>
+                                <label htmlFor="email">Email</label>
                                 <input
-                                    id="username"
-                                    type="text"
-                                    value={username}
-                                    onChange={(e) => setUsername(e.target.value)}
-                                    placeholder="Tên Khoa / Đoàn trường / abc@gmail.com"
+                                    id="email"
+                                    type="email"
+                                    value={formData.email}
+                                    onChange={handleChange}
+                                    placeholder="example@gmail.com"
                                     required
-                                    autoComplete="username"
+                                    autoComplete="email"
                                 />
-                             </StyledInputGroup>
+                            </StyledInputGroup>
 
-                             {/* Input Password */}
-                             <StyledInputGroup>
-                                 <label htmlFor="password">Mật khẩu</label>
-                                 <PasswordWrapper>
-                                     <input
-                                         id="password"
-                                         type={showPassword ? 'text' : 'password'}
-                                         value={password}
-                                         onChange={(e) => setPassword(e.target.value)}
-                                         placeholder="Nhập mật khẩu"
-                                         required
-                                         autoComplete="current-password"
-                                     />
-                                     <ToggleButton
-                                         type="button"
-                                         onClick={() => setShowPassword(!showPassword)}
-                                         aria-label={showPassword ? "Hide password" : "Show password"}
-                                     >
-                                         {showPassword ? <FaEyeSlash /> : <FaEye />}
-                                     </ToggleButton>
-                                 </PasswordWrapper>
-                             </StyledInputGroup>
-
+                            {/* Input Password */}
+                            <StyledInputGroup>
+                                <label htmlFor="password">Mật khẩu</label>
+                                <PasswordWrapper>
+                                    <input
+                                        id="password"
+                                        type={showPassword ? "text" : "password"}
+                                        value={formData.password}
+                                        onChange={handleChange}
+                                        placeholder="Nhập mật khẩu"
+                                        required
+                                        autoComplete="current-password"
+                                    />
+                                    <ToggleButton
+                                        type="button"
+                                        onClick={() => setShowPassword(!showPassword)}
+                                        aria-label={
+                                            showPassword ? "Hide password" : "Show password"
+                                        }
+                                    >
+                                        {showPassword ? <FaEyeSlash /> : <FaEye />}
+                                    </ToggleButton>
+                                </PasswordWrapper>
+                            </StyledInputGroup>
 
                             {/* Submit Button */}
                             <SubmitButton
                                 type="submit"
-                                variant="primary" // Sử dụng variant từ component Button nếu có logic màu ở đó
+                                variant="primary"
                                 isLoading={isLoading}
                                 disabled={isLoading}
                             >
-                                {isLoading ? 'Đang xử lý...' : 'Đăng nhập'}
+                                {isLoading ? "Đang xử lý..." : "Đăng nhập"}
                             </SubmitButton>
 
                             {/* Alternative Logins */}
                             <AlternativeLogins>
-                                <AltButton type="button" onClick={() => alert('Login with Apple clicked!')}>
+                                <AltButton
+                                    type="button"
+                                    onClick={() => handleSocialLogin("Apple")}
+                                >
                                     <FaApple /> Apple
                                 </AltButton>
-                                <AltButton type="button" onClick={() => alert('Login with Google clicked!')}>
+                                <AltButton
+                                    type="button"
+                                    onClick={() => handleSocialLogin("Google")}
+                                >
                                     <FcGoogle /> Google
                                 </AltButton>
                             </AlternativeLogins>
 
                             {/* Footer Links */}
                             <FooterText>
-                                Chưa có tài khoản sinh viên?{' '}
+                                Chưa có tài khoản sinh viên?{" "}
                                 <SignUpLink to="/register">Đăng ký ngay</SignUpLink>
                             </FooterText>
-                             <FooterText>
+                            <FooterText>
                                 <SignUpLink to="/terms">Điều khoản & Điều kiện</SignUpLink>
                             </FooterText>
                         </StyledForm>
@@ -461,7 +501,6 @@ const LoginPage = () => {
 
                     {/* Cột phải - Hình ảnh */}
                     <RightColumn>
-                         {/* Thay thế src bằng URL ảnh thực tế của bạn */}
                         <StyledImage
                             src="https://i.pinimg.com/736x/1c/89/62/1c89623c82775c76242435eb02b5b69b.jpg"
                             alt="Team collaborating on project"
