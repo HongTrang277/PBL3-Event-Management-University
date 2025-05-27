@@ -24,18 +24,6 @@ api.interceptors.request.use(
   }
 );
 
-// Các service cho từng tính năng
-export const authService = {
-  login: async (credentials) => {
-    return api.post('/auth/login', credentials);
-  },
-  register: async (userData) => {
-    return api.post('/auth/register', userData);
-  },
-  getProfile: async () => {
-    return api.get('/auth/profile');
-  },
-};
 
 export const eventService = {
   getAllEvents: async () => {
@@ -196,5 +184,82 @@ export const uploadService = {
     return `${API_URL}/uploads/${fileName}`;
   }
 };
+
+export const authService={
+  login: async (credentials) => {
+    try {
+      const response = await api.post('/auth/login', {
+        email: credentials.email,
+        password: credentials.password
+      });
+      
+      if (response.data.token) {
+        // Store JWT token
+        localStorage.setItem('token', response.data.token);
+        // Store refresh token if your backend provides it
+        if (response.data.refreshToken) {
+          localStorage.setItem('refreshToken', response.data.refreshToken);
+        }
+      }
+      
+      return response.data;
+    } catch (error) {
+      console.error('Login error:', error.response?.data || error.message);
+      throw error;
+    }
+  },
+  register: async (userData) => {
+    try{
+      const response= await api.post('/auth/register', {
+        userName: userData.userName,
+        email: userData.email,
+        password: userData.password,
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Registration error:', error.response?.data || error.message);
+      throw error;
+    }
+  },
+  refreshToken: async () => {
+    try {
+      const refreshToken = localStorage.getItem('refreshToken');
+      if (!refreshToken) {
+        throw new Error('No refresh token found');
+      }
+      
+      const response = await api.post('/auth/refresh', { token: refreshToken });
+      
+      // Update tokens in localStorage
+      localStorage.setItem('token', response.data.token);
+      if (response.data.refreshToken) {
+        localStorage.setItem('refreshToken', response.data.refreshToken);
+      }
+      
+      return response.data;
+    } catch (error) {
+      console.error('Refresh token error:', error.response?.data || error.message);
+      throw error;
+    }
+  },
+  logout: () => {
+    // Xóa token khỏi localStorage
+    localStorage.removeItem('token');
+    localStorage.removeItem('refreshToken');
+  },
+   isAuthenticated: () => {
+    return !!localStorage.getItem('token');
+  },
+
+  getToken: () => {
+    return localStorage.getItem('token');
+  },
+
+  getUser: () => {
+    const user = localStorage.getItem('user');
+    return user ? JSON.parse(user) : null;
+  }
+  
+}
 
 export default api;

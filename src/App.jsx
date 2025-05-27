@@ -1,8 +1,7 @@
 // src/App.jsx
 import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
-import { AuthProvider } from './contexts/AuthContext';
-import { useAuth } from './hooks/useAuth'; // Import useAuth
+import { AuthProvider, useAuth } from './contexts/AuthContext';
 
 
 import MainLayout from './layouts/MainLayout'; 
@@ -54,7 +53,7 @@ function App() {
   return (
     <AuthProvider>
       <Routes>
-
+        {/* Public routes */}
         <Route element={<AuthLayout />}>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />

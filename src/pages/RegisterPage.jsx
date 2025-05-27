@@ -1,10 +1,9 @@
 import React, { useState } from 'react';
 import { useNavigate, Link as RouterLink } from 'react-router-dom';
 import styled from 'styled-components';
-import { registerUser } from '../services/mockData';
 import Button from '../components/common/Button/Button'; // Assume styled or accepts className
 import Input from '../components/common/Input/Input'; // Assume styled or accepts className
-
+import { authService } from '../services/api';
 // --- Styled Components ---
 
 const RegisterBox = styled.div`
@@ -163,21 +162,29 @@ const RegisterPage = () => {
         setIsLoading(true);
 
         try {
-            const result = await registerUser({
-                name: formData.name,
-                email: formData.email,
-                password: formData.password
+            const result = await authService.register({
+              userName: formData.name,
+              email: formData.email,
+              password: formData.password,
+            })
+            setSuccessMessage('Đăng ký thành công! Vui lòng đăng nhập.');
+            setFormData({
+                name: '',
+                email: '',
+                password: '',
+                confirmPassword: '',
             });
-
-            setSuccessMessage(result.message);
-            setFormData({ name: '', email: '', password: '', confirmPassword: '' });
-            setValidationErrors({});
             setTimeout(() => {
-                navigate('/login');
-            }, 2500);
+                navigate('/login'); // Redirect to login after success
+            }, 2000); // Redirect after 2 seconds
+
 
         } catch (err) {
-            setError(err.message || 'Đăng ký thất bại. Vui lòng thử lại.');
+            if (err.response?.data?.message) {
+                setError(err.response.data.message);
+            } else {
+                setError(err.message || 'Đăng ký thất bại. Vui lòng thử lại.');
+            }
         } finally {
             setIsLoading(false);
         }
