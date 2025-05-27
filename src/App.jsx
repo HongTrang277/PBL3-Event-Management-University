@@ -24,6 +24,7 @@ import MyEventsPage from './pages/MyEventPage';
 import RegisteredEventsPage from './pages/RegisteredEventPage';
 import AdminAllEventsPage from './pages/AllEventPage';
 import AttendancePage from './pages/AttendancePage';
+import EditEventPage from './pages/EditEventPage';
 // import AchievementsPage from './pages/AchievementsPage'; 
 //  import AttendancePage from './pages/AttendancePage'; 
 // import ProfilePage from './pages/ProfilePage'; 
@@ -99,6 +100,9 @@ function App() {
               <Route path="events" element={<AdminAllEventsPage />} />
               <Route path="my-events" element={<MyEventsPage />} />
               <Route path="create-event" element={<CreateEventPage />} />
+              <Route path="edit-event/:eventId" element={<EditEventPage />} /> {/* Route mới */}
+        
+              
               <Route path= "creator-dashboard" element={
                   <ProtectedRoute allowedRoles={['event_creator']}>
                        {/* <EventCreatorDashboardPage />   Trang thống kê cho Liên chi, Thiên Phú phát triển */}

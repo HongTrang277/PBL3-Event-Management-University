@@ -80,3 +80,71 @@ export const formatDateTime = (dateInput) => {
          return '';
        }
      };
+
+export const convertApiDateTimeToDaNangInputString = (apiDateTimeString) => {
+  if (!apiDateTimeString || typeof apiDateTimeString !== 'string') {
+    // console.log("[Converter] Đầu vào rỗng hoặc không phải chuỗi.");
+    return '';
+  }
+
+  let dateStringToParse = apiDateTimeString;
+
+  if (apiDateTimeString.endsWith('Z')) {
+    // console.log("[Converter] Xử lý chuỗi UTC (có 'Z'):", apiDateTimeString);
+    // dateStringToParse giữ nguyên vì new Date() sẽ hiểu đúng là UTC
+  } else if (apiDateTimeString.length >= 19 && apiDateTimeString.charAt(10) === 'T' && apiDateTimeString.indexOf(':') > 10) {
+    // Giả định chuỗi không có 'Z' là giờ Đà Nẵng.
+    // Thêm "+07:00" để new Date() parse đúng theo giờ Đà Nẵng, bất kể múi giờ trình duyệt.
+    let baseString = apiDateTimeString;
+    if (apiDateTimeString.length > 19 && apiDateTimeString.charAt(19) === '.') {
+        baseString = apiDateTimeString.substring(0, 19); // Loại bỏ mili giây nếu có
+    }
+    dateStringToParse = baseString + "+07:00";
+    // console.log(`[Converter] Chuỗi không có 'Z', đã thêm +07:00: "${dateStringToParse}"`);
+  } else {
+    // console.warn(`[Converter] Định dạng chuỗi ngày giờ không nhận dạng được: "${apiDateTimeString}", thử parse trực tiếp.`);
+    // Cố gắng parse trực tiếp, có thể không chính xác nếu định dạng lạ
+    // và sẽ phụ thuộc múi giờ trình duyệt.
+    try {
+        const riskyDate = new Date(apiDateTimeString);
+        if (isNaN(riskyDate.getTime())) {
+            // console.warn(`[Converter] Parse trực tiếp thất bại cho: "${apiDateTimeString}"`);
+            return '';
+        }
+        // Nếu parse được, chuyển về ISO string để xử lý nhất quán hoặc xử lý trực tiếp
+        dateStringToParse = riskyDate.toISOString(); 
+        // console.log(`[Converter] Đã parse chuỗi không rõ ràng thành ISO: "${dateStringToParse}"`);
+    } catch(e) {
+        // console.error(`[Converter] Lỗi khi parse chuỗi không rõ ràng: "${apiDateTimeString}"`, e);
+        return '';
+    }
+  }
+
+  try {
+    const date = new Date(dateStringToParse);
+    if (isNaN(date.getTime())) {
+      // console.warn("[Converter] Ngày không hợp lệ sau khi chuẩn bị chuỗi parse:", dateStringToParse);
+      return '';
+    }
+
+    const year = new Intl.DateTimeFormat('en', { year: 'numeric', timeZone: 'Asia/Ho_Chi_Minh' }).format(date);
+    const month = new Intl.DateTimeFormat('en', { month: '2-digit', timeZone: 'Asia/Ho_Chi_Minh' }).format(date);
+    const day = new Intl.DateTimeFormat('en', { day: '2-digit', timeZone: 'Asia/Ho_Chi_Minh' }).format(date);
+    
+    let hourValue = new Intl.DateTimeFormat('en', { hour: 'numeric', hour12: false, timeZone: 'Asia/Ho_Chi_Minh' }).format(date);
+    if (hourValue === '24') { 
+      hourValue = '0'; 
+    }
+    const hour = String(hourValue).padStart(2, '0');
+
+    const minuteValue = new Intl.DateTimeFormat('en', { minute: 'numeric', timeZone: 'Asia/Ho_Chi_Minh' }).format(date);
+    const minute = String(minuteValue).padStart(2, '0');
+        
+    const result = `${year}-${month}-${day}T${hour}:${minute}`;
+    // console.log(`[Converter] Kết quả cuối cùng cho input: "${result}" (từ đầu vào API: "${apiDateTimeString}")`);
+    return result;
+  } catch (error) {
+    // console.error("[Converter] Lỗi trong quá trình chuyển đổi/định dạng ngày:", error);
+    return '';
+  }
+};

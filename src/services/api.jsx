@@ -75,7 +75,7 @@ export const eventService = {
 };
 
 export const categoryService = {
-  getAllCategories: async () => {
+  getAllCategories: async ()  => {
     return api.get('/categories');
   },
 };
