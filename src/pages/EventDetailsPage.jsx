@@ -20,6 +20,8 @@ const themeColors = {
     'custom-gray': {
       100: '#f7fafc', 200: '#edf2f7', 300: '#e2e8f0', 400: '#cbd5e0',
       500: '#a0aec0', 600: '#718096', 700: '#4a5568', 800: '#2d3748', 900: '#1a202c'
+      100: '#f7fafc', 200: '#edf2f7', 300: '#e2e8f0', 400: '#cbd5e0',
+      500: '#a0aec0', 600: '#718096', 700: '#4a5568', 800: '#2d3748', 900: '#1a202c'
     },
   },
   fontFamily: {
@@ -225,13 +227,20 @@ const BackButtonContainer = styled.div`
 
 // --- Component EventDetailsPage (Logic JavaScript giữ nguyên) ---
 const EventDetailsPage = () => {
-  // ... (Toàn bộ state, useEffect, handlers, và logic render như ở lượt trước) ...
-  // Đảm bảo không có thay đổi nào ở đây so với phiên bản hoạt động gần nhất của bạn (ngoại trừ việc thêm styled-components)
-  const { eventId } = useParams();
-  const navigate = useNavigate();
-  const location = useLocation();
-  const { user, isAuthenticated } = useAuth();
+    // ... (Toàn bộ state, useEffect, handlers, và logic render như ở lượt trước) ...
+    // Đảm bảo không có thay đổi nào ở đây so với phiên bản hoạt động gần nhất của bạn (ngoại trừ việc thêm styled-components)
+    const { eventId } = useParams();
+    const navigate = useNavigate();
+    const location = useLocation();
+    const { user, userRoles, isAuthenticated } = useAuth();
 
+  const [event, setEvent] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [isRegistering, setIsRegistering] = useState(false);
+  const [registrationMessage, setRegistrationMessage] = useState('');
+  const [registrationError, setRegistrationError] = useState('');
+  const [isCurrentlyRegistered, setIsCurrentlyRegistered] = useState(false);
   const [event, setEvent] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -242,54 +251,48 @@ const EventDetailsPage = () => {
 
   const [otherEvents, setOtherEvents] = useState([]);
   const [loadingOtherEvents, setLoadingOtherEvents] = useState(true);
+  const [otherEvents, setOtherEvents] = useState([]);
+  const [loadingOtherEvents, setLoadingOtherEvents] = useState(true);
 
-  useEffect(() => {
-    const fetchEventDetailsAndOthers = async () => {
-      if (!eventId) {
-        setIsLoading(false); setLoadingOtherEvents(false); setError("Không tìm thấy ID sự kiện."); return;
-      }
-      setIsLoading(true); setLoadingOtherEvents(true); setError(null); setEvent(null);
-      setOtherEvents([]); setRegistrationMessage(''); setRegistrationError(''); setIsCurrentlyRegistered(false);
-      try {
-        const response = await eventService.getEvent(eventId);
-        const eventData = response.data;
-
-        if (eventData) { // Kiểm tra xem eventData có tồn tại không trước khi truy cập thuộc tính
-          console.log(">>> EventDetailsPage - RAW event.startDate TỪ API:", eventData.startDate);
-          console.log(">>> EventDetailsPage - RAW event.endDate TỪ API:", eventData.endDate);
-        } else {
-          console.log(">>> EventDetailsPage - eventData từ API là null hoặc undefined");
-        }
-
-        setEvent(eventData);
-        if (isAuthenticated && user?.role === ROLES.STUDENT && user?.id && eventData?.eventId) {
-          const registeredEvents = await registrationService.getEventsUserRegisteredFor(user.id);
-          if (Array.isArray(registeredEvents) && registeredEvents.some(reg => (reg.event?.eventId || reg.eventId) === eventData.eventId)) {
-            setIsCurrentlyRegistered(true);
-          }
-        }
-      } catch (err) {
-        setError(err.response?.data?.message || err.message || 'Không thể tải thông tin sự kiện.');
-      } finally {
-        setIsLoading(false);
-      }
-      try {
-        const allEventsResponse = await eventService.getAllEvents();
-        const allEventsData = Array.isArray(allEventsResponse) ? allEventsResponse : [];
-        if (allEventsData.length > 0) {
-          const filteredOtherEvents = allEventsData
-            .filter(e => String(e.eventId) !== String(eventId))
-            .sort((a, b) => new Date(b.startDate) - new Date(a.startDate))
-            .slice(0, 10);
-          setOtherEvents(filteredOtherEvents);
-        }
-      } catch (err) {
-        console.error("Error fetching other events:", err);
-      } finally {
-        setLoadingOtherEvents(false);
-      }
-    };
-    fetchEventDetailsAndOthers();
+    useEffect(() => {
+        const fetchEventDetailsAndOthers = async () => {
+            if (!eventId) {
+                setIsLoading(false); setLoadingOtherEvents(false); setError("Không tìm thấy ID sự kiện."); return;
+            }
+            setIsLoading(true); setLoadingOtherEvents(true); setError(null); setEvent(null);
+            setOtherEvents([]); setRegistrationMessage(''); setRegistrationError(''); setIsCurrentlyRegistered(false);
+            try {
+                const response = await eventService.getEvent(eventId);
+                const eventData = response.data;
+                setEvent(eventData);
+                if (isAuthenticated && userRoles.includes(ROLES.STUDENT) && user?.id && eventData?.eventId) {
+                    const registeredEvents = await registrationService.getEventsUserRegisteredFor(user.id);
+                    if (Array.isArray(registeredEvents) && registeredEvents.some(reg => (reg.event?.eventId || reg.eventId) === eventData.eventId)) {
+                        setIsCurrentlyRegistered(true);
+                    }
+                }
+            } catch (err) {
+                setError(err.response?.data?.message || err.message || 'Không thể tải thông tin sự kiện.');
+            } finally {
+                setIsLoading(false);
+            }
+            try {
+                const allEventsResponse = await eventService.getAllEvents();
+                const allEventsData = Array.isArray(allEventsResponse) ? allEventsResponse : [];
+                if (allEventsData.length > 0) {
+                    const filteredOtherEvents = allEventsData
+                        .filter(e => String(e.eventId) !== String(eventId))
+                        .sort((a, b) => new Date(b.startDate) - new Date(a.startDate))
+                        .slice(0, 10);
+                    setOtherEvents(filteredOtherEvents);
+                }
+            } catch (err) {
+                console.error("Error fetching other events:", err);
+            } finally {
+                setLoadingOtherEvents(false);
+            }
+        };
+        fetchEventDetailsAndOthers();
     if (location.state?.autoRegistrationSuccess && location.state?.eventId === eventId) {
       setRegistrationMessage("Sự kiện đã được tự động đăng ký thành công!");
       setIsCurrentlyRegistered(true); // Cập nhật UI ngay
@@ -301,32 +304,56 @@ const EventDetailsPage = () => {
       navigate(location.pathname, { replace: true, state: {} });
     }
   }, [eventId, isAuthenticated, user?.id, user?.role, location.state, navigate]); // Thêm location.state và navigate
+      setRegistrationMessage("Sự kiện đã được tự động đăng ký thành công!");
+      setIsCurrentlyRegistered(true); // Cập nhật UI ngay
+      // Xóa state khỏi location để không hiển thị lại khi refresh/navigate
+      navigate(location.pathname, { replace: true, state: {} });
+    } else if (location.state?.autoRegistrationError && location.state?.eventId === eventId) {
+      setRegistrationError("Tự động đăng ký sự kiện thất bại. Vui lòng thử đăng ký lại.");
+      // Xóa state khỏi location
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+  }, [eventId, isAuthenticated, user?.id, user?.role, location.state, navigate]); // Thêm location.state và navigate
 
-  const handleRegister = async () => {
-    if (!isAuthenticated) { navigate('/login', { state: { from: location.pathname } }); return; }
-    if (!user || !user.id || user.role !== ROLES.STUDENT) { setRegistrationError("Chỉ sinh viên mới có thể đăng ký sự kiện."); return; }
-    setIsRegistering(true); setRegistrationMessage(''); setRegistrationError('');
-    try {
-      const responseData = await registrationService.registerUserForEvent(user.id, eventId);
-      if (responseData && responseData.registrationId) {
-        setRegistrationMessage("Đăng ký thành công!"); setIsCurrentlyRegistered(true);
-      } else {
-        setRegistrationError(responseData?.message || "Đăng ký thành công nhưng phản hồi không như mong đợi.");
-      }
-    } catch (err) {
-      setRegistrationError(err.response?.data?.message || err.message || "Đăng ký thất bại. Vui lòng thử lại.");
-    } finally { setIsRegistering(false); }
-  };
-  const eventTags = useMemo(() => {
-    if (!event) return [];
-    return Array.isArray(event.tagsList) ? event.tagsList : (Array.isArray(event.tags) ? event.tags : []);
-  }, [event]);
-  const isHost = useMemo(() => isAuthenticated && user?.id && event?.hostId && (user.role === ROLES.EVENT_CREATOR || user.role === ROLES.UNION) && String(user.id) === String(event.hostId), [isAuthenticated, user, event]);
+    const handleRegister = async () => {
+        if (!isAuthenticated) { navigate('/login', { state: { from: location.pathname } }); return; }
+        if (!user || !user.id || !userRoles.includes(ROLES.STUDENT)) {
+          console.error("User is not authenticated or does not have the STUDENT role.");
+          console.log("User roles:", userRoles);
+          console.log("User object:", user);
+          console.log(ROLES.STUDENT===user.role);
+           setRegistrationError("Chỉ sinh viên mới có thể đăng ký sự kiệnddddđ."); return; }
+        setIsRegistering(true); setRegistrationMessage(''); setRegistrationError('');
+        try {
+            const responseData = await registrationService.registerUserForEvent(user.id, eventId);
+            if (responseData && responseData.registrationId) {
+                setRegistrationMessage("Đăng ký thành công!"); setIsCurrentlyRegistered(true);
+            } else {
+                setRegistrationError(responseData?.message || "Đăng ký thành công nhưng phản hồi không như mong đợi.");
+            }
+        } catch (err) {
+            setRegistrationError(err.response?.data?.message || err.message || "Đăng ký thất bại. Vui lòng thử lại.");
+        } finally { setIsRegistering(false); }
+    };
+    const eventTags = useMemo(() => {
+        if (!event) return [];
+        return Array.isArray(event.tagsList) ? event.tagsList : (Array.isArray(event.tags) ? event.tags : []);
+    }, [event]);
+    const isHost = useMemo(() => isAuthenticated && user?.id && event?.hostId && (user.role === ROLES.EVENT_CREATOR || user.role === ROLES.UNION) && String(user.id) === String(event.hostId), [isAuthenticated, user, event]);
 
   const midPoint = Math.ceil(otherEvents.length / 2);
   const leftSidebarEvents = otherEvents.slice(0, midPoint);
   const rightSidebarEvents = otherEvents.slice(midPoint);
+  const midPoint = Math.ceil(otherEvents.length / 2);
+  const leftSidebarEvents = otherEvents.slice(0, midPoint);
+  const rightSidebarEvents = otherEvents.slice(midPoint);
 
+  const calculateMarqueeDuration = (eventsList) => {
+    const baseSpeedPerCard = 20; // giây
+    if (!eventsList || eventsList.length === 0) return '60s';
+    const duration = eventsList.length * baseSpeedPerCard;
+    return `${Math.max(duration, 30)}s`;
+  };
   const calculateMarqueeDuration = (eventsList) => {
     const baseSpeedPerCard = 20; // giây
     if (!eventsList || eventsList.length === 0) return '60s';
@@ -350,7 +377,31 @@ const EventDetailsPage = () => {
       </MarqueeContainer>
     );
   };
+  const renderSidebarContent = (eventsList, listKey) => {
+    if (loadingOtherEvents) return <p className="no-events-text">Đang tải...</p>;
+    if (!eventsList || eventsList.length === 0) return <p className="no-events-text">Không có sự kiện nào.</p>;
+    const duplicatedEvents = [...eventsList, ...eventsList];
+    return (
+      <MarqueeContainer>
+        <MarqueeContent $duration={calculateMarqueeDuration(eventsList)}>
+          {duplicatedEvents.map((otherEvt, index) => (
+            <SidebarEventItem key={`${otherEvt.eventId}-${index}-${listKey}`}>
+              <EventCard event={otherEvt} />
+            </SidebarEventItem>
+          ))}
+        </MarqueeContent>
+      </MarqueeContainer>
+    );
+  };
 
+  // JSX trả về
+  return (
+    <ThemeProvider theme={themeColors}>
+      <OverallPageContainer>
+        <SidebarEventsColumn>
+          <h3>Sự kiện khác</h3>
+          {renderSidebarContent(leftSidebarEvents, 'left')}
+        </SidebarEventsColumn>
   // JSX trả về
   return (
     <ThemeProvider theme={themeColors}>
@@ -399,7 +450,53 @@ const EventDetailsPage = () => {
             </PageWrapper>
           )}
         </MainEventContent>
+        <MainEventContent>
+          {isLoading && (<StatusContainer>Đang tải thông tin sự kiện...</StatusContainer>)}
+          {!isLoading && error && !event && (<ErrorStatusContainer><p>Lỗi: {error}</p><Button onClick={() => navigate(-1)} variant="secondary" size="large">Quay lại</Button></ErrorStatusContainer>)}
+          {!isLoading && !event && !error && (<StatusContainer>Không tìm thấy thông tin sự kiện.</StatusContainer>)}
 
+          {/* Phần hiển thị chi tiết sự kiện, đảm bảo CoverImageContainer và các component khác được sử dụng ở đây đã được định nghĩa ở trên */}
+          {event && (
+            <PageWrapper>
+              <CoverImageContainer> {/* Dòng 270 của bạn có thể nằm gần đây */}
+                {event.coverUrl ? (<CoverImage src={event.coverUrl} alt={`${event.eventName || 'Sự kiện'} cover`} onError={(e) => { e.target.style.display = 'none'; e.target.parentElement.innerHTML = '<span>Ảnh bìa sự kiện</span>'; }} />) : (<span>Ảnh bìa sự kiện</span>)}
+              </CoverImageContainer>
+              <ContentPadding>
+                <HeaderSection>
+                  {event.logoUrl && (<LogoImageContainer><LogoImage src={event.logoUrl} alt={`${event.eventName || 'Sự kiện'} logo`} onError={(e) => { e.target.style.display = 'none'; e.target.parentElement.innerHTML = '<span>Logo</span>'; }} /></LogoImageContainer>)}
+                  <TitleContainer>
+                    <EventTitle>{event.eventName}</EventTitle>
+                    <HostInfo>Tổ chức bởi: <SemiBold>{event.hostName || event.hostId}</SemiBold></HostInfo>
+                  </TitleContainer>
+                  {isHost && (<EditButtonContainer>
+                                <RouterLink to={`/admin/edit-event/${event.eventId || eventId}`}>
+                                  <Button variant="outline" size="medium">Chỉnh sửa</Button>
+                                </RouterLink>
+                              </EditButtonContainer>)}
+                </HeaderSection>
+                <DetailsGrid>
+                  <DescriptionColumn><SectionTitle>Mô tả sự kiện</SectionTitle><DescriptionText>{event.description || "Không có mô tả."}</DescriptionText></DescriptionColumn>
+                  <InfoColumn>
+                    <InfoBlock><InfoLabel>Thời gian</InfoLabel><InfoText><SemiBold>Bắt đầu:</SemiBold> {formatDateTime(event.startDate)}</InfoText><InfoText><SemiBold>Kết thúc:</SemiBold> {formatDateTime(event.endDate)}</InfoText></InfoBlock>
+                    <InfoBlock><InfoLabel>Hình thức & Địa điểm</InfoLabel><InfoText>{event.attendanceType === ATTENDANCE_TYPES.ONLINE ? 'Trực tuyến (Online)' : 'Trực tiếp (Offline)'}</InfoText>{event.location && (<InfoText>{event.attendanceType === ATTENDANCE_TYPES.ONLINE ? 'Nền tảng: ' : 'Địa điểm: '}<SemiBold>{event.location}</SemiBold></InfoText>)}</InfoBlock>
+                    <InfoBlock><InfoLabel>Số lượng</InfoLabel><InfoText>Tối đa: <SemiBold>{event.capacity} người</SemiBold></InfoText></InfoBlock>
+                    {eventTags && eventTags.length > 0 && (<InfoBlock><InfoLabel>Thể loại</InfoLabel><TagContainer>{eventTags.map((tag, index) => (<TagBadge key={`${tag}-${index}`}>{tag}</TagBadge>))}</TagContainer></InfoBlock>)}
+                  </InfoColumn>
+                </DetailsGrid>
+                {isAuthenticated && user?.role === ROLES.STUDENT && (<RegistrationSection>{registrationMessage ? (<StatusMessage>{registrationMessage}</StatusMessage>) : (<>{registrationError && <ErrorRegMessage>{registrationError}</ErrorRegMessage>}<Button onClick={handleRegister} isLoading={isRegistering} disabled={isRegistering || isCurrentlyRegistered || !!registrationMessage} variant={isCurrentlyRegistered || !!registrationMessage ? "success" : "primary"} size="large">{isRegistering ? 'Đang xử lý...' : (isCurrentlyRegistered || !!registrationMessage) ? 'Đã đăng ký' : 'Đăng ký tham gia'}</Button></>)}</RegistrationSection>)}
+                <BackButtonContainer><Button onClick={() => navigate(-1)} variant="secondary" size="medium">&larr; Quay lại</Button></BackButtonContainer>
+              </ContentPadding>
+            </PageWrapper>
+          )}
+        </MainEventContent>
+
+        <SidebarEventsColumn>
+          <h3>Có thể bạn quan tâm</h3>
+          {renderSidebarContent(rightSidebarEvents, 'right')}
+        </SidebarEventsColumn>
+      </OverallPageContainer>
+    </ThemeProvider>
+  );
         <SidebarEventsColumn>
           <h3>Có thể bạn quan tâm</h3>
           {renderSidebarContent(rightSidebarEvents, 'right')}

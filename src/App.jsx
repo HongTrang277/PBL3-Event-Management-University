@@ -1,119 +1,136 @@
-// src/App.jsx
 import React from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
-import { useAuth } from './hooks/useAuth'; // Import useAuth
+import ProtectedRoute from './components/common/ProtectedRoute';
+import { authService } from './services/api';
 
-
+// Layouts
 import MainLayout from './layouts/MainLayout'; 
 import AuthLayout from './layouts/AuthLayout'; 
 import AdminLayout from './layouts/AdminLayout';
+import StudentLayout from './layouts/StudentLayout';
 
 // Pages
 import HomePage from './pages/HomePage';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
-// import EventListPage from './pages/EventListPage';
-import StudentLayout from './layouts/StudentLayout';
 import StudentDashboardPage from './pages/StudentDashboardPage';
 import EventDetailsPage from './pages/EventDetailsPage'; 
 import CreateEventPage from './pages/CreateEventPage';
-// import RegisteredEventsPage from './pages/RegisteredEventsPage';
 import StatisticsPage from './pages/StatisticsPage'; 
 import MyEventsPage from './pages/MyEventPage';
 import RegisteredEventsPage from './pages/RegisteredEventPage';
 import AdminAllEventsPage from './pages/AllEventPage';
 import AttendancePage from './pages/AttendancePage';
-import EditEventPage from './pages/EditEventPage';
+// Uncomment as needed
 // import AchievementsPage from './pages/AchievementsPage'; 
-//  import AttendancePage from './pages/AttendancePage'; 
 // import ProfilePage from './pages/ProfilePage'; 
 // import NotFoundPage from './pages/NotFoundPage'; 
+// import EventCreatorDashboardPage from './pages/EventCreatorDashboardPage';
 
-
-function ProtectedRoute({ children, allowedRoles }) {
-  const { isAuthenticated, user, loading } = useAuth();
-
-  if (loading) {
-    return <div>Loading authentication...</div>; // 
-  }
-
-  if (!isAuthenticated) {
-    return <Navigate to="/login" state={{ from: window.location }} replace />;
-  }
- 
-  // Check if the user's role is allowed
-  if (allowedRoles && !allowedRoles.includes(user?.role)) {
-    console.warn(`User role ${user?.role} not authorized for this route.`);
-    return <Navigate to="/" replace />; 
-  }
-  return children;
-}
-
+// Đảm bảo RoleGate được import, hoặc tạo mới nếu chưa có
+// import { RoleGate } from './components/common/RoleGate';
 
 function App() {
   return (
     <AuthProvider>
       <Routes>
-
+        {/* Public routes - Auth layout */}
         <Route element={<AuthLayout />}>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
         </Route>
 
-        // Route cho lần đầu truy cập, không cần đăng nhập
+        {/* Main layout routes */}
         <Route element={<MainLayout />}>
+          {/* Public routes */}
+          <Route path="/" element={<HomePage />} />
+          <Route path="/events/:eventId" element={<EventDetailsPage />} />
 
-            <Route path="/" element={<HomePage />} />  //
-            <Route path="/events/:eventId" element={<EventDetailsPage />} />
+          {/* Student routes - Vai trò sinh viên */}
+          
+          
+          <Route path="/registered-events" element={
+            <ProtectedRoute allowedRoles={['User']}>
+              <RegisteredEventsPage />
+            </ProtectedRoute>
+          } />
+          <Route path="/dashboard-student" element={
+            <ProtectedRoute allowedRoles={['User']}>
+              <StudentDashboardPage />
+            </ProtectedRoute>
+          } />
 
-            //Route cho sinh viên đã đăng nhập
-            <Route path="/dashboard" element={
-              <ProtectedRoute allowedRoles={['student']}>
-                <StudentDashboardPage />
-              </ProtectedRoute> }/>
-            <Route path="/registered-events" element={
-                <ProtectedRoute allowedRoles={['student']}>
-                    <RegisteredEventsPage/>
-                </ProtectedRoute>}/>
-            <Route path="/achievements" element={
-                <ProtectedRoute allowedRoles={['student']}>
-                  {/* <AchievementsPage /> Bảng thành tích - Hồng Trang phát triển*/}   
-                </ProtectedRoute>}/>
-            <Route path="/attendance" element={
-                <ProtectedRoute allowedRoles={['student']}>
-                    <AttendancePage/>
-                </ProtectedRoute>}/>
-            
-            <Route path="/profile" element={
-                <ProtectedRoute allowedRoles={['student', 'event_creator', 'union']}>
-                     {/* <ProfilePage />   Trang để điền các thông tin cá nhân và xác thực outlook - Thiên Phú phát triển */}
-                </ProtectedRoute>}/>
-           
+          <Route path="/achievements" element={
+            <ProtectedRoute allowedRoles={['User']}>
+              {/* <AchievementsPage /> */}
+              <div>Chức năng đang phát triển</div>
+            </ProtectedRoute>
+          } />
+          
+          <Route path="/attendance" element={
+            <ProtectedRoute allowedRoles={['student', 'Student','User']}>
+              <AttendancePage />
+            </ProtectedRoute>
+          } />
+          
+          {/* Profile - Nhiều vai trò có thể truy cập */}
+          <Route path="/profile" element={
+            <ProtectedRoute allowedRoles={['student','User', 'Student', 'event_creator', 'EventCreator', 'union', 'Union', 'Admin']}>
+              {/* <ProfilePage /> */}
+              <div>Chức năng đang phát triển</div>
+            </ProtectedRoute>
+          } />
 
-            // Route cho người tạo sự kiện đăng nhập
+          {/* Admin routes - Vai trò admin */}
           <Route path="/admin" element={
-              <ProtectedRoute allowedRoles={['event_creator', 'union']}> 
-                  <AdminLayout />
-              </ProtectedRoute>}>
-              <Route index element={<Navigate to="my-events" replace />} />
-              <Route path="events" element={<AdminAllEventsPage />} />
-              <Route path="my-events" element={<MyEventsPage />} />
-              <Route path="create-event" element={<CreateEventPage />} />
-              <Route path="edit-event/:eventId" element={<EditEventPage />} /> {/* Route mới */}
-        
-              
-              <Route path= "creator-dashboard" element={
-                  <ProtectedRoute allowedRoles={['event_creator']}>
-                       {/* <EventCreatorDashboardPage />   Trang thống kê cho Liên chi, Thiên Phú phát triển */}
-                  </ProtectedRoute>}/>
-              <Route path="statistics" element={
-                  <ProtectedRoute allowedRoles={['union']}> 
-                      <StatisticsPage />
-                  </ProtectedRoute>}/>
+            <ProtectedRoute allowedRoles={['Organizer','event_creator', 'EventCreator', 'union', 'Union', 'Admin']}>
+              <AdminLayout />
+            </ProtectedRoute>
+          }>
+            {/* Default route cho admin */}
+            <Route index element={<Navigate to="my-events" replace />} />
+            
+            {/* Danh sách tất cả sự kiện - Cho cả event creator và union */}
+            <Route path="events" element={
+              <ProtectedRoute allowedRoles={['Organizer','event_creator', 'EventCreator', 'union', 'Union', 'Admin']}>
+                <AdminAllEventsPage />
+              </ProtectedRoute>
+            } />
+            
+            {/* Sự kiện của tôi - Cho cả event creator và union */}
+            <Route path="my-events" element={
+              <ProtectedRoute allowedRoles={['Organizer','event_creator', 'EventCreator', 'union', 'Union', 'Admin']}>
+                <MyEventsPage />
+              </ProtectedRoute>
+            } />
+            
+            {/* Tạo sự kiện - Cho cả event creator và union */}
+            <Route path="create-event" element={
+              <ProtectedRoute allowedRoles={['Organizer','event_creator', 'EventCreator', 'union', 'Union', 'Admin']}>
+                <CreateEventPage />
+              </ProtectedRoute>
+            } />
+            
+            {/* Dashboard cho người tạo sự kiện - Chỉ cho event_creator */}
+            <Route path="creator-dashboard" element={
+              <ProtectedRoute allowedRoles={['event_creator', 'EventCreator']}>
+                {/* <EventCreatorDashboardPage /> */}
+                <div>Chức năng đang phát triển</div>
+              </ProtectedRoute>
+            } />
+            
+            {/* Thống kê - Chỉ cho union */}
+            <Route path="statistics" element={
+              <ProtectedRoute allowedRoles={['union', 'Union', 'Admin']}>
+                <StatisticsPage />
+              </ProtectedRoute>
+            } />
           </Route>
         </Route>
 
+        {/* 404 route */}
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </AuthProvider>
   );

@@ -434,7 +434,7 @@ const CreateEventPage = () => {
         if (!eventName.trim()) return "Tên sự kiện không được để trống.";
         if (!description.trim()) return "Mô tả sự kiện không được để trống.";
         if (!startDate) return "Ngày giờ bắt đầu không được để trống.";
-       
+
 //         const startTime = new Date(startDate);
 //         if (startTime < today) return "Ngày bắt đầu không được là một ngày trong quá khứ.";
 

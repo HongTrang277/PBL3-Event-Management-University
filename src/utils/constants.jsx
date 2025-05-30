@@ -18,7 +18,7 @@ export const FACULTIES = [
   ];
   
   export const ROLES = {
-    STUDENT: 'student',
+    STUDENT: 'User',
     EVENT_CREATOR: 'event_creator', // Chung cho Khoa và Đoàn trường
     UNION: 'union' // Role đặc biệt của Đoàn trường (có thể kế thừa EVENT_CREATOR)
   };

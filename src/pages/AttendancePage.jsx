@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import styled from 'styled-components';
-import { useAuth } from '../hooks/useAuth';
+import { useAuth } from '../contexts/AuthContext';
 import { attendanceService, registrationService } from '../services/api';
 import { FaMapMarkerAlt, FaClock, FaCheckCircle, FaArrowLeft } from "react-icons/fa";
+import { toast, ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 
 // --- Styled Components ---
 const PageWrapper = styled.div`
@@ -163,14 +165,46 @@ const CurrentTime = styled.div`
 
 // --- Component ---
 const AttendancePage = () => {
-  const { user } = useAuth();
+  const { user} = useAuth();
   const [registeredEvents, setRegisteredEvents] = useState([]);
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [currentTime, setCurrentTime] = useState(new Date());
-
+  const [isAttended, setIsAttended] = useState(false);
   // Cập nhật thời gian hiện tại mỗi giây khi đang ở trang chi tiết
+  
+useEffect(() => {
+  // Check if user has already marked attendance when event changes
+  const checkAttendanceStatus = async () => {
+    if (!selectedEvent || !user?.id) return;
+    
+    try {
+      // Lấy registrationId
+      const registrations = await registrationService.getAllRegistrations();
+      const registration = registrations.find(r => 
+        String(r.eventId) === String(selectedEvent.eventId) && 
+        String(r.userId) === String(user.id)
+      );
+      
+      if (!registration?.registrationId) return;
+      console.log('Đã tìm thấy thông tin đăng ký:', registration);
+      // Kiểm tra attendance
+      const attendance = await attendanceService.getAttendanceByRegistrationId(registration.registrationId);
+      console.log('Trạng thái điểm danh:', attendance);
+      setIsAttended(!!attendance);
+    } catch (err) {
+      console.error("Lỗi khi kiểm tra trạng thái điểm danh:", err);
+      // Nếu lỗi 404, có nghĩa là chưa điểm danh
+      if (err.response?.status === 500 || err.response?.status === 404) {
+        setIsAttended(false);
+      }
+    }
+  };
+  
+  checkAttendanceStatus();
+}, [selectedEvent, user]);
+
   useEffect(() => {
     if (!selectedEvent) return;
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
@@ -265,40 +299,128 @@ const AttendancePage = () => {
   }, [user]);
 
   const handleAttendance = async () => {
-    if (!user?.id) {
-      alert('Bạn cần đăng nhập để điểm danh.');
-      return;
-    }
-    if (!navigator.geolocation) {
-      alert('Trình duyệt của bạn không hỗ trợ GPS.');
-      return;
-    }
-
+  if (!user?.id) {
+    toast.error('Bạn cần đăng nhập để điểm danh.');
+    return;
+  }
+  
+  if (!selectedEvent?.eventId) {
+    toast.error('Không có thông tin sự kiện để điểm danh.');
+    return;
+  }
+  
+  if (!navigator.geolocation) {
+    toast.error('Trình duyệt của bạn không hỗ trợ GPS.');
+    return;
+  }
+  
+  try {
+    // Hiện thông báo đang lấy vị trí
+    const loadingToast = toast.loading('Đang xác định vị trí của bạn...');
+    
     navigator.geolocation.getCurrentPosition(
       async (position) => {
-        const latitude = 0.0;
-        const longitude = 0.0;
-        const latitudeDouble = parseFloat(latitude);
-        const longitudeDouble = parseFloat(longitude);
+        // Lấy tọa độ thực tế từ GPS
+         const latitude = parseFloat(position.coords.latitude);
+         const longitude = parseFloat(position.coords.longitude);
+        //convert latitude and longitude to double;
+        
+
         try {
+          // Tìm registrationId theo eventId và userId
+          console.log('Đang tìm thông tin đăng ký cho:', { 
+            userId: user.id, 
+            eventId: selectedEvent.eventId 
+          });
+          
           const registrations = await registrationService.getAllRegistrations();
-          const registration = registrations.find(r => r.eventId === selectedEvent.eventId && r.userId === user.id);
+          console.log('Danh sách đăng ký:', registrations);
+          
+          const registration = registrations.find(r => 
+            String(r.eventId) === String(selectedEvent.eventId) && 
+            String(r.userId) === String(user.id)
+          );
+          
           const registrationId = registration?.registrationId;
+          console.log('Đăng ký tìm thấy:', registration);
+          
           if (!registrationId) {
-            alert('Bạn chưa đăng ký sự kiện này hoặc không tìm thấy đăng ký.');
+            // Đóng toast loading
+            toast.dismiss(loadingToast);
+            toast.error('Bạn chưa đăng ký sự kiện này hoặc không tìm thấy thông tin đăng ký.');
             return;
           }
-          await attendanceService.markAttendance({ registrationId, latitude, longitude });
-          alert('Điểm danh thành công!');
+          
+          // Gọi API điểm danh với registrationId và tọa độ
+          console.log('Gửi yêu cầu điểm danh với:', {
+            registrationId,
+            latitude,
+            longitude
+          });
+          
+          const result = await attendanceService.markAttendance({
+            registrationId,
+            latitude,
+            longitude
+          });
+          
+          console.log('Kết quả điểm danh:', result);
+          
+          // Đóng toast loading và hiển thị thông báo thành công
+          toast.dismiss(loadingToast);
+          toast.success('Điểm danh thành công!');
+          setIsAttended(true);
         } catch (err) {
-          alert(err.response?.data?.message || 'Điểm danh thất bại.');
+          console.error('Lỗi khi điểm danh:', err);
+          
+          // Đóng toast loading
+          toast.dismiss(loadingToast);
+          
+          // Hiển thị thông báo lỗi
+          let errorMessage = 'Điểm danh thất bại.';
+          if (err.message && err.message.includes("không ở trong khu vực")) {
+            errorMessage = err.message;
+          } else if (err.response?.data?.message) {
+            errorMessage = err.response.data.message;
+          } else if (err.message) {
+            errorMessage = err.message;
+          }
+          toast.error(errorMessage);
         }
       },
-      (error) => {
-        alert('Không thể lấy tọa độ GPS. Vui lòng thử lại.');
+      (geoError) => {
+        console.error('Lỗi GPS:', geoError);
+        
+        // Đóng toast loading
+        toast.dismiss(loadingToast);
+        
+        // Hiển thị lỗi phù hợp với từng trường hợp
+        switch(geoError.code) {
+          case geoError.PERMISSION_DENIED:
+            toast.error('Bạn đã từ chối quyền truy cập vị trí. Vui lòng cho phép trình duyệt sử dụng GPS để điểm danh.');
+            break;
+          case geoError.POSITION_UNAVAILABLE:
+            toast.error('Không thể xác định vị trí của bạn. Vui lòng kiểm tra kết nối GPS và thử lại.');
+            break;
+          case geoError.TIMEOUT:
+            toast.error('Quá thời gian chờ lấy vị trí GPS. Vui lòng thử lại.');
+            break;
+          default:
+            toast.error('Không thể lấy tọa độ GPS. Vui lòng thử lại.');
+        }
+      },
+      // Cấu hình bổ sung cho navigator.geolocation
+      {
+        enableHighAccuracy: true, // Độ chính xác cao
+        timeout: 15000, // Tăng thời gian lên 15 giây để đảm bảo lấy được vị trí
+        maximumAge: 0 // Không sử dụng dữ liệu cache
       }
     );
-  };
+  } catch (err) {
+    console.error('Lỗi khi xử lý điểm danh:', err);
+    toast.error('Có lỗi xảy ra khi thực hiện điểm danh. Vui lòng thử lại.');
+  }
+};
 
   // --- UI ---
   return (
@@ -338,10 +460,18 @@ const AttendancePage = () => {
                 <strong>Trạng thái:</strong> {selectedEvent.status || "Đã đăng ký"}
               </HighlightField>
               <div style={{ display: 'flex', gap: '1rem', marginTop: '1.5rem' }}>
-                <AttendanceButton onClick={handleAttendance}>
-                  <FaCheckCircle style={{ marginRight: "0.5rem" }} />
-                  Điểm danh
-                </AttendanceButton>
+                <AttendanceButton 
+  onClick={handleAttendance}
+  disabled={isAttended}
+  style={isAttended ? { 
+    background: '#22c55e', 
+    cursor: 'default',
+    opacity: 0.9 
+  } : {}}
+>
+  <FaCheckCircle style={{ marginRight: "0.5rem" }} />
+  {isAttended ? 'Đã điểm danh' : 'Điểm danh'}
+</AttendanceButton>
                 <BackButton onClick={() => setSelectedEvent(null)}>
                   <FaArrowLeft style={{ marginRight: "0.5rem" }} />
                   Quay lại danh sách

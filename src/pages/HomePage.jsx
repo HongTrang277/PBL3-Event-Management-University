@@ -8,7 +8,7 @@ import { eventService, registrationService } from '../services/api';
 import Slider from "react-slick";
 import "slick-carousel/slick/slick.css";
 import "slick-carousel/slick/slick-theme.css";
-import { useAuth } from '../hooks/useAuth';
+import { useAuth } from '../contexts/AuthContext';
 import { ROLES } from '../utils/constants';
 
 // --- Theme (Giữ nguyên) ---
@@ -86,7 +86,7 @@ const StatusText = styled.p`
 
 // --- Component Logic ---
 const HomePage = () => {
-    const { user, isAuthenticated } = useAuth();
+    const { user,userRoles, isAuthenticated } = useAuth();
     const navigate = useNavigate();
 
     const [allApprovedEvents, setAllApprovedEvents] = useState([]);
@@ -109,6 +109,7 @@ const HomePage = () => {
                 setAllApprovedEvents(approved);
 
                 if (isAuthenticated && user?.role === ROLES.STUDENT && user?.id) {
+                    try {
                     const registeredResponse = await registrationService.getEventsUserRegisteredFor(user.id);
                     const newMap = new Map();
                     if (Array.isArray(registeredResponse)) {
@@ -120,6 +121,15 @@ const HomePage = () => {
                         });
                     }
                     setRegisteredEventMap(newMap);
+                } catch (regError) {
+                    // Xử lý lỗi 404 - người dùng chưa đăng ký sự kiện nào
+                    if (regError.response?.status === 404) {
+                        console.log("Người dùng chưa đăng ký sự kiện nào.");
+                        setRegisteredEventMap(new Map()); // Map rỗng
+                    } else {
+                        console.error("Lỗi khi lấy danh sách sự kiện đã đăng ký:", regError);
+                    }
+                }
                 }
             } catch (err) {
                 setError(err.response?.data?.message || err.message || 'Không thể tải dữ liệu sự kiện.');
@@ -163,7 +173,8 @@ const HomePage = () => {
             return;
         }
 
-        if (user?.role !== ROLES.STUDENT || !user?.id) {
+        if (!userRoles.includes(ROLES.STUDENT) || !user?.id) {
+            console.log(userRoles, user);
             alert("Chỉ có sinh viên mới có thể đăng ký sự kiện.");
             return;
         }
@@ -191,6 +202,7 @@ const HomePage = () => {
         }
 
         if (user?.role !== ROLES.STUDENT || !user?.id) {
+            console.warn("User is not a student or user ID is missing:", user);
             alert("Chỉ có sinh viên mới có thể hủy đăng ký sự kiện.");
             return;
         }

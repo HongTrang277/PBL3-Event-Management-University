@@ -1,7 +1,7 @@
 // src/pages/RegisteredEventsPage.jsx
 import React, { useState, useEffect, useMemo } from 'react';
 import styled, { keyframes } from 'styled-components';
-import { useAuth } from '../hooks/useAuth';
+import { useAuth } from '../contexts/AuthContext';
 import EventCard from '../components/features/Events/EventCard/EventCard';
 import { registrationService, eventService } from '../services/api'; // Sử dụng API thật
 import { formatDateTime } from '../utils/helpers'; // Giả sử bạn có hàm này
@@ -441,25 +441,12 @@ const RegisteredEventsPage = () => {
   setError(null);
   console.log("Bắt đầu hủy đăng ký sự kiện với eventId:", eventId);
   try {
-    // Lấy danh sách đăng ký của user
-    const registrations = await registrationService.getAllRegistrations();
-    console.log("Danh sách đăng ký:", registrations);
-    // Tìm registrationId theo eventId
-    const registration = registrations.find(r => r.eventId === eventId && r.userId === user.id);
-    const registrationId = registration?.registrationId;
-    console.log("Đăng ký tìm thấy:", registration);
-    if (registrationId) {
-      await registrationService.removeRegistration(registrationId);
-      setRegisteredEvents((prevEvents) => prevEvents.filter(event => event.eventId !== eventId));
-      setSelectedEvent(null);
-    } else {
-      setError("Không tìm thấy đăng ký phù hợp để hủy.");
-    }
-    console.log("Đã hủy đăng ký sự kiện với eventId:", eventId);
-
+    await registrationService.removeRegistration(eventId, user.id);
+    setRegisteredEvents((prevEvents) => prevEvents.filter(event => event.eventId !== eventId));
+    setSelectedEvent(null);
   } catch (err) {
     setError("Không thể hủy đăng ký sự kiện.");
-    console.error("Lỗi khi hủy đăng ký:", err);
+    console.error("Lỗi khi hủy đăng ký:tttttttt", err);
   } finally {
     setIsLoading(false);
   }

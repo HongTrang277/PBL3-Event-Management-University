@@ -1,11 +1,10 @@
 // src/layouts/MainLayout.jsx
 import React from 'react';
 import { Outlet } from 'react-router-dom';
-import styled from 'styled-components';
-
+import { useAuth } from '../contexts/AuthContext';
+import StudentNavbar from '../components/features/Navigation/MainNav/StudentNavbar';
 import Footer from '../components/common/Footer/Footer';
-import StudentNavbar from '../components/features/Navigation/MainNav/StudentNavbar'; // ĐỔI TÊN CHO ĐỒNG BỘ
-
+import styled from 'styled-components';
 // --- Styled Components ---
 const LayoutWrapper = styled.div`
     display: flex;
@@ -47,16 +46,22 @@ const MainContentLimited = styled.main`
 
 // --- Component ---
 const MainLayout = () => {
-    return (
-        <LayoutWrapper>
-            <StudentNavbar />
-            <ContentContainer> 
-                {/* Outlet sẽ render HomePage, HomePage sẽ tự quản lý các section full-width hoặc giới hạn */}
-                <Outlet /> 
-            </ContentContainer>
-            <Footer />
-        </LayoutWrapper>
-    );
+  const { isAuthenticated, userRoles, hasAnyRole } = useAuth();
+
+  // Debug
+  console.log("MainLayout rendering with:", { isAuthenticated, userRoles });
+
+  return (
+    <div className="flex flex-col min-h-screen">
+      <StudentNavbar /> {/* Sử dụng StudentNavbar thay vì Navbar thông thường */}
+      
+      <main className="flex-grow">
+        <Outlet />
+      </main>
+
+      <Footer />
+    </div>
+  );
 };
 
 export default MainLayout;
