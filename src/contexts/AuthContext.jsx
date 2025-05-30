@@ -11,77 +11,101 @@ export const AuthProvider = ({ children }) => {
   const [userRoles, setUserRoles] = useState([]);
 
 //khoi tao state
-  useEffect(()=>{
-    const initializeAuth = async ()=>{
-      const token = await authService.getToken();
-      if(!token){
-        setLoading(false);
-        return;
-      }
-      try{
-        //lay thong tin tu localstorage
-        const storedUser = authService.getUser();
-        if(storedUser){
-          setUser(storedUser);
+  useEffect(() => {
+  const initializeAuth = async () => {
+    const token = await authService.getToken();
+    if (!token) {
+      setLoading(false);
+      return;
+    }
+    try {
+      //lay thong tin tu localstorage
+      const storedUser = authService.getUser();
+      let userWithId = storedUser;
+      let roles = [];
 
-          const claims = authService.getClaims();
-          let roles = [];
-          
-          if(claims){
-            const claimRoles= claims.role || claims['http://schemas.microsoft.com/ws/2008/06/identity/claims/role'] ;
-            if(claimRoles){
-              //neu claim la chuoi thi giu nguyn khong thi chuyen thanh mang
-              roles = Array.isArray(claimRoles) ? claimRoles : [claimRoles];
-            }
+      // Log debug
+      console.log("Stored user from localStorage:", storedUser);
 
+      if (storedUser) {
+        setUser(storedUser);
+
+        const claims = authService.getClaims();
+        
+        if (claims) {
+          const claimRoles = claims.role || claims['http://schemas.microsoft.com/ws/2008/06/identity/claims/role'];
+          if (claimRoles) {
+            //neu claim la chuoi thi giu nguyn khong thi chuyen thanh mang
+            roles = Array.isArray(claimRoles) ? claimRoles : [claimRoles];
           }
-          if (storedUser.id) {
-            try {
-              const apiRoles = await authService.getUserRoles(storedUser.id);
-              if (apiRoles && apiRoles.length > 0) {
-                roles = [...new Set([...roles, ...apiRoles])]; // Loại bỏ trùng lặp
-              }
-            } catch (roleError) {
-              console.warn('Could not fetch roles from API:', roleError);
+
+          // Nếu user chưa có ID, thử lấy từ claims
+          if (!storedUser.id) {
+            const userId = claims.sub || claims.nameid || 
+                           claims['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier'];
+            if (userId) {
+              userWithId = {...storedUser, id: userId};
+              setUser(userWithId);
+              localStorage.setItem('user', JSON.stringify(userWithId));
             }
           }
-          
-          setUserRoles(roles);
-
         }
-        //cap nhat tu api neu co token
-        try {
-          const profileResponse = await authService.getProfile();
-          if (profileResponse && profileResponse.data) {
-            setUser(profileResponse.data);
-            localStorage.setItem('user', JSON.stringify(profileResponse.data));
-            
-            // Lấy vai trò từ API nếu có id
-            if (profileResponse.data.id) {
-              const apiRoles = await authService.getUserRoles(profileResponse.data.id);
-              if (apiRoles && apiRoles.length > 0) {
-                setUserRoles(apiRoles);
-                
-              }
+
+        // Lấy vai trò từ API nếu có id
+        if (userWithId.id) {
+          try {
+            const apiRoles = await authService.getUserRoles(userWithId.id);
+            if (apiRoles && apiRoles.length > 0) {
+              roles = [...new Set([...roles, ...apiRoles])]; // Loại bỏ trùng lặp
             }
+          } catch (roleError) {
+            console.warn('Could not fetch roles from API:', roleError);
           }
-        } catch (profileError) {
-          console.error('Error fetching profile:', profileError);
-          // Không logout nếu có lỗi - chỉ dựa vào dữ liệu đã lưu
         }
         
+        setUserRoles(roles);
+      }
 
+      // Cập nhật từ API nếu có token
+      try {
+        const profileResponse = await authService.getProfile();
+        if (profileResponse && profileResponse.data) {
+          // Đảm bảo giữ lại ID cũ nếu profile không có
+          const updatedUser = {
+            ...profileResponse.data,
+            id: profileResponse.data.id || (userWithId ? userWithId.id : null)
+          };
+
+          // Log để debug
+          console.log("Profile data from API:", profileResponse.data);
+          console.log("Updated user with ID:", updatedUser);
+          
+          setUser(updatedUser);
+          localStorage.setItem('user', JSON.stringify(updatedUser));
+          
+          // Lấy vai trò từ API nếu có id
+          if (updatedUser.id) {
+            const apiRoles = await authService.getUserRoles(updatedUser.id);
+            if (apiRoles && apiRoles.length > 0) {
+              setUserRoles(apiRoles);
+            }
+          }
+        }
+      } catch (profileError) {
+        console.error('Error fetching profile:', profileError);
+        // Không logout nếu có lỗi - chỉ dựa vào dữ liệu đã lưu
       }
-      catch(error){
-        console.error('Error initializing auth:', error);
-        setUser(null);
-        setUserRoles([]);
-      } finally {
-        setLoading(false);
-      }
-    };
-    initializeAuth();
-  }, []);
+    } catch (error) {
+      console.error('Error initializing auth:', error);
+      setUser(null);
+      setUserRoles([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  initializeAuth();
+}, []);
   // Kiểm tra vai trò
   const hasRole = (role) => {
     return userRoles.some(userRole => 

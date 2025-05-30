@@ -1,4 +1,7 @@
 import axios from 'axios';
+import { v4 as uuid } from 'uuid';
+// Lấy URL API từ biến môi trường hoặc mặc định
+
 
 const API_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5044/api';
 console.log('API_URL:', API_URL);
@@ -98,13 +101,13 @@ export const registrationService = {
       throw error;
     }
   },
-  removeRegistration: async (registrationId) => {
+  removeRegistration: async (eventId, userId) => {
     try {
       // Swagger: DELETE /api/Registrations/{registrationId}
-      const response = await api.delete(`/Registrations/${registrationId}`); // Đảm bảo viết hoa 'R'
+      const response = await api.delete(`/Registrations/${eventId}/${userId}`); // Đảm bảo viết hoa 'R'
       return response.data;
     } catch (error) {
-      console.error(`Error removing registration ${registrationId}:`, error.response?.data || error.message);
+      console.error(`Error removing registration ${eventId}/${userId}:`, error.response?.data || error.message);
       throw error;
     }
   },
@@ -134,13 +137,20 @@ export const attendanceService = {
   },
   // Chấm công (điểm danh)
   markAttendance: async ({ registrationId, latitude = 0, longitude = 0 }) => {
-    const response = await api.post('/Attendances/Mark', {
-      registrationId,
-      latitude,
-      longitude,
-    });
-    return response.data;
-  },
+    try{
+      const response = await api.post('/Attendances/Mark', {
+        registrationId,
+        latitude,
+        longitude
+      });
+      return response.data;
+    }
+    catch (error) {
+      console.error('Error marking attendance:', error.response?.data || error.message);
+      throw error;
+  }
+},
+  
   // Lấy danh sách user đã điểm danh cho 1 event
   getUsersMarkedAttendanceForEvent: async (eventId) => {
     const response = await api.get(`/Attendances/Users/${eventId}`);
@@ -151,6 +161,7 @@ export const attendanceService = {
     const response = await api.get(`/Attendances/Events/${userId}`);
     return response.data;
   },
+  
   // Xóa attendance
   removeAttendance: async (attendanceId) => {
     const response = await api.delete(`/Attendances/${attendanceId}`);

@@ -434,7 +434,7 @@ const CreateEventPage = () => {
         if (!eventName.trim()) return "Tên sự kiện không được để trống.";
         if (!description.trim()) return "Mô tả sự kiện không được để trống.";
         if (!startDate) return "Ngày giờ bắt đầu không được để trống.";
-       
+
 //         const startTime = new Date(startDate);
 //         if (startTime < today) return "Ngày bắt đầu không được là một ngày trong quá khứ.";
 
@@ -532,6 +532,8 @@ const CreateEventPage = () => {
                     setIsLoading(false); return;
                 }
             }
+            console.log(">>> STATE 'startDate' TRƯỚC new Date():", startDate); // QUAN TRỌNG!
+  console.log(">>> STATE 'endDate' TRƯỚC new Date():", endDate);     // Để so sánh
 
             const eventData = {
                 EventName: eventName.trim(),
@@ -643,7 +645,10 @@ const CreateEventPage = () => {
                   label="Ngày giờ bắt đầu"
                   type="datetime-local"
                   value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
+                  onChange={(e) => {
+        console.log(">>> RAW INPUT VAL (startDate):", e.target.value);
+        setStartDate(e.target.value);
+    }}
                   required
                 />
               </FormGroup>

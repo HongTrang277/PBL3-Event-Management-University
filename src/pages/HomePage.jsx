@@ -109,6 +109,7 @@ const HomePage = () => {
                 setAllApprovedEvents(approved);
 
                 if (isAuthenticated && user?.role === ROLES.STUDENT && user?.id) {
+                    try {
                     const registeredResponse = await registrationService.getEventsUserRegisteredFor(user.id);
                     const newMap = new Map();
                     if (Array.isArray(registeredResponse)) {
@@ -120,6 +121,15 @@ const HomePage = () => {
                         });
                     }
                     setRegisteredEventMap(newMap);
+                } catch (regError) {
+                    // Xử lý lỗi 404 - người dùng chưa đăng ký sự kiện nào
+                    if (regError.response?.status === 404) {
+                        console.log("Người dùng chưa đăng ký sự kiện nào.");
+                        setRegisteredEventMap(new Map()); // Map rỗng
+                    } else {
+                        console.error("Lỗi khi lấy danh sách sự kiện đã đăng ký:", regError);
+                    }
+                }
                 }
             } catch (err) {
                 setError(err.response?.data?.message || err.message || 'Không thể tải dữ liệu sự kiện.');
