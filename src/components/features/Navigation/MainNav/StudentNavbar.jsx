@@ -77,6 +77,7 @@ const StyledNavLink = styled(NavLink)`
      }
 `;
 
+
 const AuthSection = styled.div`
     display: flex;
     align-items: center;
