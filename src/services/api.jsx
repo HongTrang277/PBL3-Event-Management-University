@@ -44,25 +44,53 @@ export const eventService = {
     return api.get(`/events/${id}`);
   },
   createEvent: async (eventData) => {
-    // Gửi dữ liệu sự kiện qua endpoint /events
-    try {
-      console.log('Sending eventtt data:', eventData);
-      const response = await api.post('/events', eventData);
-      console.log('Response:', response);
-      return response;
-    } catch (error) {
-      console.error('Error during createEvent:', error);
-      throw error;
+  try {
+    console.log('Sending event data:', eventData);
+    const response = await api.post('/events', eventData, {
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
+    console.log('Response:', response);
+    return response;
+  } catch (error) {
+    console.error('Error during createEvent:', error);
+    
+    // Add better error logging
+    if (error.response) {
+      console.error('Error response data:', error.response.data);
+      console.error('Error response status:', error.response.status);
+      console.error('Error response headers:', error.response.headers);
     }
     
-  },
+    throw error;
+  }
+},
   updateEvent: async (id, eventData) => {
     return api.put(`/events/${id}`, eventData);
   },
   deleteEvent: async (id) => {
     return api.delete(`/events/${id}`);
   },
-  
+addFacultiesToScope: async (eventId, facultyIds) => {
+  try {
+    // Make sure facultyIds is an array
+    const facultyIdsArray = Array.isArray(facultyIds) ? facultyIds : [facultyIds];
+    
+    // Send the array of faculty IDs to the backend
+    const response = await api.post(`/events/${eventId}/AddFacultiesToScope`, facultyIdsArray, {
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    console.log('Faculty scope response:', response);
+    return response.data;
+  } catch (error) {
+    console.error('Error adding faculties to event scope:', error);
+    throw error;
+  }
+}
 };
 
 export const categoryService = {
@@ -394,9 +422,72 @@ export const authService={
     
     // Nếu roles là string
     return roles === role;
+  },
+  getUserById: async (userId) => {
+    try {
+      console.log(`Fetching user with ID: ${userId}`);
+      const response = await api.get(`/appusers/${userId}`);
+      
+      // Check if we have valid data
+      if (!response || !response.data) {
+        console.warn('API returned empty response');
+        return { data: null };
+      }
+      
+      // Log the response for debugging
+      console.log('API Response:', response);
+      
+      // Return formatted data
+      return { 
+        data: {
+          ...response.data,
+          // Add default values for missing fields
+          fullName: response.data.fullName || '',
+          studentId: response.data.studentId || '',
+          class: response.data.class || '',
+          facultyId: response.data.facultyId || '',
+          emailConfirmed: !!response.data.emailConfirmed,
+          userImageUrl: response.data.userImageUrl || ''
+        }
+      };
+    } catch (error) {
+      console.error("Error in getUserById:", error);
+      // Return a stable response with null data to avoid errors
+      return { data: null };
+    }
+  },
+  
+  updateUserProfile: async (userId, userData) => {
+    try {
+      console.log(`Updating user ${userId} with data:`, userData);
+      const response = await api.put(`/appusers/${userId}`, userData);
+      return response;
+    } catch (error) {
+      console.error("Error updating profile:", error);
+      throw error;
+    }
   }
-
-
 }
+export const facultyService ={
+  getAllFaculties: async () => {
+    try {
+      const response = await api.get('/faculties');
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching faculties:', error.response?.data || error.message);
+      throw error;
+    }
+  },
+  getFacultyById: async (id) => {
+    try {
+      const response = await api.get(`/faculties/${id}`);
+      return response.data;
+    } catch (error) {
+      console.error(`Error fetching faculty with ID ${id}:`, error.response?.data || error.message);
+      throw error;
+    }
+  }
+}
+
 
 export default api;

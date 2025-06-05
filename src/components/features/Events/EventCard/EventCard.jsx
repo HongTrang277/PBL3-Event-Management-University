@@ -7,7 +7,8 @@ import { useAuth } from '../../../../hooks/useAuth';
 import { formatDate } from '../../../../utils/helpers';
 import { ATTENDANCE_TYPES, ROLES } from '../../../../utils/constants';
 import Button from '../../../common/Button/Button';
-
+import { useEffect, useState } from 'react';
+import { authService } from '../../../../services/api';
 // --- Styled Icons (Giữ nguyên) ---
 const IconWrapper = styled.span`
     display: inline-flex;
@@ -177,6 +178,8 @@ const EventCard = ({
 }) => {
     const { user, isAuthenticated } = useAuth();
     const navigate = useNavigate();
+    const [hostInfo, setHostInfo] = useState(null);
+    const [isLoadingHost, setIsLoadingHost] = useState(false);
 
     if (!event) {
         console.warn("EventCard: event prop is null or undefined.");
@@ -195,7 +198,45 @@ const EventCard = ({
 
     const displayTags = tags_from_api.slice(0, 2);
     const remainingTagsCount = Math.max(0, tags_from_api.length - 2);
+     // Thêm useEffect để fetch thông tin người tổ chức
+    useEffect(() => {
+    const fetchHostInfo = async () => {
+        if (host_id_from_api) {
+            setIsLoadingHost(true);
+            try {
+                // Add debug logging to see the API call
+                console.log("Fetching host info for ID:", host_id_from_api);
+                
+                const response = await authService.getUserById(host_id_from_api);
+                console.log("Raw API response:", response);
+                
+                if (response) {
+                    console.log("Setting host info:", response.data);
+                    setHostInfo(response.data);
+                } else {
+                    console.warn("No data returned for host ID:", host_id_from_api);
+                    // Set fallback so it's not null
+                    setHostInfo({ username: "Không xác định" });
+                }
+            } catch (error) {
+                console.error("Error fetching host info:", error);
+                // Set fallback on error
+                setHostInfo({ username: "Không xác định" });
+            } finally {
+                setIsLoadingHost(false);
+            }
+        }
+    };
 
+    fetchHostInfo();
+}, [host_id_from_api]); // Don't add hostInfo as dependency or it will cause infinite renders
+
+// 3. Add a separate useEffect for logging the state update
+useEffect(() => {
+    if (hostInfo) {
+        console.log("Updated hostInfo state:", hostInfo);
+    }
+}, [hostInfo]);
     const handleImageError = (e) => {
         e.target.style.display = 'none';
         const parent = e.target.parentNode;
@@ -323,7 +364,11 @@ const EventCard = ({
                     {event_name_from_api}
                 </Title>
                 <HostInfo>
-                    Tổ chức bởi: <span>{host_id_from_api || "Không rõ"}</span>
+                    Tổ chức bởi: <span>
+                        {isLoadingHost ? "Đang tải..." : 
+                         hostInfo ? (hostInfo.username || hostInfo.fullName || hostInfo.email) : 
+                         "Không xác định hic hic huh u"}
+                    </span>
                 </HostInfo>
                 <DetailsSection>
                     {start_date_from_api && (

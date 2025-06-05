@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import styled, { createGlobalStyle, ThemeProvider } from 'styled-components'; // Thêm ThemeProvider và createGlobalStyle
+import styled, { createGlobalStyle, css, ThemeProvider } from 'styled-components'; // Thêm ThemeProvider và createGlobalStyle
 import Button from '../components/common/Button/Button';
 import { eventService, uploadService } from '../services/api';
 import { ATTENDANCE_TYPES, TAGS } from '../utils/constants';
 import { useAuth } from '../hooks/useAuth';
 import Input from '../components/common/Input/Input'; // Giả định Input đã được style hoặc chấp nhận className/style props
-
+import { facultyService } from '../services/api';
+import LocationPicker from '../components/common/Input/LocationPicker';
 // --- Định nghĩa Theme (Màu sắc, Font, etc.) ---
 const theme = {
   colors: {
@@ -134,7 +135,8 @@ const RequiredAsterisk = styled.span`
 // hoặc bạn sẽ cần tạo một component Input mới với styled-components.
 // Nếu Input của bạn nhận className, bạn có thể truyền style từ đây.
 // Ví dụ này giả định bạn sẽ điều chỉnh component Input hoặc dùng một `StyledInputBase`
-const StyledInputBase = `
+// Change StyledInputBase from a string template to a proper styled-components CSS helper
+const StyledInputBase = css`
   width: 100%;
   height: ${({ theme }) => theme.inputHeight};
   padding: 0 0.875rem; /* 14px */
@@ -181,7 +183,7 @@ const StyledInputBase = `
 
 // Áp dụng StyledInputBase cho Textarea
 const StyledTextarea = styled.textarea`
-  ${StyledInputBase} // Kế thừa style cơ bản
+  ${StyledInputBase} 
   min-height: 120px; // Chiều cao tối thiểu cho textarea
   padding-top: 0.75rem; // Điều chỉnh padding cho textarea
   padding-bottom: 0.75rem;
@@ -358,6 +360,101 @@ const ActionContainer = styled.div`
   margin-top: 1.5rem;
   border-top: 1px solid ${({ theme }) => theme.colors.border};
 `;
+const ToggleSwitch = styled.label`
+  position: relative;
+  display: inline-block;
+  width: 60px;
+  height: 30px;
+  margin-left: 10px;
+  
+  input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+  }
+  
+  span {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: ${({ theme }) => theme.colors.textLight};
+    transition: .4s;
+    border-radius: 34px;
+  }
+  
+  span:before {
+    position: absolute;
+    content: "";
+    height: 22px;
+    width: 22px;
+    left: 4px;
+    bottom: 4px;
+    background-color: white;
+    transition: .4s;
+    border-radius: 50%;
+  }
+  
+  input:checked + span {
+    background-color: ${({ theme }) => theme.colors.accent};
+  }
+  
+  input:focus + span {
+    box-shadow: 0 0 1px ${({ theme }) => theme.colors.accent};
+  }
+  
+  input:checked + span:before {
+    transform: translateX(30px);
+  }
+`;
+
+const ToggleContainer = styled.div`
+  display: flex;
+  align-items: center;
+  margin-bottom: 1rem;
+`;
+
+const FacultySelectContainer = styled.div`
+  margin-top: 1rem;
+  background-color: ${({ theme }) => theme.colors.background};
+  border-radius: ${({ theme }) => theme.borderRadius};
+  padding: 1rem;
+  border: 1px solid ${({ theme }) => theme.colors.border};
+`;
+
+const FacultyCheckboxList = styled.div`
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+`;
+
+const FacultyLabel = styled(TagLabel)`
+  // Inherits styles from TagLabel
+`;
+const MapButtonContainer = styled.div`
+  display: flex;
+  justify-content: space-between;
+  margin-top: 10px;
+  margin-bottom: 10px;
+`;
+
+const MapButton = styled.button`
+  background-color: ${({ theme, active }) => active ? theme.colors.accent : theme.colors.background};
+  color: ${({ theme, active }) => active ? 'white' : theme.colors.textSecondary};
+  border: 1px solid ${({ theme, active }) => active ? theme.colors.accent : theme.colors.border};
+  border-radius: ${({ theme }) => theme.borderRadius};
+  padding: 8px 12px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  
+  &:hover {
+    background-color: ${({ theme, active }) => active ? theme.colors.accent : theme.colors.borderColor};
+  }
+`;
 
 // --- Component Chính ---
 const CreateEventPage = () => {
@@ -379,200 +476,315 @@ const CreateEventPage = () => {
   const [logoPreviewUrl, setLogoPreviewUrl] = useState(null);
   const [coverPreviewUrl, setCoverPreviewUrl] = useState(null);
   const [fileErrors, setFileErrors] = useState({});
+  const [isRestricted, setIsRestricted] = useState(false);
+  const [faculties, setFaculties] = useState([]);
+  const [selectedFaculties, setSelectedFaculties] = useState([]);
+  const [isFetchingFaculties, setIsFetchingFaculties] = useState(false);
+  const [isOpenedForRegistration, setIsOpenedForRegistration] = useState(true);
+  const [isCancelled, setIsCancelled] = useState(false);
+  const [latitude, setLatitude] = useState(0);
+  const [longitude, setLongitude] = useState(0);
+  useEffect(() => {
+    const fetchFaculties = async () => {
+      setIsFetchingFaculties(true);
+      try {
+        // Call the service
+        const response = await facultyService.getAllFaculties();
+        console.log('Response from facultyService:', response);
 
-    useEffect(() => {
-        if (!logo) {
-            setLogoPreviewUrl(null);
-            return;
-        }
-        const objectUrl = URL.createObjectURL(logo);
-        setLogoPreviewUrl(objectUrl);
-        return () => URL.revokeObjectURL(objectUrl);
-    }, [logo]);
-
-    useEffect(() => {
-        if (!cover) {
-            setCoverPreviewUrl(null);
-            return;
-        }
-        const objectUrl = URL.createObjectURL(cover);
-        setCoverPreviewUrl(objectUrl);
-        return () => URL.revokeObjectURL(objectUrl);
-    }, [cover]);
-
-
-    const handleFileChange = (fieldName, setter) => (event) => {
-        const file = event.target.files[0];
-        const newErrors = { ...fileErrors };
-        if (file && (file.type === 'image/jpeg' || file.type === 'image/png')) {
-            setter(file);
-            delete newErrors[fieldName];
+        // Properly handle the data based on API response structure
+        let facultiesData;
+        if (Array.isArray(response)) {
+          facultiesData = response;
+        } else if (response && typeof response === 'object') {
+          // Check different possible response structures
+          if (Array.isArray(response.data)) {
+            facultiesData = response.data;
+          } else if (response.results && Array.isArray(response.results)) {
+            facultiesData = response.results;
+          } else {
+            // If we can't find an array in expected places, try to extract it
+            const possibleArrays = Object.values(response).find(val => Array.isArray(val));
+            facultiesData = possibleArrays || [];
+          }
         } else {
-            setter(null);
-            if (file) {
-                newErrors[fieldName] = 'Vui lòng chọn file ảnh định dạng JPG hoặc PNG.';
-            } else {
-                delete newErrors[fieldName];
-            }
+          facultiesData = [];
         }
-        setFileErrors(newErrors);
-        setError(null);
-    };
 
-    const handleTagChange = (event) => {
-        const { value, checked } = event.target;
-        setSelectedTags(prevTags =>
-            checked ? [...prevTags, value] : prevTags.filter(tag => tag !== value)
-        );
-    };
+        console.log('Processed faculty data:', facultiesData);
+        setFaculties(facultiesData);
 
-    const validateForm = () => {
-        // ... (Giữ nguyên logic validate của bạn)
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-
-        if (!eventName.trim()) return "Tên sự kiện không được để trống.";
-        if (!description.trim()) return "Mô tả sự kiện không được để trống.";
-        if (!startDate) return "Ngày giờ bắt đầu không được để trống.";
-
-//         const startTime = new Date(startDate);
-//         if (startTime < today) return "Ngày bắt đầu không được là một ngày trong quá khứ.";
-
-        if (!endDate) return "Ngày giờ kết thúc không được để trống.";
-        const endTime = new Date(endDate);
-        const startTime = new Date(startDate); // Cần startTime ở đây để so sánh
-        if (endTime <= startTime) return "Ngày giờ kết thúc phải sau ngày giờ bắt đầu.";
-
-        if (!capacity || parseInt(capacity, 10) <= 0) return "Số lượng tham gia phải là số dương.";
-        if (attendanceType === ATTENDANCE_TYPES.OFFLINE && !location.trim()) return "Địa điểm không được để trống khi tổ chức offline.";
-        if (attendanceType === ATTENDANCE_TYPES.ONLINE && !location.trim()) return "Nền tảng Online/Link không được để trống khi tổ chức online.";
-        if (!logo) return "Vui lòng tải lên ảnh logo.";
-        if (!cover) return "Vui lòng tải lên ảnh bìa.";
-        return null;
-    };
-
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-        setError(null);
-        const validationError = validateForm();
-        const currentFileErrors = { ...fileErrors };
-        if (!logo && !currentFileErrors.logo) currentFileErrors.logo = "Vui lòng tải lên ảnh logo.";
-        if (!cover && !currentFileErrors.cover) currentFileErrors.cover = "Vui lòng tải lên ảnh bìa.";
-        setFileErrors(currentFileErrors);
-        const hasFileErrors = Object.values(currentFileErrors).some(err => err);
-
-        if (validationError || hasFileErrors) {
-            let combinedError = validationError || "";
-            if (hasFileErrors) {
-                const specificFileErrors = Object.entries(currentFileErrors)
-                    .filter(([, value]) => value)
-                    .map(([key, value]) => `${key === 'logo' ? 'Logo' : 'Ảnh bìa'}: ${value}`)
-                    .join(' ');
-                combinedError = combinedError ? `${combinedError} ${specificFileErrors}` : specificFileErrors;
-            }
-            setError(combinedError || "Vui lòng kiểm tra lại thông tin đã nhập.");
-            return;
+        if (facultiesData.length === 0) {
+          console.warn('No faculties found in the response');
         }
-        setIsLoading(true);
+      } catch (error) {
+        console.error('Error fetching faculties:', error);
+        // More detailed error logging
+        if (error.response) {
+          console.error('Error response:', error.response.data);
+          console.error('Status code:', error.response.status);
+        }
+        setError('Không thể tải danh sách khoa: ' + (error.message || 'Lỗi không xác định'));
+      } finally {
+        setIsFetchingFaculties(false);
+      }
+    };
+
+    fetchFaculties();
+  }, []);
+  useEffect(() => {
+    if (!cover) {
+      setCoverPreviewUrl(null);
+      return;
+    }
+    const objectUrl = URL.createObjectURL(cover);
+    setCoverPreviewUrl(objectUrl);
+    return () => URL.revokeObjectURL(objectUrl);
+  }, [cover]);
+
+
+  const handleFileChange = (fieldName, setter) => (event) => {
+    const file = event.target.files[0];
+    const newErrors = { ...fileErrors };
+    if (file && (file.type === 'image/jpeg' || file.type === 'image/png')) {
+      setter(file);
+      delete newErrors[fieldName];
+    } else {
+      setter(null);
+      if (file) {
+        newErrors[fieldName] = 'Vui lòng chọn file ảnh định dạng JPG hoặc PNG.';
+      } else {
+        delete newErrors[fieldName];
+      }
+    }
+    setFileErrors(newErrors);
+    setError(null);
+  };
+
+  const handleTagChange = (event) => {
+    const { value, checked } = event.target;
+    setSelectedTags(prevTags =>
+      checked ? [...prevTags, value] : prevTags.filter(tag => tag !== value)
+    );
+  };
+
+  // Add this handler for faculty selection
+  // Update the handleFacultyChange function for proper type handling:
+  const handleFacultyChange = (event) => {
+    const value = event.target.value;
+    const checked = event.target.checked;
+
+    console.log('Faculty selection changed:', value, checked);
+
+    setSelectedFaculties(prevSelected => {
+      if (checked) {
+        return [...prevSelected, value];
+      } else {
+        return prevSelected.filter(id => id !== value);
+      }
+    });
+  };
+  // Add this function to handle toggling restrictions
+  const handleRestrictionToggle = (e) => {
+    const isChecked = e.target.checked;
+    setIsRestricted(isChecked);
+
+    // Optional: Clear faculty selections when disabling restrictions
+    // Uncomment if you want this behavior
+    if (!isChecked) {
+      setSelectedFaculties([]);
+    }
+  };
+  const handleLocationChange = (e) => {
+    const newLocation = e.target.value;
+    setLocation(newLocation);
+
+    // The coordinates will be set by the LocationPicker component
+    // For online events, we'll keep them at 0
+    if (attendanceType === ATTENDANCE_TYPES.ONLINE) {
+      setLatitude(0);
+      setLongitude(0);
+    }
+    
+  };
+
+  // Then update the toggle input:
+
+
+  const validateForm = () => {
+    // ... (Giữ nguyên logic validate của bạn)
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    if (!eventName.trim()) return "Tên sự kiện không được để trống.";
+    if (!description.trim()) return "Mô tả sự kiện không được để trống.";
+    if (!startDate) return "Ngày giờ bắt đầu không được để trống.";
+
+    //         const startTime = new Date(startDate);
+    //         if (startTime < today) return "Ngày bắt đầu không được là một ngày trong quá khứ.";
+
+    if (!endDate) return "Ngày giờ kết thúc không được để trống.";
+    const endTime = new Date(endDate);
+    const startTime = new Date(startDate); // Cần startTime ở đây để so sánh
+    if (endTime <= startTime) return "Ngày giờ kết thúc phải sau ngày giờ bắt đầu.";
+
+    if (!capacity || parseInt(capacity, 10) <= 0) return "Số lượng tham gia phải là số dương.";
+    if (attendanceType === ATTENDANCE_TYPES.OFFLINE && !location.trim()) return "Địa điểm không được để trống khi tổ chức offline.";
+    if (attendanceType === ATTENDANCE_TYPES.ONLINE && !location.trim()) return "Nền tảng Online/Link không được để trống khi tổ chức online.";
+    if (!logo) return "Vui lòng tải lên ảnh logo.";
+    if (!cover) return "Vui lòng tải lên ảnh bìa.";
+    if (isRestricted && selectedFaculties.length === 0) {
+      return "Vui lòng chọn ít nhất một khoa khi giới hạn sự kiện.";
+    }
+    return null;
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError(null);
+    const validationError = validateForm();
+    const currentFileErrors = { ...fileErrors };
+    if (!logo && !currentFileErrors.logo) currentFileErrors.logo = "Vui lòng tải lên ảnh logo.";
+    if (!cover && !currentFileErrors.cover) currentFileErrors.cover = "Vui lòng tải lên ảnh bìa.";
+    setFileErrors(currentFileErrors);
+    const hasFileErrors = Object.values(currentFileErrors).some(err => err);
+
+    if (validationError || hasFileErrors) {
+      let combinedError = validationError || "";
+      if (hasFileErrors) {
+        const specificFileErrors = Object.entries(currentFileErrors)
+          .filter(([, value]) => value)
+          .map(([key, value]) => `${key === 'logo' ? 'Logo' : 'Ảnh bìa'}: ${value}`)
+          .join(' ');
+        combinedError = combinedError ? `${combinedError} ${specificFileErrors}` : specificFileErrors;
+      }
+      setError(combinedError || "Vui lòng kiểm tra lại thông tin đã nhập.");
+      return;
+    }
+    setIsLoading(true);
+    try {
+      let uploadedLogoUrl = '';
+      let uploadedCoverUrl = '';
+
+      if (logo) {
         try {
-            let uploadedLogoUrl = '';
-            let uploadedCoverUrl = '';
-
-            if (logo) {
-                try {
-                    const logoUploadResponse = await uploadService.uploadFile(logo);
-                    if (logoUploadResponse?.saveUrl) {
-                        let correctSaveUrl = logoUploadResponse.saveUrl;
-                        if (correctSaveUrl.startsWith("//")) correctSaveUrl = correctSaveUrl.substring(1);
-                        const apiUrl = import.meta.env.VITE_API_BASE_URL;
-                        if (!apiUrl) {
-                            console.error("LỖI CẤU HÌNH: Biến môi trường VITE_API_BASE_URL không được định nghĩa!");
-                            setError("Lỗi cấu hình hệ thống. (ENV_API_URL_MISSING)");
-                            setIsLoading(false); return;
-                        }
-                        const domainApi = apiUrl.replace('/api', '');
-                        uploadedLogoUrl = domainApi + correctSaveUrl;
-                    } else if (logoUploadResponse?.fileName) {
-                        uploadedLogoUrl = uploadService.getFileUrl(logoUploadResponse.fileName);
-                    } else if (logoUploadResponse?.url) {
-                        uploadedLogoUrl = logoUploadResponse.url;
-                    } else {
-                        throw new Error("Không nhận được thông tin file logo sau khi upload.");
-                    }
-                } catch (uploadError) {
-                    console.error('Lỗi upload logo:', uploadError);
-                    setError(`Lỗi upload logo: ${uploadError.response?.data?.message || uploadError.message || 'Không thể tải lên logo.'}`);
-                    setIsLoading(false); return;
-                }
+          const logoUploadResponse = await uploadService.uploadFile(logo);
+          if (logoUploadResponse?.saveUrl) {
+            let correctSaveUrl = logoUploadResponse.saveUrl;
+            if (correctSaveUrl.startsWith("//")) correctSaveUrl = correctSaveUrl.substring(1);
+            const apiUrl = import.meta.env.VITE_API_BASE_URL;
+            if (!apiUrl) {
+              console.error("LỖI CẤU HÌNH: Biến môi trường VITE_API_BASE_URL không được định nghĩa!");
+              setError("Lỗi cấu hình hệ thống. (ENV_API_URL_MISSING)");
+              setIsLoading(false); return;
             }
-            if (cover) {
-                try {
-                    const coverUploadResponse = await uploadService.uploadFile(cover);
-                    if (coverUploadResponse?.saveUrl) {
-                        let correctSaveUrl = coverUploadResponse.saveUrl;
-                        if (correctSaveUrl.startsWith("//")) correctSaveUrl = correctSaveUrl.substring(1);
-                        const apiUrl = import.meta.env.VITE_API_BASE_URL;
-                        if (!apiUrl) {
-                            console.error("LỖI CẤU HÌNH: VITE_API_BASE_URL không định nghĩa!");
-                            setError("Lỗi cấu hình hệ thống (ENV_API_URL_MISSING_COVER).");
-                            setIsLoading(false); return;
-                        }
-                        const domainApi = apiUrl.replace('/api', '');
-                        uploadedCoverUrl = domainApi + correctSaveUrl;
-                    } else if (coverUploadResponse?.fileName) {
-                        uploadedCoverUrl = uploadService.getFileUrl(coverUploadResponse.fileName);
-                    } else if (coverUploadResponse?.url) {
-                        uploadedCoverUrl = coverUploadResponse.url;
-                    } else {
-                        throw new Error("Không nhận được thông tin file ảnh bìa sau khi upload.");
-                    }
-                } catch (uploadError) {
-                    console.error('Lỗi upload ảnh bìa:', uploadError);
-                    setError(`Lỗi upload ảnh bìa: ${uploadError.response?.data?.message || uploadError.message || 'Không thể tải lên ảnh bìa.'}`);
-                    setIsLoading(false); return;
-                }
-            }
-            console.log(">>> STATE 'startDate' TRƯỚC new Date():", startDate); // QUAN TRỌNG!
-  console.log(">>> STATE 'endDate' TRƯỚC new Date():", endDate);     // Để so sánh
-
-            const eventData = {
-                EventName: eventName.trim(),
-                Description: description.trim(),
-                AttendanceType: attendanceType,
-                Location: attendanceType === ATTENDANCE_TYPES.ONLINE ? (location.trim() || 'Online Platform') : location.trim(),
-                StartDate: new Date(startDate).toISOString(),
-                EndDate: new Date(endDate).toISOString(),
-                Capacity: parseInt(capacity, 10),
-                HostId: user?.id,
-                LogoUrl: uploadedLogoUrl,
-                CoverUrl: uploadedCoverUrl,
-                Tags: selectedTags,
-            };
-
-            console.log('Sending event data:', eventData);
-            const response = await eventService.createEvent(eventData);
-            console.log('Event created successfully:', response.data);
-            setSuccess('Sự kiện đã được tạo thành công!');
-            // Reset form
-            setEventName(''); setDescription(''); setStartDate(''); setEndDate('');
-            setCapacity(''); setLogo(null); setCover(null);
-            setAttendanceType(ATTENDANCE_TYPES.OFFLINE); setLocation('');
-            setSelectedTags([]); setFileErrors({}); setError(null);
-
-            setTimeout(() => {
-                navigate('/admin/my-events');
-            }, 2000);
-
-        } catch (err) {
-            console.error('Error during event creation process:', err);
-            if (!error && !success) {
-                const errorMessage = err.response?.data?.message || err.message || 'Đã xảy ra lỗi khi tạo sự kiện.';
-                setError(errorMessage);
-            }
-        } finally {
-            setIsLoading(false);
+            const domainApi = apiUrl.replace('/api', '');
+            uploadedLogoUrl = domainApi + correctSaveUrl;
+          } else if (logoUploadResponse?.fileName) {
+            uploadedLogoUrl = uploadService.getFileUrl(logoUploadResponse.fileName);
+          } else if (logoUploadResponse?.url) {
+            uploadedLogoUrl = logoUploadResponse.url;
+          } else {
+            throw new Error("Không nhận được thông tin file logo sau khi upload.");
+          }
+        } catch (uploadError) {
+          console.error('Lỗi upload logo:', uploadError);
+          setError(`Lỗi upload logo: ${uploadError.response?.data?.message || uploadError.message || 'Không thể tải lên logo.'}`);
+          setIsLoading(false); return;
         }
-    };
+      }
+      if (cover) {
+        try {
+          const coverUploadResponse = await uploadService.uploadFile(cover);
+          if (coverUploadResponse?.saveUrl) {
+            let correctSaveUrl = coverUploadResponse.saveUrl;
+            if (correctSaveUrl.startsWith("//")) correctSaveUrl = correctSaveUrl.substring(1);
+            const apiUrl = import.meta.env.VITE_API_BASE_URL;
+            if (!apiUrl) {
+              console.error("LỖI CẤU HÌNH: VITE_API_BASE_URL không định nghĩa!");
+              setError("Lỗi cấu hình hệ thống (ENV_API_URL_MISSING_COVER).");
+              setIsLoading(false); return;
+            }
+            const domainApi = apiUrl.replace('/api', '');
+            uploadedCoverUrl = domainApi + correctSaveUrl;
+          } else if (coverUploadResponse?.fileName) {
+            uploadedCoverUrl = uploadService.getFileUrl(coverUploadResponse.fileName);
+          } else if (coverUploadResponse?.url) {
+            uploadedCoverUrl = coverUploadResponse.url;
+          } else {
+            throw new Error("Không nhận được thông tin file ảnh bìa sau khi upload.");
+          }
+        } catch (uploadError) {
+          console.error('Lỗi upload ảnh bìa:', uploadError);
+          setError(`Lỗi upload ảnh bìa: ${uploadError.response?.data?.message || uploadError.message || 'Không thể tải lên ảnh bìa.'}`);
+          setIsLoading(false); return;
+        }
+      }
+      console.log(">>> STATE 'startDate' TRƯỚC new Date():", startDate); // QUAN TRỌNG!
+      console.log(">>> STATE 'endDate' TRƯỚC new Date():", endDate);     // Để so sánh
+
+      const eventData = {
+        EventName: eventName.trim(),
+        Description: description.trim(),
+        AttendanceType: attendanceType,
+        Location: attendanceType === ATTENDANCE_TYPES.ONLINE ?
+          (location.trim() || 'Online Platform') : location.trim(),
+        Latitude: latitude || 0, // Default to 0 if not set
+        Longitude: longitude || 0, // Default to 0 if not set
+        StartDate: new Date(startDate).toISOString(),
+        EndDate: new Date(endDate).toISOString(),
+        Capacity: parseInt(capacity, 10),
+        HostId: user?.id,
+        LogoUrl: uploadedLogoUrl,
+        CoverUrl: uploadedCoverUrl,
+        Tags: selectedTags,
+        IsRestricted: isRestricted,
+        // Add the missing fields
+        IsOpenedForRegistration: isOpenedForRegistration,
+        IsCancelled: isCancelled,
+        Scope: isRestricted ? "restricted" : "public" // Set scope based on restriction status
+      };
+
+      console.log('Sending event data:', eventData);
+      console.log('Event restriction status:', isRestricted ? 'Restricted to specific faculties' : 'School-wide (no restrictions)');
+
+      console.log('Sending event data:', eventData);
+      const response = await eventService.createEvent(eventData);
+      if (isRestricted && selectedFaculties.length > 0 && response.data?.eventId) {
+        try {
+          console.log('Adding faculties to event scope:', selectedFaculties);
+          const eventId = response.data.eventId;
+          await eventService.addFacultiesToScope(eventId, selectedFaculties);
+          console.log('Faculties added to event scope successfully');
+        } catch (scopeError) {
+          console.error('Error adding faculties to event scope:', scopeError);
+          setError(`Sự kiện đã được tạo, nhưng có lỗi khi giới hạn khoa: ${scopeError.message}`);
+        }
+      }
+      console.log('Event created successfully:', response.data);
+      setSuccess('Sự kiện đã được tạo thành công!');
+      // If event is restricted and we have selected faculties, add them to the event scope
+
+      // Reset form
+      setEventName(''); setDescription(''); setStartDate(''); setEndDate('');
+      setCapacity(''); setLogo(null); setCover(null);
+      setAttendanceType(ATTENDANCE_TYPES.OFFLINE); setLocation('');
+      setSelectedTags([]); setFileErrors({}); setError(null);
+
+      setTimeout(() => {
+        navigate('/admin/my-events');
+      }, 2000);
+
+    } catch (err) {
+      console.error('Error during event creation process:', err);
+      if (!error && !success) {
+        const errorMessage = err.response?.data?.message || err.message || 'Đã xảy ra lỗi khi tạo sự kiện.';
+        setError(errorMessage);
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
 
 
@@ -598,7 +810,7 @@ const CreateEventPage = () => {
           )}
 
           {Object.values(fileErrors).some(e => e) && !error?.includes("Logo:") && !error?.includes("Ảnh bìa:") && (
-            <ErrorMessage role="alert" style={{ marginTop: '1rem'}}>
+            <ErrorMessage role="alert" style={{ marginTop: '1rem' }}>
               {fileErrors.logo && <p>Logo: {fileErrors.logo}</p>}
               {fileErrors.cover && <p>Ảnh bìa: {fileErrors.cover}</p>}
             </ErrorMessage>
@@ -620,7 +832,7 @@ const CreateEventPage = () => {
                 onChange={(e) => setEventName(e.target.value)}
                 placeholder="Nhập tên sự kiện"
                 required
-                // className={StyledInputBase} // Hoặc style nội bộ của Input
+              // className={StyledInputBase} // Hoặc style nội bộ của Input
               />
             </FormGroup>
 
@@ -637,7 +849,100 @@ const CreateEventPage = () => {
                 required
               />
             </FormGroup>
+            {/* Add the faculty restriction toggle after the tags section */}
+            <FormGroup>
+              <ToggleContainer>
+                <StyledLabel htmlFor="isRestricted" style={{ margin: 0 }}>
+                  Giới hạn tham gia theo khoa
+                </StyledLabel>
+                <ToggleSwitch>
+                  <input
+                    type="checkbox"
+                    id="isRestricted"
+                    checked={isRestricted}
+                    onChange={(e) => setIsRestricted(e.target.checked)}
+                    onClick={handleRestrictionToggle} // Thêm sự kiện click để xử lý toggle
+                  />
+                  <span></span>
+                </ToggleSwitch>
+              </ToggleContainer>
 
+              <small style={{
+                display: 'block',
+                marginTop: '0.5rem',
+                color: theme.colors.textSecondary,
+                fontStyle: 'italic'
+              }}>
+                {isRestricted
+                  ? "Chỉ sinh viên thuộc các khoa được chọn mới có thể tham gia sự kiện này."
+                  : "Sự kiện sẽ được tổ chức cho toàn trường, không giới hạn khoa nào."}
+              </small>
+
+              {isRestricted && (
+                <FacultySelectContainer>
+                  <StyledLabel>
+                    Chọn khoa được phép tham gia <RequiredAsterisk>*</RequiredAsterisk>
+                  </StyledLabel>
+
+                  {isFetchingFaculties && <p>Đang tải danh sách khoa...</p>}
+
+                  {!isFetchingFaculties && faculties.length === 0 && (
+                    <>
+                      <p>Không tìm thấy thông tin khoa</p>
+                      <small style={{ color: theme.colors.error }}>
+                        Vui lòng kiểm tra kết nối mạng hoặc liên hệ quản trị viên
+                      </small>
+                    </>
+                  )}
+
+                  {!isFetchingFaculties && faculties.length > 0 && (
+                    <FacultyCheckboxList>
+                      {faculties.map(faculty => (
+                        <FacultyLabel
+                          key={faculty.facultyId}
+                          className={selectedFaculties.includes(faculty.facultyId) ? 'tag-checked' : ''}
+                        >
+                          <input
+                            type="checkbox"
+                            value={faculty.facultyId}
+                            checked={selectedFaculties.includes(faculty.facultyId)}
+                            onChange={handleFacultyChange}
+                          />
+                          <span>{faculty.facultyName}</span>
+                        </FacultyLabel>
+                      ))}
+                    </FacultyCheckboxList>
+                  )}
+                </FacultySelectContainer>
+              )}
+            </FormGroup>
+            <FormGroup>
+              <ToggleContainer>
+                <StyledLabel htmlFor="isOpenedForRegistration" style={{ margin: 0 }}>
+                  Cho phép đăng ký tham gia
+                </StyledLabel>
+                <ToggleSwitch>
+                  <input
+                    type="checkbox"
+                    id="isOpenedForRegistration"
+                    checked={isOpenedForRegistration}
+                    onChange={(e) => setIsOpenedForRegistration(e.target.checked)}
+                  />
+                  <span></span>
+                </ToggleSwitch>
+              </ToggleContainer>
+
+              <small style={{
+                display: 'block',
+                marginTop: '0.5rem',
+                color: theme.colors.textSecondary,
+                fontStyle: 'italic'
+              }}>
+                {isOpenedForRegistration
+                  ? "Người dùng có thể đăng ký tham gia ngay sau khi sự kiện được tạo."
+                  : "Sự kiện sẽ không mở đăng ký ngay. Bạn có thể mở đăng ký sau."}
+              </small>
+            </FormGroup>
             <GridContainer>
               <FormGroup>
                 <Input
@@ -646,9 +951,9 @@ const CreateEventPage = () => {
                   type="datetime-local"
                   value={startDate}
                   onChange={(e) => {
-        console.log(">>> RAW INPUT VAL (startDate):", e.target.value);
-        setStartDate(e.target.value);
-    }}
+                    console.log(">>> RAW INPUT VAL (startDate):", e.target.value);
+                    setStartDate(e.target.value);
+                  }}
                   required
                 />
               </FormGroup>
@@ -686,9 +991,9 @@ const CreateEventPage = () => {
                   type="file"
                   accept="image/jpeg, image/png"
                   onChange={handleFileChange('logo', setLogo)}
-                  // inputClassName="file:..." đã được xử lý trong StyledInputBase
+                // inputClassName="file:..." đã được xử lý trong StyledInputBase
                 />
-                {fileErrors.logo && <ErrorMessage style={{padding: '0.5rem', marginTop: '0.5rem', fontSize: '0.8rem', borderLeftWidth: '2px'}}><p style={{margin:0}}>{fileErrors.logo}</p></ErrorMessage>}
+                {fileErrors.logo && <ErrorMessage style={{ padding: '0.5rem', marginTop: '0.5rem', fontSize: '0.8rem', borderLeftWidth: '2px' }}><p style={{ margin: 0 }}>{fileErrors.logo}</p></ErrorMessage>}
               </FormGroup>
               <FormGroup>
                 <Input
@@ -698,15 +1003,15 @@ const CreateEventPage = () => {
                   accept="image/jpeg, image/png"
                   onChange={handleFileChange('cover', setCover)}
                 />
-                {fileErrors.cover && <ErrorMessage style={{padding: '0.5rem', marginTop: '0.5rem', fontSize: '0.8rem', borderLeftWidth: '2px'}}><p style={{margin:0}}>{fileErrors.cover}</p></ErrorMessage>}
+                {fileErrors.cover && <ErrorMessage style={{ padding: '0.5rem', marginTop: '0.5rem', fontSize: '0.8rem', borderLeftWidth: '2px' }}><p style={{ margin: 0 }}>{fileErrors.cover}</p></ErrorMessage>}
               </FormGroup>
             </GridContainer>
 
             {(logoPreviewUrl || coverPreviewUrl) && (
-                <PreviewContainer>
-                    {logoPreviewUrl && <PreviewImage src={logoPreviewUrl} alt="Logo Preview" />}
-                    {coverPreviewUrl && <PreviewImageCover src={coverPreviewUrl} alt="Cover Preview" />}
-                </PreviewContainer>
+              <PreviewContainer>
+                {logoPreviewUrl && <PreviewImage src={logoPreviewUrl} alt="Logo Preview" />}
+                {coverPreviewUrl && <PreviewImageCover src={coverPreviewUrl} alt="Cover Preview" />}
+              </PreviewContainer>
             )}
 
 
@@ -726,12 +1031,37 @@ const CreateEventPage = () => {
 
             {attendanceType === ATTENDANCE_TYPES.OFFLINE && (
               <FormGroup>
-                <Input id="location" label="Địa điểm tổ chức" value={location} onChange={(e) => setLocation(e.target.value)} placeholder="Ví dụ: Hội trường F, Khu F, ĐH Bách Khoa" required={attendanceType === ATTENDANCE_TYPES.OFFLINE} />
+                <Input
+                  id="location"
+                  label="Địa điểm tổ chức"
+                  value={location}
+                  onChange={handleLocationChange}
+                  placeholder="Nhập địa chỉ (VD: Đại học Bách Khoa Đà Nẵng)"
+                  required={attendanceType === ATTENDANCE_TYPES.OFFLINE}
+                />
+
+                <LocationPicker
+                  latitude={latitude}
+                  longitude={longitude}
+                  onLocationChange={(lat, lng) => {
+                    setLatitude(lat);
+                    setLongitude(lng);
+                    console.log(`Selected coordinates: ${lat}, ${lng}`);
+                  }}
+                  locationName={location}
+                />
               </FormGroup>
             )}
             {attendanceType === ATTENDANCE_TYPES.ONLINE && (
               <FormGroup>
-                <Input id="location" label="Nền tảng Online / Link tham gia" value={location} onChange={(e) => setLocation(e.target.value)} placeholder="Ví dụ: Link Google Meet, Zoom, MS Teams,..." required={attendanceType === ATTENDANCE_TYPES.ONLINE} />
+                <Input
+                  id="location"
+                  label="Nền tảng Online / Link tham gia"
+                  value={location}
+                  onChange={handleLocationChange}  // Use the new handler
+                  placeholder="Ví dụ: Link Google Meet, Zoom, MS Teams,..."
+                  required={attendanceType === ATTENDANCE_TYPES.ONLINE}
+                />
               </FormGroup>
             )}
 
