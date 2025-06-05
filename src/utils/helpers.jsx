@@ -148,3 +148,18 @@ export const convertApiDateTimeToDaNangInputString = (apiDateTimeString) => {
     return '';
   }
 };
+// Thêm các hàm mới cho định dạng ngày:
+export const extractDateInfo = (dateString) => {
+  if (!dateString) return { day: '--', month: '---', year: '----' };
+  
+  try {
+    const date = new Date(dateString);
+    return {
+      day: date.toLocaleDateString('vi-VN', { day: '2-digit' }),
+      month: date.toLocaleDateString('vi-VN', { month: 'short' }).toUpperCase(),
+      year: date.getFullYear().toString()
+    };
+  } catch (error) {
+    return { day: '--', month: '---', year: '----' };
+  }
+};
