@@ -22,6 +22,7 @@ import MyEventsPage from './pages/MyEventPage';
 import RegisteredEventsPage from './pages/RegisteredEventPage';
 import AdminAllEventsPage from './pages/AllEventPage';
 import AttendancePage from './pages/AttendancePage';
+import MyProfile from './pages/MyProfile';
 // Uncomment as needed
 // import AchievementsPage from './pages/AchievementsPage'; 
 // import ProfilePage from './pages/ProfilePage'; 
@@ -76,9 +77,8 @@ function App() {
           
           {/* Profile - Nhiều vai trò có thể truy cập */}
           <Route path="/profile" element={
-            <ProtectedRoute allowedRoles={['student','User', 'Student', 'event_creator', 'EventCreator', 'union', 'Union', 'Admin']}>
-              {/* <ProfilePage /> */}
-              <div>Chức năng đang phát triển</div>
+            <ProtectedRoute allowedRoles={['student','User', 'Student', 'event_creator', 'EventCreator', 'union', 'Union', 'Admin', 'Organizer']}>
+              <MyProfile />
             </ProtectedRoute>
           } />
 

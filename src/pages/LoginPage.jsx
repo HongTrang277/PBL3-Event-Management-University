@@ -356,48 +356,56 @@ const LoginPage = () => {
     };
 
     const handleSubmit = async (e) => {
-        e.preventDefault();
-        setError(null);
-        setIsLoading(true);
+    e.preventDefault();
+    setError(null);
+    setIsLoading(true);
 
-        try {
-            // Sử dụng email thay vì username để phù hợp với backend API
-            console.log("Submitting login with:", formData);
-            const result = await login({
-                email: formData.email,
-                password: formData.password,
-            });
-            console.log("Login result:", result);
+    try {
+        console.log("Submitting login with:", formData);
+        
+        // First, attempt login and wait for it to complete
+        const result = await login({
+            email: formData.email,
+            password: formData.password,
+        });
+        
+        console.log("Login result:", result);
 
-            const userData = result.user || user;
-            console.log("User data after login:", userData);
-            if (userData) {
-                let redirectTo = "/";
-                // Check user role and decide where to redirect
-                if (userData.role) {
-                    redirectTo = getRedirectPathBasedOnRole(userData.role);
-                }
-
-                console.log(
-                    `Redirecting to ${redirectTo} based on role: ${userData.role}`
-                );
+        // Store the user data locally
+        const userData = result.user || user;
+        console.log("User data after login:", userData);
+        
+        if (userData) {
+            // Determine redirect path based on user role
+            let redirectTo = "/";
+            if (userData.role) {
+                redirectTo = getRedirectPathBasedOnRole(userData.role);
+            }
+            
+            console.log(`Redirecting to ${redirectTo} based on role: ${userData.role}`);
+            
+            // Use setTimeout to ensure all message port communications complete
+            // before navigating away from the current page
+            setTimeout(() => {
                 navigate(redirectTo, { replace: true });
-            }
-            else{
+            }, 100);
+        } else {
+            // If no user data available, delay navigation to home
+            setTimeout(() => {
                 navigate("/", { replace: true });
-            }
-        } catch (err) {
-            console.error("Login error:", err);
-            setError(
-                err.response?.data?.message ||
-                err.message ||
-                "Đăng nhập thất bại. Vui lòng kiểm tra email và mật khẩu."
-            );
-        } finally {
-            setIsLoading(false);
+            }, 100);
         }
-    };
-
+    } catch (err) {
+        console.error("Login error:", err);
+        setError(
+            err.response?.data?.message ||
+            err.message ||
+            "Đăng nhập thất bại. Vui lòng kiểm tra email và mật khẩu."
+        );
+    } finally {
+        setIsLoading(false);
+    }
+};
     const handleSocialLogin = (provider) => {
         // Implement social login logic here
         alert(`Login with ${provider} clicked! (Chức năng đang phát triển)`);

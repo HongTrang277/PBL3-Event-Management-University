@@ -1,237 +1,826 @@
-// src/pages/EventDetailsPage.jsx
-import React, { useState, useEffect, useMemo } from 'react';
+// Thêm imports mới
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useParams, useNavigate, Link as RouterLink, useLocation } from 'react-router-dom';
-import styled, { keyframes, ThemeProvider } from 'styled-components';
+import styled, { keyframes, ThemeProvider, css } from 'styled-components';
 import { eventService, registrationService } from '../services/api';
 import { useAuth } from '../hooks/useAuth';
 import { ROLES, ATTENDANCE_TYPES } from '../utils/constants';
-import { formatDateTime } from '../utils/helpers';
+import { formatDateTime, extractDateInfo } from '../utils/helpers';
 import Button from '../components/common/Button/Button';
 import EventCard from '../components/features/Events/EventCard/EventCard';
+import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
+import 'leaflet/dist/leaflet.css';
+import L from 'leaflet';
+// Thêm các icons cho map và feature icons
+import { 
+  FaMapMarkerAlt, FaCalendarAlt, FaUsers, FaClock, FaTag, FaInfo,
+  FaRegClock, FaRegCalendarCheck, FaRegBuilding, FaArrowLeft, 
+  FaEdit, FaShareAlt, FaRegBookmark, FaRegUserCircle
+} from 'react-icons/fa';
 
-// --- Theme (giữ nguyên) ---
-const themeColors = {
-  colors: {
-    primary: '#005A9C', primaryLight: '#E6F3FF', primaryDarkText: '#003D6B',
-    textPrimary: '#1A202C', textSecondary: '#4A5568', textMuted: '#718096',
-    border: '#CBD5E0', backgroundLight: '#F7FAFC', white: '#FFFFFF',
-    error: '#E53E3E', success: '#38A169', coverPlaceholderBg: '#D6E4F0',
-    'primary-3': '#003652',
-    'custom-gray': {
-      100: '#f7fafc', 200: '#edf2f7', 300: '#e2e8f0', 400: '#cbd5e0',
-      500: '#a0aec0', 600: '#718096', 700: '#4a5568', 800: '#2d3748', 900: '#1a202c'
-    },
-  },
-  fontFamily: {
-    'dm-sans': "'DM Sans', sans-serif", 'nutito-sans': "'Nunito Sans', sans-serif",
-  },
-  borderRadius: { lg: '0.5rem', md: '0.375rem', full: '9999px' },
-  boxShadow: { md: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)' }
+// Fix cho Leaflet icon trong React
+delete L.Icon.Default.prototype._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon-2x.png',
+  iconUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon.png',
+  shadowUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-shadow.png',
+});
+
+// Thêm helper function để geocode địa chỉ
+const geocodeAddress = async (address) => {
+  try {
+    const response = await fetch(
+      `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}`
+    );
+    const data = await response.json();
+    if (data && data.length > 0) {
+      return [parseFloat(data[0].lat), parseFloat(data[0].lon)];
+    }
+    return [16.0544, 108.2022]; // Default: Da Nang University of Technology
+  } catch (error) {
+    console.error('Geocoding error:', error);
+    return [16.0544, 108.2022]; // Default fallback
+  }
 };
 
-// --- Keyframes (giữ nguyên) ---
+// --- Cập nhật Theme với các giá trị mới ---
+const themeColors = {
+  colors: {
+    primary: '#2563EB', 
+    primaryLight: '#EFF6FF',
+    primaryDark: '#1E40AF',
+    primaryDarkText: '#1E3A8A',
+    textPrimary: '#1E293B',
+    textSecondary: '#475569',
+    textMuted: '#94A3B8',
+    border: '#E2E8F0',
+    backgroundLight: '#F8FAFC',
+    backgroundDark: '#0F172A',
+    white: '#FFFFFF',
+    error: '#EF4444',
+    errorLight: '#FEE2E2',
+    success: '#10B981',
+    successLight: '#D1FAE5',
+    warning: '#F59E0B',
+    warningLight: '#FEF3C7',
+    info: '#3B82F6',
+    infoLight: '#DBEAFE',
+    coverPlaceholderBg: '#E2E8F0',
+    'primary-3': '#1E3A8A',
+    'custom-gray': {
+      50: '#F8FAFC',
+      100: '#F1F5F9',
+      200: '#E2E8F0',
+      300: '#CBD5E1',
+      400: '#94A3B8',
+      500: '#64748B',
+      600: '#475569',
+      700: '#334155',
+      800: '#1E293B',
+      900: '#0F172A'
+    },
+    highlights: {
+      blue: '#3B82F6',
+      green: '#10B981',
+      purple: '#8B5CF6',
+      orange: '#F59E0B',
+      red: '#EF4444',
+      indigo: '#4F46E5'
+    }
+  },
+  fontFamily: {
+    'dm-sans': "'DM Sans', sans-serif",
+    'nunito-sans': "'Nunito Sans', 'Segoe UI', Roboto, sans-serif",
+    'inter': "'Inter', 'Segoe UI', Roboto, sans-serif"
+  },
+  borderRadius: {
+    xs: '0.25rem',
+    sm: '0.375rem',
+    md: '0.5rem',
+    lg: '0.75rem',
+    xl: '1rem',
+    '2xl': '1.5rem',
+    full: '9999px'
+  },
+  boxShadow: {
+    sm: '0 1px 2px rgba(0, 0, 0, 0.05)',
+    md: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+    lg: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
+    xl: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+    inner: 'inset 0 2px 4px 0 rgba(0, 0, 0, 0.06)',
+  }
+};
+
+// --- Keyframes với hiệu ứng mới ---
 const fadeIn = keyframes`
-  from { opacity: 0; transform: translateY(10px); }
+  from { opacity: 0; transform: translateY(20px); }
   to { opacity: 1; transform: translateY(0); }
 `;
+
+const fadeInRight = keyframes`
+  from { opacity: 0; transform: translateX(20px); }
+  to { opacity: 1; transform: translateX(0); }
+`;
+
+const pulse = keyframes`
+  0% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+  100% { transform: scale(1); }
+`;
+
 const scrollVertical = keyframes`
   0% { transform: translateY(0%); }
   100% { transform: translateY(-50%); }
 `;
 
-// --- Styled Components cho Layout (CẬP NHẬT) ---
-const OverallPageContainer = styled.div` /* ... giữ nguyên từ lần sửa lỗi khung giữa ... */ 
-  display: flex; width: 100%; padding: 1.5rem; gap: 2rem;
-  background-color: ${props => props.theme.colors.backgroundLight || '#F7FAFC'};
-  min-height: calc(100vh - 70px); box-sizing: border-box;
-  @media (max-width: 1280px) { flex-direction: column; align-items: center; padding: 1rem; gap: 1.5rem; }
-`;
-const SidebarEventsColumn = styled.aside` /* ... giữ nguyên ... */ 
-  flex: 0 0 280px; max-height: calc(100vh - 70px - 3rem); overflow: hidden;
-  background-color: ${props => props.theme.colors.white || '#FFFFFF'};
-  border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.07); position: relative;
-  h3 { font-size: 1.25rem; font-weight: 600; color: ${props => props.theme.colors.primary || '#005A9C'};
-    margin: 0; padding: 1rem 1rem 0.75rem 1rem; border-bottom: 1px solid ${props => props.theme.colors.border || '#CBD5E0'};
-    font-family: ${props => props.theme.fontFamily?.['dm-sans'] || 'sans-serif'};
-    background-color: inherit; position: sticky; top: 0; z-index: 10;
+// --- Styled Components cho Layout ---
+const OverallPageContainer = styled.div`
+  display: flex;
+  width: 100%;
+  padding: 2rem 1.5rem;
+  gap: 2rem;
+  background-color: ${props => props.theme.colors.backgroundLight};
+  min-height: calc(100vh - 70px);
+  box-sizing: border-box;
+  max-width: 1800px;
+  margin: 0 auto;
+  
+  @media (max-width: 1280px) {
+    flex-direction: column;
+    align-items: center;
+    padding: 1.5rem 1rem;
+    gap: 1.5rem;
   }
-  p.no-events-text { color: ${props => props.theme.colors.textMuted || '#718096'}; font-size: 0.9rem; text-align: center; padding: 2rem 1rem; }
-  @media (max-width: 1280px) { display: none; }
-`;
-const MarqueeContainer = styled.div` /* ... giữ nguyên ... */ 
-  height: calc(100% - 5rem); overflow: hidden; position: relative;
-`;
-const MarqueeContent = styled.div` /* ... giữ nguyên ... */ 
-  display: flex; flex-direction: column; animation: ${scrollVertical} linear infinite;
-  animation-duration: ${props => props.$duration || '60s'};
-  &:hover { animation-play-state: paused; }
-`;
-const SidebarEventItem = styled.div` /* ... giữ nguyên ... */ 
-  opacity: 0.65; transition: opacity 0.3s ease-in-out; padding: 0.75rem 1rem;
-  &:hover { opacity: 1; }
-`;
-const MainEventContent = styled.main` /* ... giữ nguyên ... */ 
-  flex: 1; min-width: 0; display: flex; justify-content: center;
-  @media (max-width: 1280px) { width: 100%; }
 `;
 
-// --- Styled Components cho chi tiết sự kiện (PageWrapper VÀ CÁC COMPONENT CON) ---
-const PageWrapper = styled.div` /* ... giữ nguyên từ lần sửa lỗi khung giữa ... */ 
-  width: 100%; max-width: 75rem;
-  background-color: ${props => props.theme.colors.white}; border-radius: 16px;
-  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.08), 0 8px 10px -6px rgba(0, 0, 0, 0.07);
-  overflow: hidden; border: 1px solid ${props => props.theme.colors.border};
-  animation: ${fadeIn} 0.3s ease-out;
+const SidebarEventsColumn = styled.aside`
+  flex: 0 0 300px;
+  max-height: calc(100vh - 70px - 4rem);
+  overflow: hidden;
+  background-color: ${props => props.theme.colors.white};
+  border-radius: ${props => props.theme.borderRadius.xl};
+  box-shadow: ${props => props.theme.boxShadow.lg};
+  position: relative;
+  border: 1px solid rgba(0, 0, 0, 0.02);
+  animation: ${fadeInRight} 0.5s ease-out;
+  
+  h3 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: ${props => props.theme.colors.primary};
+    margin: 0;
+    padding: 1.25rem 1.5rem 1rem;
+    border-bottom: 1px solid ${props => props.theme.colors.border};
+    font-family: ${props => props.theme.fontFamily['dm-sans']};
+    background-color: inherit;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    
+    &:after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 1.5rem;
+      width: 3rem;
+      height: 3px;
+      background-color: ${props => props.theme.colors.primary};
+      border-radius: 3px;
+    }
+  }
+  
+  p.no-events-text {
+    color: ${props => props.theme.colors.textMuted};
+    font-size: 0.9rem;
+    text-align: center;
+    padding: 2rem 1rem;
+  }
+  
+  @media (max-width: 1280px) {
+    display: none;
+  }
 `;
 
-// BỔ SUNG LẠI CÁC ĐỊNH NGHĨA STYLED-COMPONENT NÀY
+// --- Các Components nâng cao cho giao diện ---
+const MainEventContent = styled.main`
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  justify-content: center;
+  animation: ${fadeIn} 0.5s ease-out;
+  
+  @media (max-width: 1280px) {
+    width: 100%;
+  }
+`;
+
+const PageWrapper = styled.div`
+  width: 100%;
+  max-width: 75rem;
+  background-color: ${props => props.theme.colors.white};
+  border-radius: ${props => props.theme.borderRadius['2xl']};
+  box-shadow: ${props => props.theme.boxShadow.xl};
+  overflow: hidden;
+  border: 1px solid rgba(0, 0, 0, 0.03);
+  position: relative;
+`;
+
 const StatusContainer = styled.div`
-  text-align: center; padding: 4rem 1.5rem; font-size: 1.125rem;
-  color: ${props => props.theme.colors.textSecondary}; animation: ${fadeIn} 0.5s ease-out; width: 100%;
+  text-align: center;
+  padding: 4rem 1.5rem;
+  font-size: 1.125rem;
+  color: ${props => props.theme.colors.textSecondary};
+  animation: ${fadeIn} 0.5s ease-out;
+  width: 100%;
+  
+  svg {
+    font-size: 3rem;
+    margin-bottom: 1.5rem;
+    color: ${props => props.theme.colors.textMuted};
+  }
 `;
+
 const ErrorStatusContainer = styled(StatusContainer)`
   color: ${props => props.theme.colors.error};
-  p { margin-bottom: 1.5rem; font-weight: 500; }
+  
+  p {
+    margin-bottom: 1.5rem;
+    font-weight: 500;
+  }
 `;
+
 const CoverImageContainer = styled.div`
-  height: 16rem;
+  height: 26rem;
   background-color: ${props => props.theme.colors.coverPlaceholderBg};
-  display: flex; align-items: center; justify-content: center;
-  color: ${props => props.theme.colors.textMuted}; font-size: 1.25rem; position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: ${props => props.theme.colors.textMuted};
+  font-size: 1.25rem;
+  position: relative;
+  
   &::before {
-    content: ""; position: absolute; top: 0; left: 0; right: 0; bottom: 0;
-    background: linear-gradient(to bottom, rgba(0,0,0,0) 0%, rgba(0,0,0,0.1) 70%, rgba(0,0,0,0.25) 100%);
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(to bottom, 
+      rgba(0,0,0,0) 0%, 
+      rgba(0,0,0,0.3) 80%, 
+      rgba(0,0,0,0.5) 100%
+    );
     z-index: 1;
   }
-  @media (min-width: 768px) { height: 22rem; }
+  
+  @media (max-width: 768px) {
+    height: 18rem;
+  }
 `;
+
 const CoverImage = styled.img`
-  width: 100%; height: 100%; object-fit: cover; position: relative; z-index: 2;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  position: relative;
+  z-index: 0;
 `;
+
+const EventMeta = styled.div`
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 2rem 3rem;
+  color: white;
+  z-index: 2;
+  
+  @media (max-width: 768px) {
+    padding: 1.5rem;
+  }
+`;
+
+const MetaTitle = styled.h1`
+  font-size: 3rem;
+  font-weight: 800;
+  margin: 0 0 0.5rem 0;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+  font-family: ${props => props.theme.fontFamily['dm-sans']};
+  line-height: 1.2;
+  
+  @media (max-width: 768px) {
+    font-size: 2rem;
+  }
+`;
+
+const MetaInfo = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  font-size: 1rem;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+  
+  & > span {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  
+  svg {
+    font-size: 1.125rem;
+  }
+  
+  @media (max-width: 768px) {
+    flex-wrap: wrap;
+    gap: 1rem;
+  }
+`;
+
 const ContentPadding = styled.div`
-  padding: 2rem;
-  @media (min-width: 768px) { padding: 3rem; }
+  padding: 2rem 3rem 3rem;
+  
+  @media (max-width: 768px) {
+    padding: 1.5rem;
+  }
 `;
+
 const HeaderSection = styled.div`
-  display: flex; flex-direction: column; align-items: flex-start;
-  margin-bottom: 2.5rem; position: relative;
-  @media (min-width: 640px) { flex-direction: row; align-items: flex-end; }
+  display: flex;
+  align-items: center;
+  gap: 2rem;
+  margin-bottom: 3rem;
+  position: relative;
+  
+  @media (max-width: 768px) {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1.5rem;
+  }
 `;
+
 const LogoImageContainer = styled.div`
-  flex-shrink: 0; width: 8rem; height: 8rem; border-radius: 50%;
-  border: 6px solid ${props => props.theme.colors.white}; margin-top: -5rem;
-  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1), 0 4px 8px rgba(0,0,0,0.08);
+  flex-shrink: 0;
+  width: 10rem;
+  height: 10rem;
+  border-radius: 50%;
+  border: 6px solid ${props => props.theme.colors.white};
+  margin-top: -5rem;
+  box-shadow: ${props => props.theme.boxShadow.lg};
   background-color: ${props => props.theme.colors.white};
-  overflow: hidden; margin-bottom: 1rem; z-index: 3;
-  @media (min-width: 640px) { margin-bottom: 0; margin-right: 2rem; }
-  @media (min-width: 768px) { width: 9rem; height: 9rem; margin-top: -6rem; }
+  overflow: hidden;
+  z-index: 3;
+  
+  @media (max-width: 768px) {
+    margin-top: -3rem;
+    width: 8rem;
+    height: 8rem;
+  }
 `;
+
 const LogoImage = styled.img`
-  width: 100%; height: 100%; object-fit: contain;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
 `;
-const TitleContainer = styled.div`
-  flex-grow: 1;
-  @media (min-width: 640px) { padding-bottom: 0.5rem; }
+
+const EventInfoSummary = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2rem;
+  margin-top: 1rem;
 `;
-const EventTitle = styled.h1`
-  font-size: 2rem; line-height: 1.25; font-weight: 700;
-  color: ${props => props.theme.colors.textPrimary};
-  font-family: ${props => props.theme.fontFamily?.['dm-sans'] || 'sans-serif'};
-  margin-bottom: 0.625rem;
-  @media (min-width: 768px) { font-size: 2.75rem; }
+
+const InfoItem = styled.div`
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  
+  svg {
+    color: ${props => props.theme.colors.primary};
+    font-size: 1.25rem;
+    padding-top: 0.125rem;
+  }
+  
+  div {
+    display: flex;
+    flex-direction: column;
+  }
+  
+  h4 {
+    font-size: 0.875rem;
+    color: ${props => props.theme.colors.textMuted};
+    margin: 0 0 0.25rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  
+  p {
+    margin: 0;
+    color: ${props => props.theme.colors.textPrimary};
+    font-weight: 500;
+  }
 `;
-const HostInfo = styled.p`
-  font-size: 1.125rem; line-height: 1.6;
-  color: ${props => props.theme.colors.textSecondary};
-  margin-bottom: 1rem; font-style: italic;
+
+const Divider = styled.hr`
+  border: 0;
+  height: 1px;
+  background-color: ${props => props.theme.colors.border};
+  margin: 2.5rem 0;
 `;
-const SemiBold = styled.span`
-  font-weight: 600; color: ${props => props.theme.colors.primary}; font-style: normal;
+
+const EventDetailsTabs = styled.div`
+  border-bottom: 1px solid ${props => props.theme.colors.border};
+  display: flex;
+  margin-bottom: 2rem;
+  overflow-x: auto;
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+  
+  &::-webkit-scrollbar {
+    display: none;
+  }
 `;
-const EditButtonContainer = styled.div`
-  margin-top: 1rem; width: 100%;
-  @media (min-width: 640px) { margin-top: 0; margin-left: auto; width: auto; align-self: center; }
+
+const Tab = styled.button`
+  padding: 1rem 1.5rem;
+  font-size: 1rem;
+  font-weight: ${props => props.active ? '600' : '500'};
+  color: ${props => props.active ? props.theme.colors.primary : props.theme.colors.textSecondary};
+  background: none;
+  border: none;
+  cursor: pointer;
+  border-bottom: 3px solid ${props => props.active ? props.theme.colors.primary : 'transparent'};
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  
+  &:hover {
+    color: ${props => props.theme.colors.primary};
+  }
+  
+  svg {
+    font-size: 1.125rem;
+  }
 `;
+
 const DetailsGrid = styled.div`
-  display: grid; grid-template-columns: 1fr; gap: 2.5rem; margin-bottom: 2.5rem;
-  @media (min-width: 1024px) { grid-template-columns: minmax(0, 2.5fr) minmax(0, 1.5fr); gap: 3rem; }
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 2.5rem;
+
+  @media (min-width: 1024px) {
+    grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+    gap: 3rem;
+  }
 `;
+
 const DescriptionColumn = styled.div`
   animation: ${fadeIn} 0.5s ease-out 0.2s backwards;
 `;
-const InfoColumn = styled.div`
-  background-color: ${props => props.theme.colors.backgroundLight}; padding: 1.5rem; border-radius: 12px;
-  border: 1px solid ${props => props.theme.colors.border}; box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-  animation: ${fadeIn} 0.5s ease-out 0.3s backwards;
-  @media (min-width: 1024px) { padding: 2rem; }
-`;
-const SectionTitle = styled.h2`
-  font-size: 1.5rem; line-height: 1.4; font-weight: 600;
-  color: ${props => props.theme.colors.primary}; margin-bottom: 1.25rem;
-  font-family: ${props => props.theme.fontFamily?.['dm-sans'] || 'sans-serif'};
-  padding-bottom: 0.625rem; border-bottom: 2px solid ${props => props.theme.colors.primaryLight};
-  display: flex; align-items: center;
-  svg { margin-right: 0.75rem; width: 1.25em; height: 1.25em; opacity: 0.8; }
-`;
-const DescriptionText = styled.p`
-  color: ${props => props.theme.colors.textSecondary}; white-space: pre-wrap;
-  line-height: 1.75; font-size: 1rem; margin: 0;
-  a { color: ${props => props.theme.colors.primary}; text-decoration: underline; font-weight: 500;
-    &:hover { color: ${props => props.theme.colors.primaryDarkText}; }
+
+const DescriptionText = styled.div`
+  color: ${props => props.theme.colors.textSecondary};
+  line-height: 1.75;
+  font-size: 1.05rem;
+  
+  p {
+    margin-top: 0;
+  }
+  
+  a {
+    color: ${props => props.theme.colors.primary};
+    text-decoration: underline;
+    font-weight: 500;
+    
+    &:hover {
+      color: ${props => props.theme.colors.primaryDark};
+    }
   }
 `;
+
+const MapAndDetailsColumn = styled.div`
+  animation: ${fadeIn} 0.5s ease-out 0.3s backwards;
+`;
+
+const EventInfoCard = styled.div`
+  background-color: ${props => props.theme.colors.backgroundLight};
+  padding: 1.5rem;
+  border-radius: ${props => props.theme.borderRadius.xl};
+  border: 1px solid ${props => props.theme.colors.border};
+  margin-bottom: 2rem;
+  box-shadow: ${props => props.theme.boxShadow.sm};
+`;
+
+const SectionTitle = styled.h2`
+  font-size: 1.5rem;
+  line-height: 1.4;
+  font-weight: 700;
+  color: ${props => props.theme.colors.textPrimary};
+  margin-bottom: 1.5rem;
+  font-family: ${props => props.theme.fontFamily['dm-sans']};
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  
+  svg {
+    color: ${props => props.theme.colors.primary};
+    font-size: 1.25rem;
+  }
+`;
+
 const InfoBlock = styled.div`
   margin-bottom: 1.75rem;
-  &:last-child { margin-bottom: 0; }
-`;
-const InfoLabel = styled.h3`
-  font-size: 0.8rem; line-height: 1.25rem; font-weight: 600;
-  color: ${props => props.theme.colors.textMuted}; margin-bottom: 0.5rem;
-  text-transform: uppercase; letter-spacing: 0.075em;
-`;
-const InfoText = styled.p`
-  color: ${props => props.theme.colors.textPrimary}; font-size: 1rem;
-  line-height: 1.6; margin: 0;
-  ${SemiBold} { color: ${props => props.theme.colors.textPrimary}; font-weight: 600; }
-`;
-const TagContainer = styled.div`
-  display: flex; flex-wrap: wrap; gap: 0.75rem;
-`;
-const TagBadge = styled.span`
-  padding: 0.5rem 1rem; background-color: ${props => props.theme.colors.primaryLight};
-  color: ${props => props.theme.colors.primaryDarkText}; font-size: 0.875rem;
-  font-weight: 500; border-radius: 20px; line-height: 1;
-  transition: all 0.2s ease-in-out; cursor: default;
-  &:hover {
-    background-color: ${props => props.theme.colors.primary}; color: ${props => props.theme.colors.white};
-    transform: translateY(-2px); box-shadow: 0 4px 8px rgba(0, 90, 156, 0.2);
+  
+  &:last-child {
+    margin-bottom: 0;
   }
 `;
+
+const InfoLabel = styled.h3`
+  font-size: 0.85rem;
+  line-height: 1.25rem;
+  font-weight: 600;
+  color: ${props => props.theme.colors.textMuted};
+  margin-bottom: 0.625rem;
+  text-transform: uppercase;
+  letter-spacing: 0.075em;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  
+  svg {
+    font-size: 1rem;
+  }
+`;
+
+const InfoText = styled.p`
+  color: ${props => props.theme.colors.textPrimary};
+  font-size: 1rem;
+  line-height: 1.6;
+  margin: 0;
+`;
+
+const SemiBold = styled.span`
+  color: ${props => props.theme.colors.textPrimary};
+  font-weight: 600;
+`;
+
+
+
+const EventLocation = styled.div`
+  margin-bottom: 2rem;
+  padding-bottom: 2rem;
+  border-bottom: 1px solid ${props => props.theme.colors.border};
+`;
+
+const LocationAddress = styled.div`
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  margin-top: 1rem;
+  
+  svg {
+    color: ${props => props.theme.colors.primary};
+    font-size: 1.25rem;
+    margin-top: 0.125rem;
+  }
+  
+  p {
+    margin: 0;
+    font-size: 1.05rem;
+    line-height: 1.6;
+    color: ${props => props.theme.colors.textSecondary};
+  }
+  
+  a {
+    display: block;
+    margin-top: 0.5rem;
+    color: ${props => props.theme.colors.primary};
+    font-weight: 500;
+    font-size: 0.95rem;
+    text-decoration: none;
+  }
+`;
+
+const TagContainer = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+`;
+
+const TagBadge = styled.span`
+  padding: 0.5rem 1rem;
+  background-color: ${props => props.theme.colors.primaryLight};
+  color: ${props => props.theme.colors.primary};
+  font-size: 0.875rem;
+  font-weight: 600;
+  border-radius: ${props => props.theme.borderRadius.full};
+  line-height: 1;
+  transition: all 0.2s ease-in-out;
+  cursor: default;
+  
+  &:hover {
+    background-color: ${props => props.theme.colors.primary};
+    color: ${props => props.theme.colors.white};
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(37, 99, 235, 0.2);
+  }
+`;
+
 const RegistrationSection = styled.div`
-  margin-top: 3rem; padding-top: 2.5rem;
-  border-top: 1px solid ${props => props.theme.colors.border}; text-align: center;
+  margin-top: 3rem;
+  padding: 2rem;
+  border-radius: ${props => props.theme.borderRadius.xl};
+  background: linear-gradient(to right bottom, 
+    ${props => props.theme.colors.primaryLight}, 
+    rgba(239, 246, 255, 0.7)
+  );
+  text-align: center;
+  box-shadow: ${props => props.theme.boxShadow.md};
+  border: 1px solid ${props => `${props.theme.colors.primary}20`};
 `;
+
+const RegistrationTitle = styled.h3`
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: ${props => props.theme.colors.primary};
+  margin: 0 0 1rem;
+`;
+
+const RegistrationInfo = styled.p`
+  color: ${props => props.theme.colors.textSecondary};
+  margin-bottom: 1.5rem;
+`;
+
 const StatusMessage = styled.p`
-  font-weight: 500; margin-bottom: 1.25rem; font-size: 1.05rem;
-  color: ${props => props.theme.colors.success}; animation: ${fadeIn} 0.3s ease-out;
+  font-weight: 600;
+  margin: 1.25rem 0;
+  font-size: 1.1rem;
+  color: ${props => props.theme.colors.success};
+  animation: ${fadeIn} 0.3s ease-out;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 0.5rem;
+  
+  svg {
+    font-size: 1.25rem;
+  }
 `;
+
 const ErrorRegMessage = styled(StatusMessage)`
   color: ${props => props.theme.colors.error};
 `;
+
 const BackButtonContainer = styled.div`
-  margin-top: 3rem; text-align: center;
+  margin-top: 3rem;
+  text-align: center;
 `;
 
+const EventActions = styled.div`
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  
+  @media (max-width: 768px) {
+    flex-direction: column;
+  }
+`;
 
-// --- Component EventDetailsPage (Logic JavaScript giữ nguyên) ---
+const ActionButton = styled.button`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.5rem;
+  border-radius: ${props => props.theme.borderRadius.md};
+  font-weight: 600;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  
+  ${props => props.primary && css`
+    background-color: ${props.theme.colors.primary};
+    color: white;
+    border: none;
+    
+    &:hover {
+      background-color: ${props.theme.colors.primaryDark};
+      transform: translateY(-1px);
+    }
+  `}
+  
+  ${props => props.secondary && css`
+    background-color: transparent;
+    color: ${props.theme.colors.textSecondary};
+    border: 1px solid ${props.theme.colors.border};
+    
+    &:hover {
+      background-color: ${props.theme.colors.backgroundLight};
+      color: ${props.theme.colors.textPrimary};
+    }
+  `}
+  
+  ${props => props.success && css`
+    background-color: ${props.theme.colors.successLight};
+    color: ${props.theme.colors.success};
+    border: none;
+    cursor: default;
+    
+    &:hover {
+      background-color: ${props.theme.colors.successLight};
+      transform: none;
+    }
+  `}
+`;
+
+const DateBadge = styled.div`
+  position: absolute;
+  top: 1.5rem;
+  right: 1.5rem;
+  width: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background-color: rgba(255, 255, 255, 0.9);
+  padding: 0.75rem 1.25rem;
+  border-radius: 1rem;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 2;
+  
+  .month {
+    text-transform: uppercase;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: ${props => props.theme.colors.textSecondary};
+    line-height: 1;
+    letter-spacing: 0.05em;
+  }
+  
+  .day {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: ${props => props.theme.colors.primary};
+    line-height: 1.2;
+  }
+  
+  .year {
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: ${props => props.theme.colors.textMuted};
+    line-height: 1;
+  }
+`;
+
+const StatusBadge = styled.div`
+  position: absolute;
+  top: 1.5rem;
+  left: 1.5rem;
+  padding: 0.5rem 1rem;
+  border-radius: 2rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  z-index: 2;
+  
+  ${props => props.status === 'upcoming' && css`
+    background-color: ${props.theme.colors.infoLight};
+    color: ${props.theme.colors.info};
+  `}
+  
+  ${props => props.status === 'ongoing' && css`
+    background-color: ${props.theme.colors.successLight};
+    color: ${props.theme.colors.success};
+  `}
+  
+  ${props => props.status === 'past' && css`
+    background-color: ${props.theme.colors['custom-gray'][100]};
+    color: ${props.theme.colors['custom-gray'][600]};
+  `}
+`;
+
+// Component chính
 const EventDetailsPage = () => {
-    // ... (Toàn bộ state, useEffect, handlers, và logic render như ở lượt trước) ...
-    // Đảm bảo không có thay đổi nào ở đây so với phiên bản hoạt động gần nhất của bạn (ngoại trừ việc thêm styled-components)
-    const { eventId } = useParams();
-    const navigate = useNavigate();
-    const location = useLocation();
-    const { user, userRoles, isAuthenticated } = useAuth();
+  const { eventId } = useParams();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { user, userRoles, isAuthenticated } = useAuth();
+  const mapRef = useRef(null);
 
+  // State mới
+  const [activeTab, setActiveTab] = useState('about'); // 'about', 'location'
   const [event, setEvent] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -239,87 +828,180 @@ const EventDetailsPage = () => {
   const [registrationMessage, setRegistrationMessage] = useState('');
   const [registrationError, setRegistrationError] = useState('');
   const [isCurrentlyRegistered, setIsCurrentlyRegistered] = useState(false);
-
+  const [eventLocation, setEventLocation] = useState([16.0544, 108.2022]); // Default: DUT
   const [otherEvents, setOtherEvents] = useState([]);
   const [loadingOtherEvents, setLoadingOtherEvents] = useState(true);
+  const [eventStatus, setEventStatus] = useState('upcoming'); // 'upcoming', 'ongoing', 'past'
 
-    useEffect(() => {
-        const fetchEventDetailsAndOthers = async () => {
-            if (!eventId) {
-                setIsLoading(false); setLoadingOtherEvents(false); setError("Không tìm thấy ID sự kiện."); return;
-            }
-            setIsLoading(true); setLoadingOtherEvents(true); setError(null); setEvent(null);
-            setOtherEvents([]); setRegistrationMessage(''); setRegistrationError(''); setIsCurrentlyRegistered(false);
-            try {
-                const response = await eventService.getEvent(eventId);
-                const eventData = response.data;
-                setEvent(eventData);
-                if (isAuthenticated && userRoles.includes(ROLES.STUDENT) && user?.id && eventData?.eventId) {
-                    const registeredEvents = await registrationService.getEventsUserRegisteredFor(user.id);
-                    if (Array.isArray(registeredEvents) && registeredEvents.some(reg => (reg.event?.eventId || reg.eventId) === eventData.eventId)) {
-                        setIsCurrentlyRegistered(true);
-                    }
-                }
-            } catch (err) {
-                setError(err.response?.data?.message || err.message || 'Không thể tải thông tin sự kiện.');
-            } finally {
-                setIsLoading(false);
-            }
-            try {
-                const allEventsResponse = await eventService.getAllEvents();
-                const allEventsData = Array.isArray(allEventsResponse) ? allEventsResponse : [];
-                if (allEventsData.length > 0) {
-                    const filteredOtherEvents = allEventsData
-                        .filter(e => String(e.eventId) !== String(eventId))
-                        .sort((a, b) => new Date(b.startDate) - new Date(a.startDate))
-                        .slice(0, 10);
-                    setOtherEvents(filteredOtherEvents);
-                }
-            } catch (err) {
-                console.error("Error fetching other events:", err);
-            } finally {
-                setLoadingOtherEvents(false);
-            }
-        };
-        fetchEventDetailsAndOthers();
+  // Xác định trạng thái event dựa trên thời gian
+  useEffect(() => {
+    if (event && event.startDate) {
+      const now = new Date();
+      const startDate = new Date(event.startDate);
+      const endDate = event.endDate ? new Date(event.endDate) : null;
+      
+      if (endDate && now > endDate) {
+        setEventStatus('past');
+      } else if (endDate && now >= startDate && now <= endDate) {
+        setEventStatus('ongoing');
+      } else if (!endDate && now > startDate) {
+        setEventStatus('past');
+      } else {
+        setEventStatus('upcoming');
+      }
+    }
+  }, [event]);
+
+  // Geocode địa điểm sự kiện
+  useEffect(() => {
+    const getEventLocation = async () => {
+      if (event && event.location && event.attendanceType !== ATTENDANCE_TYPES.ONLINE) {
+        try {
+          const coordinates = await geocodeAddress(event.location);
+          setEventLocation(coordinates);
+        } catch (error) {
+          console.error('Error geocoding location:', error);
+          // Fallback to default
+        }
+      }
+    };
+    
+    getEventLocation();
+  }, [event]);
+
+  // Fetch event details và sự kiện khác
+  useEffect(() => {
+    const fetchEventDetailsAndOthers = async () => {
+      if (!eventId) {
+        setIsLoading(false);
+        setLoadingOtherEvents(false);
+        setError("Không tìm thấy ID sự kiện.");
+        return;
+      }
+      
+      setIsLoading(true);
+      setLoadingOtherEvents(true);
+      setError(null);
+      setEvent(null);
+      setOtherEvents([]);
+      setRegistrationMessage('');
+      setRegistrationError('');
+      setIsCurrentlyRegistered(false);
+      
+      try {
+        const response = await eventService.getEvent(eventId);
+        const eventData = response.data;
+        setEvent(eventData);
+        
+        if (isAuthenticated && userRoles.includes(ROLES.STUDENT) && user?.id && eventData?.eventId) {
+          const registeredEvents = await registrationService.getEventsUserRegisteredFor(user.id);
+          if (Array.isArray(registeredEvents) && registeredEvents.some(reg => 
+            (reg.event?.eventId || reg.eventId) === eventData.eventId)) {
+            setIsCurrentlyRegistered(true);
+          }
+        }
+      } catch (err) {
+        setError(err.response?.data?.message || err.message || 'Không thể tải thông tin sự kiện.');
+      } finally {
+        setIsLoading(false);
+      }
+      
+      try {
+        const allEventsResponse = await eventService.getAllEvents();
+        const allEventsData = Array.isArray(allEventsResponse) ? allEventsResponse : [];
+        
+        if (allEventsData.length > 0) {
+          const filteredOtherEvents = allEventsData
+            .filter(e => String(e.eventId) !== String(eventId))
+            .sort((a, b) => new Date(b.startDate) - new Date(a.startDate))
+            .slice(0, 10);
+          setOtherEvents(filteredOtherEvents);
+        }
+      } catch (err) {
+        console.error("Error fetching other events:", err);
+      } finally {
+        setLoadingOtherEvents(false);
+      }
+    };
+    
+    fetchEventDetailsAndOthers();
+    
     if (location.state?.autoRegistrationSuccess && location.state?.eventId === eventId) {
       setRegistrationMessage("Sự kiện đã được tự động đăng ký thành công!");
-      setIsCurrentlyRegistered(true); // Cập nhật UI ngay
-      // Xóa state khỏi location để không hiển thị lại khi refresh/navigate
+      setIsCurrentlyRegistered(true);
+      // Xóa state khỏi location
       navigate(location.pathname, { replace: true, state: {} });
     } else if (location.state?.autoRegistrationError && location.state?.eventId === eventId) {
       setRegistrationError("Tự động đăng ký sự kiện thất bại. Vui lòng thử đăng ký lại.");
       // Xóa state khỏi location
       navigate(location.pathname, { replace: true, state: {} });
     }
-  }, [eventId, isAuthenticated, user?.id, user?.role, location.state, navigate]); // Thêm location.state và navigate
+  }, [eventId, isAuthenticated, user?.id, userRoles, location.state, navigate]);
 
-    const handleRegister = async () => {
-        if (!isAuthenticated) { navigate('/login', { state: { from: location.pathname } }); return; }
-        if (!user || !user.id || !userRoles.includes(ROLES.STUDENT)) {
-          console.error("User is not authenticated or does not have the STUDENT role.");
-          console.log("User roles:", userRoles);
-          console.log("User object:", user);
-          console.log(ROLES.STUDENT===user.role);
-           setRegistrationError("Chỉ sinh viên mới có thể đăng ký sự kiệnddddđ."); return; }
-        setIsRegistering(true); setRegistrationMessage(''); setRegistrationError('');
-        try {
-            const responseData = await registrationService.registerUserForEvent(user.id, eventId);
-            if (responseData && responseData.registrationId) {
-                setRegistrationMessage("Đăng ký thành công!"); setIsCurrentlyRegistered(true);
-            } else {
-                setRegistrationError(responseData?.message || "Đăng ký thành công nhưng phản hồi không như mong đợi.");
-            }
-        } catch (err) {
-            setRegistrationError(err.response?.data?.message || err.message || "Đăng ký thất bại. Vui lòng thử lại.");
-        } finally { setIsRegistering(false); }
-    };
-    const eventTags = useMemo(() => {
-        if (!event) return [];
-        return Array.isArray(event.tagsList) ? event.tagsList : (Array.isArray(event.tags) ? event.tags : []);
-    }, [event]);
-    const isHost = useMemo(() => isAuthenticated && user?.id && event?.hostId && (user.role === ROLES.EVENT_CREATOR || user.role === ROLES.UNION) && String(user.id) === String(event.hostId), [isAuthenticated, user, event]);
+  // Xử lý đăng ký sự kiện
+  const handleRegister = async () => {
+    if (!isAuthenticated) {
+      navigate('/login', { state: { from: location.pathname } });
+      return;
+    }
+    
+    if (!user || !user.id || !userRoles.includes(ROLES.STUDENT)) {
+      console.error("User is not authenticated or does not have the STUDENT role.");
+      console.log("User roles:", userRoles);
+      console.log("User object:", user);
+      setRegistrationError("Chỉ sinh viên mới có thể đăng ký sự kiện.");
+      return;
+    }
+    
+    setIsRegistering(true);
+    setRegistrationMessage('');
+    setRegistrationError('');
+    
+    try {
+      const responseData = await registrationService.registerUserForEvent(user.id, eventId);
+      
+      if (responseData && responseData.registrationId) {
+        setRegistrationMessage("Đăng ký thành công! Bạn đã được thêm vào danh sách tham gia.");
+        setIsCurrentlyRegistered(true);
+      } else {
+        setRegistrationError(responseData?.message || "Đăng ký không thành công. Vui lòng thử lại sau.");
+      }
+    } catch (err) {
+      setRegistrationError(err.response?.data?.message || err.message || "Đăng ký thất bại. Vui lòng thử lại.");
+    } finally {
+      setIsRegistering(false);
+    }
+  };
 
+  // Thêm tiện ích
+  const eventTags = useMemo(() => {
+    if (!event) return [];
+    return Array.isArray(event.tagsList) ? event.tagsList : (Array.isArray(event.tags) ? event.tags : []);
+  }, [event]);
+
+  const isHost = useMemo(() => 
+    isAuthenticated && user?.id && event?.hostId && 
+    (userRoles.includes(ROLES.EVENT_CREATOR) || userRoles.includes(ROLES.UNION)) && 
+    String(user.id) === String(event.hostId), 
+  [isAuthenticated, user, event, userRoles]);
+
+  // Helper function để format thông tin ngày/tháng/năm từ thời gian
+  const formatDateInfo = (dateString) => {
+    if (!dateString) return { day: '--', month: '---', year: '----' };
+    
+    try {
+      const date = new Date(dateString);
+      return {
+        day: date.toLocaleDateString('vi-VN', { day: '2-digit' }),
+        month: date.toLocaleDateString('vi-VN', { month: 'short' }).toUpperCase(),
+        year: date.getFullYear().toString()
+      };
+    } catch (error) {
+      return { day: '--', month: '---', year: '----' };
+    }
+  };
+
+  // Xử lý các sự kiện sidebar
   const midPoint = Math.ceil(otherEvents.length / 2);
   const leftSidebarEvents = otherEvents.slice(0, midPoint);
   const rightSidebarEvents = otherEvents.slice(midPoint);
@@ -334,7 +1016,9 @@ const EventDetailsPage = () => {
   const renderSidebarContent = (eventsList, listKey) => {
     if (loadingOtherEvents) return <p className="no-events-text">Đang tải...</p>;
     if (!eventsList || eventsList.length === 0) return <p className="no-events-text">Không có sự kiện nào.</p>;
+    
     const duplicatedEvents = [...eventsList, ...eventsList];
+    
     return (
       <MarqueeContainer>
         <MarqueeContent $duration={calculateMarqueeDuration(eventsList)}>
@@ -348,57 +1032,343 @@ const EventDetailsPage = () => {
     );
   };
 
-  // JSX trả về
+  // Render main content
   return (
     <ThemeProvider theme={themeColors}>
       <OverallPageContainer>
         <SidebarEventsColumn>
-          <h3>Sự kiện khác</h3>
+          <h3>
+            <FaRegCalendarCheck /> Sự kiện khác
+          </h3>
           {renderSidebarContent(leftSidebarEvents, 'left')}
         </SidebarEventsColumn>
 
         <MainEventContent>
-          {isLoading && (<StatusContainer>Đang tải thông tin sự kiện...</StatusContainer>)}
-          {!isLoading && error && !event && (<ErrorStatusContainer><p>Lỗi: {error}</p><Button onClick={() => navigate(-1)} variant="secondary" size="large">Quay lại</Button></ErrorStatusContainer>)}
-          {!isLoading && !event && !error && (<StatusContainer>Không tìm thấy thông tin sự kiện.</StatusContainer>)}
+          {isLoading && (
+            <StatusContainer>
+              {/* Loading spinner/animation here */}
+              <div>Đang tải thông tin sự kiện...</div>
+            </StatusContainer>
+          )}
+          
+          {!isLoading && error && !event && (
+            <ErrorStatusContainer>
+              <p>Lỗi: {error}</p>
+              <Button onClick={() => navigate(-1)} variant="secondary" size="large">
+                <FaArrowLeft /> Quay lại
+              </Button>
+            </ErrorStatusContainer>
+          )}
+          
+          {!isLoading && !event && !error && (
+            <StatusContainer>
+              Không tìm thấy thông tin sự kiện.
+            </StatusContainer>
+          )}
 
-          {/* Phần hiển thị chi tiết sự kiện, đảm bảo CoverImageContainer và các component khác được sử dụng ở đây đã được định nghĩa ở trên */}
           {event && (
             <PageWrapper>
-              <CoverImageContainer> {/* Dòng 270 của bạn có thể nằm gần đây */}
-                {event.coverUrl ? (<CoverImage src={event.coverUrl} alt={`${event.eventName || 'Sự kiện'} cover`} onError={(e) => { e.target.style.display = 'none'; e.target.parentElement.innerHTML = '<span>Ảnh bìa sự kiện</span>'; }} />) : (<span>Ảnh bìa sự kiện</span>)}
+              <CoverImageContainer>
+                {event.coverUrl ? (
+                  <CoverImage 
+                    src={event.coverUrl} 
+                    alt={`${event.eventName || 'Sự kiện'} cover`} 
+                    onError={(e) => { 
+                      e.target.style.display = 'none'; 
+                      e.target.parentElement.innerHTML = '<span>Ảnh bìa sự kiện</span>'; 
+                    }} 
+                  />
+                ) : (
+                  <span>Ảnh bìa sự kiện</span>
+                )}
+                
+                {/* Date Badge */}
+                {event.startDate && (
+                  <DateBadge>
+                    <span className="month">{formatDateInfo(event.startDate).month}</span>
+                    <span className="day">{formatDateInfo(event.startDate).day}</span>
+                    <span className="year">{formatDateInfo(event.startDate).year}</span>
+                  </DateBadge>
+                )}
+                
+                {/* Status Badge */}
+                <StatusBadge status={eventStatus}>
+                  {eventStatus === 'upcoming' && (
+                    <>
+                      <FaRegClock /> Sắp diễn ra
+                    </>
+                  )}
+                  {eventStatus === 'ongoing' && (
+                    <>
+                      <FaCalendarAlt /> Đang diễn ra
+                    </>
+                  )}
+                  {eventStatus === 'past' && (
+                    <>
+                      <FaRegCalendarCheck /> Đã kết thúc
+                    </>
+                  )}
+                </StatusBadge>
+                
+                {/* Meta info overlay */}
+                <EventMeta>
+                  <MetaTitle>{event.eventName}</MetaTitle>
+                  <MetaInfo>
+                    <span>
+                      <FaRegUserCircle /> {event.hostName || event.hostId}
+                    </span>
+                    <span>
+                      <FaMapMarkerAlt /> {event.location || 'Chưa cập nhật địa điểm'}
+                    </span>
+                  </MetaInfo>
+                </EventMeta>
               </CoverImageContainer>
+              
               <ContentPadding>
-                <HeaderSection>
-                  {event.logoUrl && (<LogoImageContainer><LogoImage src={event.logoUrl} alt={`${event.eventName || 'Sự kiện'} logo`} onError={(e) => { e.target.style.display = 'none'; e.target.parentElement.innerHTML = '<span>Logo</span>'; }} /></LogoImageContainer>)}
-                  <TitleContainer>
-                    <EventTitle>{event.eventName}</EventTitle>
-                    <HostInfo>Tổ chức bởi: <SemiBold>{event.hostName || event.hostId}</SemiBold></HostInfo>
-                  </TitleContainer>
-                  {isHost && (<EditButtonContainer>
-                                <RouterLink to={`/admin/edit-event/${event.eventId || eventId}`}>
-                                  <Button variant="outline" size="medium">Chỉnh sửa</Button>
-                                </RouterLink>
-                              </EditButtonContainer>)}
-                </HeaderSection>
-                <DetailsGrid>
-                  <DescriptionColumn><SectionTitle>Mô tả sự kiện</SectionTitle><DescriptionText>{event.description || "Không có mô tả."}</DescriptionText></DescriptionColumn>
-                  <InfoColumn>
-                    <InfoBlock><InfoLabel>Thời gian</InfoLabel><InfoText><SemiBold>Bắt đầu:</SemiBold> {formatDateTime(event.startDate)}</InfoText><InfoText><SemiBold>Kết thúc:</SemiBold> {formatDateTime(event.endDate)}</InfoText></InfoBlock>
-                    <InfoBlock><InfoLabel>Hình thức & Địa điểm</InfoLabel><InfoText>{event.attendanceType === ATTENDANCE_TYPES.ONLINE ? 'Trực tuyến (Online)' : 'Trực tiếp (Offline)'}</InfoText>{event.location && (<InfoText>{event.attendanceType === ATTENDANCE_TYPES.ONLINE ? 'Nền tảng: ' : 'Địa điểm: '}<SemiBold>{event.location}</SemiBold></InfoText>)}</InfoBlock>
-                    <InfoBlock><InfoLabel>Số lượng</InfoLabel><InfoText>Tối đa: <SemiBold>{event.capacity} người</SemiBold></InfoText></InfoBlock>
-                    {eventTags && eventTags.length > 0 && (<InfoBlock><InfoLabel>Thể loại</InfoLabel><TagContainer>{eventTags.map((tag, index) => (<TagBadge key={`${tag}-${index}`}>{tag}</TagBadge>))}</TagContainer></InfoBlock>)}
-                  </InfoColumn>
-                </DetailsGrid>
-                {isAuthenticated && user?.role === ROLES.STUDENT && (<RegistrationSection>{registrationMessage ? (<StatusMessage>{registrationMessage}</StatusMessage>) : (<>{registrationError && <ErrorRegMessage>{registrationError}</ErrorRegMessage>}<Button onClick={handleRegister} isLoading={isRegistering} disabled={isRegistering || isCurrentlyRegistered || !!registrationMessage} variant={isCurrentlyRegistered || !!registrationMessage ? "success" : "primary"} size="large">{isRegistering ? 'Đang xử lý...' : (isCurrentlyRegistered || !!registrationMessage) ? 'Đã đăng ký' : 'Đăng ký tham gia'}</Button></>)}</RegistrationSection>)}
-                <BackButtonContainer><Button onClick={() => navigate(-1)} variant="secondary" size="medium">&larr; Quay lại</Button></BackButtonContainer>
+                {event.logoUrl && (
+                  <HeaderSection>
+                    <LogoImageContainer>
+                      <LogoImage 
+                        src={event.logoUrl} 
+                        alt={`${event.eventName || 'Sự kiện'} logo`} 
+                        onError={(e) => { 
+                          e.target.style.display = 'none'; 
+                          e.target.parentElement.innerHTML = '<span>Logo</span>'; 
+                        }} 
+                      />
+                    </LogoImageContainer>
+                    
+                    <EventInfoSummary>
+                      <InfoItem>
+                        <FaCalendarAlt />
+                        <div>
+                          <h4>Thời gian bắt đầu</h4>
+                          <p>{formatDateTime(event.startDate)}</p>
+                        </div>
+                      </InfoItem>
+                      
+                      <InfoItem>
+                        <FaRegClock />
+                        <div>
+                          <h4>Thời gian kết thúc</h4>
+                          <p>{formatDateTime(event.endDate) || 'Chưa xác định'}</p>
+                        </div>
+                      </InfoItem>
+                      
+                      <InfoItem>
+                        <FaUsers />
+                        <div>
+                          <h4>Số lượng tối đa</h4>
+                          <p>{event.capacity || 'Không giới hạn'} người</p>
+                        </div>
+                      </InfoItem>
+                      
+                      <InfoItem>
+                        <FaRegBuilding />
+                        <div>
+                          <h4>Hình thức</h4>
+                          <p>{event.attendanceType === ATTENDANCE_TYPES.ONLINE ? 'Trực tuyến (Online)' : 'Trực tiếp (Offline)'}</p>
+                        </div>
+                      </InfoItem>
+                    </EventInfoSummary>
+                    
+                    {isHost && (
+                      <EditButtonContainer>
+                        <RouterLink to={`/admin/edit-event/${event.eventId || eventId}`}>
+                          <Button variant="outline" size="medium">
+                            <FaEdit /> Chỉnh sửa
+                          </Button>
+                        </RouterLink>
+                      </EditButtonContainer>
+                    )}
+                  </HeaderSection>
+                )}
+                
+                <Divider />
+                
+                <EventDetailsTabs>
+                  <Tab 
+                    active={activeTab === 'about'} 
+                    onClick={() => setActiveTab('about')}
+                  >
+                    <FaInfo /> Thông tin sự kiện
+                  </Tab>
+                  <Tab 
+                    active={activeTab === 'location'} 
+                    onClick={() => setActiveTab('location')}
+                  >
+                    <FaMapMarkerAlt /> Địa điểm
+                  </Tab>
+                </EventDetailsTabs>
+                
+                {activeTab === 'about' && (
+                  <DetailsGrid>
+                    <DescriptionColumn>
+                      <SectionTitle>
+                        <FaInfo /> Mô tả sự kiện
+                      </SectionTitle>
+                      
+                      <DescriptionText dangerouslySetInnerHTML={{ __html: event.description || "Không có mô tả." }} />
+                    </DescriptionColumn>
+                    
+                    <MapAndDetailsColumn>
+                      <EventInfoCard>
+                        <InfoBlock>
+                          <InfoLabel>
+                            <FaCalendarAlt /> Thời gian
+                          </InfoLabel>
+                          <InfoText>
+                            <SemiBold>Bắt đầu:</SemiBold> {formatDateTime(event.startDate)}
+                          </InfoText>
+                          <InfoText>
+                            <SemiBold>Kết thúc:</SemiBold> {formatDateTime(event.endDate)}
+                          </InfoText>
+                        </InfoBlock>
+                        
+                        <InfoBlock>
+                          <InfoLabel>
+                            <FaMapMarkerAlt /> Hình thức & Địa điểm
+                          </InfoLabel>
+                          <InfoText>
+                            {event.attendanceType === ATTENDANCE_TYPES.ONLINE 
+                              ? 'Trực tuyến (Online)' 
+                              : 'Trực tiếp (Offline)'}
+                          </InfoText>
+                          
+                          {event.location && (
+                            <InfoText>
+                              {event.attendanceType === ATTENDANCE_TYPES.ONLINE 
+                                ? 'Nền tảng: ' 
+                                : 'Địa điểm: '}
+                              <SemiBold>{event.location}</SemiBold>
+                            </InfoText>
+                          )}
+                        </InfoBlock>
+                        
+                        <InfoBlock>
+                          <InfoLabel>
+                            <FaUsers /> Số lượng
+                          </InfoLabel>
+                          <InfoText>
+                            Tối đa: <SemiBold>{event.capacity || 'Không giới hạn'} người</SemiBold>
+                          </InfoText>
+                        </InfoBlock>
+                        
+                        {eventTags && eventTags.length > 0 && (
+                          <InfoBlock>
+                            <InfoLabel>
+                              <FaTag /> Thể loại
+                            </InfoLabel>
+                            <TagContainer>
+                              {eventTags.map((tag, index) => (
+                                <TagBadge key={`${tag}-${index}`}>{tag}</TagBadge>
+                              ))}
+                            </TagContainer>
+                          </InfoBlock>
+                        )}
+                      </EventInfoCard>
+                      
+                      {/* Phần buttons chia sẻ */}
+                      <EventActions>
+                        <ActionButton secondary onClick={() => 
+                          navigator.clipboard.writeText(window.location.href)
+                            .then(() => alert('Đã sao chép liên kết sự kiện!'))
+                        }>
+                          <FaShareAlt /> Chia sẻ
+                        </ActionButton>
+                        
+                        <ActionButton secondary>
+                          <FaRegBookmark /> Lưu sự kiện
+                        </ActionButton>
+                      </EventActions>
+                    </MapAndDetailsColumn>
+                  </DetailsGrid>
+                )}
+                
+                {activeTab === 'location' && event.location && event.attendanceType !== ATTENDANCE_TYPES.ONLINE && (
+                  <EventLocation>
+                    <SectionTitle>
+                      <FaMapMarkerAlt /> Địa điểm sự kiện
+                    </SectionTitle>
+                    
+                    <MapContainer>
+                      <MapContainer center={eventLocation} zoom={16} ref={mapRef}>
+                        <TileLayer
+                          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                        />
+                        <Marker position={eventLocation}>
+                          <Popup>
+                            <b>{event.eventName}</b><br />
+                            {event.location}
+                          </Popup>
+                        </Marker>
+                      </MapContainer>
+                    </MapContainer>
+                    
+                    <LocationAddress>
+                      <FaMapMarkerAlt />
+                      <div>
+                        <p>{event.location}</p>
+                        <a 
+                          href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(event.location)}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          Xem trên Google Maps →
+                        </a>
+                      </div>
+                    </LocationAddress>
+                  </EventLocation>
+                )}
+                
+                {isAuthenticated && userRoles.includes(ROLES.STUDENT) && eventStatus === 'upcoming' && (
+                  <RegistrationSection>
+                    <RegistrationTitle>Đăng ký tham gia</RegistrationTitle>
+                    <RegistrationInfo>
+                      Đăng ký tham gia sự kiện để được cập nhật thông tin mới nhất và nhận thông báo từ ban tổ chức.
+                    </RegistrationInfo>
+                    
+                    {registrationMessage ? (
+                      <StatusMessage>
+                        <FaCheckCircle /> {registrationMessage}
+                      </StatusMessage>
+                    ) : (
+                      <>
+                        {registrationError && (
+                          <ErrorRegMessage>
+                            <FaTimes /> {registrationError}
+                          </ErrorRegMessage>
+                        )}
+                        
+                        <Button 
+                          onClick={handleRegister} 
+                          isLoading={isRegistering} 
+                          disabled={isRegistering || isCurrentlyRegistered || !!registrationMessage} 
+                          variant={isCurrentlyRegistered || !!registrationMessage ? "success" : "primary"} 
+                          size="large"
+                        >
+                          {isRegistering ? 'Đang xử lý...' : (isCurrentlyRegistered ? 'Đã đăng ký' : 'Đăng ký tham gia')}
+                        </Button>
+                      </>
+                    )}
+                  </RegistrationSection>
+                )}
+                
+                <BackButtonContainer>
+                  <Button onClick={() => navigate(-1)} variant="secondary" size="medium">
+                    <FaArrowLeft /> Quay lại
+                  </Button>
+                </BackButtonContainer>
               </ContentPadding>
             </PageWrapper>
           )}
         </MainEventContent>
 
         <SidebarEventsColumn>
-          <h3>Có thể bạn quan tâm</h3>
+          <h3>
+            <FaRegCalendarCheck /> Có thể bạn quan tâm
+          </h3>
           {renderSidebarContent(rightSidebarEvents, 'right')}
         </SidebarEventsColumn>
       </OverallPageContainer>
