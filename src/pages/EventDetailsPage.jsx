@@ -446,15 +446,16 @@ const EventDetailsTabs = styled.div`
   }
 `;
 
+// MODIFY the original Tab component to use $active instead of active
 const Tab = styled.button`
   padding: 1rem 1.5rem;
   font-size: 1rem;
-  font-weight: ${props => props.active ? '600' : '500'};
-  color: ${props => props.active ? props.theme.colors.primary : props.theme.colors.textSecondary};
+  font-weight: ${props => props.$active ? '600' : '500'};  // Changed this line
+  color: ${props => props.$active ? props.theme.colors.primary : props.theme.colors.textSecondary};  // Changed this line
   background: none;
   border: none;
   cursor: pointer;
-  border-bottom: 3px solid ${props => props.active ? props.theme.colors.primary : 'transparent'};
+  border-bottom: 3px solid ${props => props.$active ? props.theme.colors.primary : 'transparent'};  // Changed this line
   transition: all 0.2s;
   display: flex;
   align-items: center;
@@ -468,7 +469,6 @@ const Tab = styled.button`
     font-size: 1.125rem;
   }
 `;
-
 const DetailsGrid = styled.div`
   display: grid;
   grid-template-columns: 1fr;
@@ -571,7 +571,50 @@ const SemiBold = styled.span`
   font-weight: 600;
 `;
 
+const MarqueeContainer = styled.div`
+  overflow: hidden;
+  position: relative;
+  height: calc(100vh - 160px);
+`;
 
+const MarqueeContent = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  animation: ${scrollVertical} ${props => props.$duration || '60s'} linear infinite;
+`;
+
+const SidebarEventItem = styled.div`
+  padding: 0.75rem;
+  
+  &:not(:last-child) {
+    border-bottom: 1px solid ${props => props.theme.colors.border};
+  }
+`;
+
+const EditButtonContainer = styled.div`
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+`;
+
+// Now let's fix the Tab component to properly handle the "active" boolean prop
+
+
+
+const MapContainerWrapper = styled.div`
+  height: 300px;
+  border-radius: ${props => props.theme.borderRadius.lg};
+  overflow: hidden;
+  margin-bottom: 1.5rem;
+  border: 1px solid ${props => props.theme.colors.border};
+  box-shadow: ${props => props.theme.boxShadow.sm};
+  
+  .leaflet-container {
+    height: 100%;
+    width: 100%;
+  }
+`;
 
 const EventLocation = styled.div`
   margin-bottom: 2rem;
@@ -706,7 +749,7 @@ const ActionButton = styled.button`
   cursor: pointer;
   transition: all 0.2s ease;
   
-  ${props => props.primary && css`
+  ${props => props.$primary && css`  // Changed this line
     background-color: ${props.theme.colors.primary};
     color: white;
     border: none;
@@ -717,7 +760,7 @@ const ActionButton = styled.button`
     }
   `}
   
-  ${props => props.secondary && css`
+  ${props => props.$secondary && css`  // Changed this line
     background-color: transparent;
     color: ${props.theme.colors.textSecondary};
     border: 1px solid ${props.theme.colors.border};
@@ -728,7 +771,7 @@ const ActionButton = styled.button`
     }
   `}
   
-  ${props => props.success && css`
+  ${props => props.$success && css`  // Changed this line
     background-color: ${props.theme.colors.successLight};
     color: ${props.theme.colors.success};
     border: none;
@@ -795,17 +838,17 @@ const StatusBadge = styled.div`
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
   z-index: 2;
   
-  ${props => props.status === 'upcoming' && css`
+  ${props => props.$status === 'upcoming' && css`  // Changed this line
     background-color: ${props.theme.colors.infoLight};
     color: ${props.theme.colors.info};
   `}
   
-  ${props => props.status === 'ongoing' && css`
+  ${props => props.$status === 'ongoing' && css`  // Changed this line
     background-color: ${props.theme.colors.successLight};
     color: ${props.theme.colors.success};
   `}
   
-  ${props => props.status === 'past' && css`
+  ${props => props.$status === 'past' && css`  // Changed this line
     background-color: ${props.theme.colors['custom-gray'][100]};
     color: ${props.theme.colors['custom-gray'][600]};
   `}
@@ -1092,7 +1135,7 @@ const EventDetailsPage = () => {
                 )}
                 
                 {/* Status Badge */}
-                <StatusBadge status={eventStatus}>
+                <StatusBadge $status={eventStatus}>
                   {eventStatus === 'upcoming' && (
                     <>
                       <FaRegClock /> Sắp diễn ra
@@ -1187,19 +1230,19 @@ const EventDetailsPage = () => {
                 <Divider />
                 
                 <EventDetailsTabs>
-                  <Tab 
-                    active={activeTab === 'about'} 
-                    onClick={() => setActiveTab('about')}
-                  >
-                    <FaInfo /> Thông tin sự kiện
-                  </Tab>
-                  <Tab 
-                    active={activeTab === 'location'} 
-                    onClick={() => setActiveTab('location')}
-                  >
-                    <FaMapMarkerAlt /> Địa điểm
-                  </Tab>
-                </EventDetailsTabs>
+  <Tab 
+    $active={activeTab === 'about'} 
+    onClick={() => setActiveTab('about')}
+  >
+    <FaInfo /> Thông tin sự kiện
+  </Tab>
+  <Tab 
+    $active={activeTab === 'location'} 
+    onClick={() => setActiveTab('location')}
+  >
+    <FaMapMarkerAlt /> Địa điểm
+  </Tab>
+</EventDetailsTabs>
                 
                 {activeTab === 'about' && (
                   <DetailsGrid>
@@ -1270,57 +1313,57 @@ const EventDetailsPage = () => {
                       
                       {/* Phần buttons chia sẻ */}
                       <EventActions>
-                        <ActionButton secondary onClick={() => 
-                          navigator.clipboard.writeText(window.location.href)
-                            .then(() => alert('Đã sao chép liên kết sự kiện!'))
-                        }>
-                          <FaShareAlt /> Chia sẻ
-                        </ActionButton>
-                        
-                        <ActionButton secondary>
-                          <FaRegBookmark /> Lưu sự kiện
-                        </ActionButton>
+                        <ActionButton $secondary onClick={() => 
+  navigator.clipboard.writeText(window.location.href)
+    .then(() => alert('Đã sao chép liên kết sự kiện!'))
+}>
+  <FaShareAlt /> Chia sẻ
+</ActionButton>
+
+<ActionButton $secondary>
+  <FaRegBookmark /> Lưu sự kiện
+</ActionButton>
                       </EventActions>
                     </MapAndDetailsColumn>
                   </DetailsGrid>
                 )}
                 
                 {activeTab === 'location' && event.location && event.attendanceType !== ATTENDANCE_TYPES.ONLINE && (
-                  <EventLocation>
-                    <SectionTitle>
-                      <FaMapMarkerAlt /> Địa điểm sự kiện
-                    </SectionTitle>
-                    
-                    <MapContainer>
-                      <MapContainer center={eventLocation} zoom={16} ref={mapRef}>
-                        <TileLayer
-                          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                        />
-                        <Marker position={eventLocation}>
-                          <Popup>
-                            <b>{event.eventName}</b><br />
-                            {event.location}
-                          </Popup>
-                        </Marker>
-                      </MapContainer>
-                    </MapContainer>
-                    
-                    <LocationAddress>
-                      <FaMapMarkerAlt />
-                      <div>
-                        <p>{event.location}</p>
-                        <a 
-                          href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(event.location)}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                        >
-                          Xem trên Google Maps →
-                        </a>
-                      </div>
-                    </LocationAddress>
-                  </EventLocation>
-                )}
+  <EventLocation>
+    <SectionTitle>
+      <FaMapMarkerAlt /> Địa điểm sự kiện
+    </SectionTitle>
+    
+    <MapContainerWrapper>
+      <MapContainer center={eventLocation} zoom={16} ref={mapRef}>
+        <TileLayer
+          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        />
+        <Marker position={eventLocation}>
+          <Popup>
+            <b>{event.eventName}</b><br />
+            {event.location}
+          </Popup>
+        </Marker>
+      </MapContainer>
+    </MapContainerWrapper>
+    
+    <LocationAddress>
+      <FaMapMarkerAlt />
+      <div>
+        <p>{event.location}</p>
+        <a 
+          href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(event.location)}`}
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          Xem trên Google Maps →
+        </a>
+      </div>
+    </LocationAddress>
+  </EventLocation>
+)}
                 
                 {isAuthenticated && userRoles.includes(ROLES.STUDENT) && eventStatus === 'upcoming' && (
                   <RegistrationSection>
