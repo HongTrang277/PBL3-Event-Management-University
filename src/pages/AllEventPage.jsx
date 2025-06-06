@@ -163,6 +163,31 @@ const AdminAllEventsPage = () => {
         });
     }, [allEvents, searchTerm, selectedStatus, selectedFaculty]);
 
+    const handleDeleteRequest = async (eventId) => {
+        if (!eventId) {
+            alert("Lỗi: Không tìm thấy ID sự kiện để xóa.");
+            return;
+        }
+
+        const eventToDelete = allEvents.find(event => event.eventId === eventId);
+        const eventName = eventToDelete ? eventToDelete.eventName : "sự kiện này";
+
+        if (window.confirm(`Bạn có chắc chắn muốn xóa sự kiện "${eventName}" không? Thao tác này không thể hoàn tác.`)) {
+            setIsDeleting(true);
+            try {
+                await eventService.deleteEvent(eventId);
+                // Cập nhật lại danh sách sự kiện trên UI sau khi xóa thành công
+                setAllEvents(prevEvents => prevEvents.filter(event => event.eventId !== eventId));
+                alert(`Sự kiện "${eventName}" đã được xóa thành công.`);
+            } catch (err) {
+                console.error("Lỗi khi xóa sự kiện:", err);
+                alert(`Xóa sự kiện thất bại: ${err.response?.data?.message || err.message}`);
+            } finally {
+                setIsDeleting(false);
+            }
+        }
+    };
+
     const handleSearch = (term) => setSearchTerm(term);
     const handleStatusChange = (e) => setSelectedStatus(e.target.value);
     const handleFacultyChange = (e) => setSelectedFaculty(e.target.value);

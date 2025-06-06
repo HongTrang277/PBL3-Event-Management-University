@@ -503,8 +503,19 @@ const EventCard = ({
         }
 
         // Logic cho các nút quản trị (Sửa, Xóa) - chỉ hiển thị nếu isAdminView và là chủ sự kiện
-        if (isAdminView && (user?.role === ROLES.EVENT_CREATOR || user?.role === ROLES.UNION)) {
-            if (host_id_from_api && user?.id && String(host_id_from_api) === String(user.id)) {
+        if (isAdminView && user) { // Đảm bảo user tồn tại
+            const isOwner = host_id_from_api && String(host_id_from_api) === String(user.id);
+            
+            // Chuẩn hóa vai trò của người dùng về chữ thường để so sánh cho chính xác
+            const userRoleNormalized = String(user.role || '').toLowerCase();
+
+            // Định nghĩa các vai trò có quyền tạo/quản lý sự kiện (bằng chữ thường)
+            const creatorRoles = ['organizer', 'event_creator', 'eventcreator', 'union'];
+            
+            const isCreatorRole = creatorRoles.includes(userRoleNormalized);
+
+            // Người dùng có vai trò creator (Organizer hoặc Union) chỉ có thể quản lý sự kiện nếu họ là chủ sở hữu.
+            if (isCreatorRole && isOwner) {
                 adminFlowButtons = (
                     <>
                         <StyledLink to={`/admin/edit-event/${event_id_from_api}`} style={{ textDecoration: 'none' }}>
@@ -512,20 +523,19 @@ const EventCard = ({
                                 Sửa
                             </Button>
                         </StyledLink>
-                        {onDeleteRequest && ( // Chỉ render nút Xóa nếu prop onDeleteRequest được truyền vào
+                        {onDeleteRequest && (
                             <Button
                                 variant="danger"
                                 size="small"
                                 onClick={() => onDeleteRequest(event_id_from_api)}
                             >
-                                Xóa
+                                Hủy sự kiện
                             </Button>
                         )}
                     </>
                 );
             }
         }
-
         // DÒNG 299 CÓ THỂ LÀ CHỖ NÀY TRONG CODE CŨ CỦA BẠN
         // Đảm bảo rằng bạn trả về cấu trúc JSX mới này
         return (
