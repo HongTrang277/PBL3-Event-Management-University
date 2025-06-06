@@ -164,7 +164,6 @@ const CurrentTime = styled.div`
 `;
 
 // --- Component ---
-
 const AttendancePage = () => {
   const { user} = useAuth();
   const [registeredEvents, setRegisteredEvents] = useState([]);
@@ -174,37 +173,7 @@ const AttendancePage = () => {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [isAttended, setIsAttended] = useState(false);
   // Cập nhật thời gian hiện tại mỗi giây khi đang ở trang chi tiết
-  const parseAssumingUtc = (apiDateString) => {
-  if (!apiDateString) {
-    return null; // Trả về null nếu chuỗi rỗng/không có
-  }
-  // Kiểm tra xem chuỗi đã có 'Z' hoặc offset (+HH:MM, -HH:MM) chưa
-  if (apiDateString.endsWith('Z') || /[+-]\d{2}:\d{2}$/.test(apiDateString)) {
-    // Nếu đã có, dùng luôn
-    return new Date(apiDateString);
-  } else {
-    // Nếu không có, thêm 'Z' để new Date() hiểu là UTC
-    return new Date(apiDateString + 'Z');
-  }
-};
   
-  const parseApiUtcDateString = (dateString) => {
-  if (!dateString) {
-    // Nếu chuỗi rỗng hoặc null, trả về null để báo hiệu ngày không hợp lệ
-    // Hoặc bạn có thể trả về new Date(NaN) tùy cách bạn muốn xử lý lỗi
-    return null;
-  }
-
-  // Kiểm tra xem chuỗi đã có thông tin múi giờ chưa
-  // Regex này kiểm tra chữ 'Z' ở cuối hoặc offset dạng +HH:MM hoặc -HH:MM
-  if (/Z|[+-]\d{2}:\d{2}$/.test(dateString)) {
-    // Nếu đã có, dùng luôn chuỗi đó
-    return new Date(dateString);
-  } else {
-    // Nếu không có, giả định là UTC và thêm 'Z' vào cuối
-    return new Date(dateString + 'Z');
-  }
-};
 useEffect(() => {
   // Check if user has already marked attendance when event changes
   const checkAttendanceStatus = async () => {
@@ -276,34 +245,10 @@ useEffect(() => {
           const mappedEvents = eventDataFromApi.map(mapEventData).filter(Boolean);
           const currentDate = new Date();
           const filteredEvents = mappedEvents.filter(event => {
-  const rawApiStartDate = event.startDate || event.start_date;
-  const rawApiEndDate = event.endDate || event.end_date;
-
-  // Sử dụng hàm mới để tạo đối tượng Date, giả định là UTC
-  const startDate = parseAssumingUtc(rawApiStartDate);
-  const endDate = parseAssumingUtc(rawApiEndDate);
-
-  // Kiểm tra ngày có hợp lệ không (rất quan trọng)
-  if (!startDate || !endDate || isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
-    console.warn(`Sự kiện "${event.eventName}" có ngày giờ không hợp lệ từ API:`, { rawApiStartDate, rawApiEndDate });
-    return false; // Bỏ qua sự kiện này
-  }
-
-  const currentDate = new Date(); // Thời gian hiện tại của client
-
-  // Phần còn lại của logic so sánh và console.log giữ nguyên hoặc tùy chỉnh nếu cần
-   console.log(`--- Filtering Event: ${event.eventName} ---`);
-   console.log(`Raw API: start='<span class="math-inline">\{rawApiStartDate\}', end\='</span>{rawApiEndDate}' (FE diễn giải là UTC)`);
-   console.log(`Current Time (Client Local): ${currentDate.toString()}`);
-   console.log(`Current Time (Client UTC): ${currentDate.toISOString()}`);
-   console.log(`Event Start (Interpreted UTC): ${startDate.toISOString()}`);
-   console.log(`Event End (Interpreted UTC): ${endDate.toISOString()}`);
-
-  const isHappening = currentDate >= startDate && currentDate <= endDate;
-  console.log(`Is Happening? ${isHappening}`);
-
-  return isHappening;
-});
+            const startDate = new Date(event.startDate || event.start_date);
+            const endDate = new Date(event.endDate || event.end_date);
+            return currentDate >= startDate && currentDate <= endDate;
+          });
           setRegisteredEvents(filteredEvents);
 
           if (mappedEvents.length > 0) {
