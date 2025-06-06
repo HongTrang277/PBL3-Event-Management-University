@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import styled from 'styled-components';
 import { useAuth } from '../contexts/AuthContext';
 import { attendanceService, registrationService } from '../services/api';
-import { FaMapMarkerAlt, FaClock, FaCheckCircle, FaArrowLeft } from "react-icons/fa";
+import { FaMapMarkerAlt, FaClock, FaCheckCircle, FaArrowLeft, FaTimes } from "react-icons/fa";
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
@@ -162,6 +162,108 @@ const CurrentTime = styled.div`
   gap: 0.5rem;
   margin-bottom: 0.7rem;
 `;
+const ModalOverlay = styled.div`
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  animation: fadeIn 0.3s ease-out forwards;
+  
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+`;
+
+const ModalContent = styled.div`
+  background-color: white;
+  border-radius: 1.5rem;
+  padding: 2rem;
+  width: 90%;
+  max-width: 500px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+  text-align: center;
+  position: relative;
+  animation: slideIn 0.3s ease-out forwards;
+  will-change: transform; /* Giúp animation mượt hơn */
+  transform: translateZ(0); /* Force hardware acceleration */
+  
+  @keyframes slideIn {
+    from { transform: translateY(30px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+  }
+`;
+
+const SuccessModal = styled(ModalContent)`
+  border-top: 6px solid #22c55e;
+`;
+
+const ErrorModal = styled(ModalContent)`
+  border-top: 6px solid #ef4444;
+`;
+
+const ModalTitle = styled.h3`
+  font-size: 1.7rem;
+  font-weight: 700;
+  margin-bottom: 1rem;
+  color: ${props => props.$isSuccess ? '#22c55e' : '#ef4444'};
+`;
+
+const ModalText = styled.p`
+  font-size: 1.1rem;
+  line-height: 1.5;
+  color: #4b5563;
+  margin-bottom: 1.5rem;
+`;
+
+const ModalIcon = styled.div`
+  font-size: 4rem;
+  margin-bottom: 1rem;
+  color: ${props => props.$isSuccess ? '#22c55e' : '#ef4444'};
+  display: flex;
+  justify-content: center;
+`;
+
+const ModalButton = styled.button`
+  background: ${props => props.$isSuccess ? 
+    'linear-gradient(90deg, #15803d 0%, #22c55e 100%)' : 
+    'linear-gradient(90deg, #b91c1c 0%, #ef4444 100%)'};
+  color: white;
+  border: none;
+  border-radius: 0.5rem;
+  padding: 0.8rem 2rem;
+  font-size: 1.1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+  }
+`;
+
+const ModalCloseButton = styled.button`
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  color: #9ca3af;
+  cursor: pointer;
+  
+  &:hover {
+    color: #4b5563;
+  }
+`;// Thêm các state này vào component AttendancePage
+
 
 // --- Component ---
 const AttendancePage = () => {
@@ -172,6 +274,9 @@ const AttendancePage = () => {
   const [error, setError] = useState(null);
   const [currentTime, setCurrentTime] = useState(new Date());
   const [isAttended, setIsAttended] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [showErrorModal, setShowErrorModal] = useState(false);
+  const [modalMessage, setModalMessage] = useState('');
   // Cập nhật thời gian hiện tại mỗi giây khi đang ở trang chi tiết
   
 useEffect(() => {
@@ -298,19 +403,23 @@ useEffect(() => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
-  const handleAttendance = async () => {
+  // Cập nhật hàm handleAttendance để hiển thị modal
+const handleAttendance = async () => {
   if (!user?.id) {
-    toast.error('Bạn cần đăng nhập để điểm danh.');
+    setModalMessage('Bạn cần đăng nhập để điểm danh.');
+    setShowErrorModal(true);
     return;
   }
   
   if (!selectedEvent?.eventId) {
-    toast.error('Không có thông tin sự kiện để điểm danh.');
+    setModalMessage('Không có thông tin sự kiện để điểm danh.');
+    setShowErrorModal(true);
     return;
   }
   
   if (!navigator.geolocation) {
-    toast.error('Trình duyệt của bạn không hỗ trợ GPS.');
+    setModalMessage('Trình duyệt của bạn không hỗ trợ GPS. Vui lòng sử dụng trình duyệt khác.');
+    setShowErrorModal(true);
     return;
   }
   
@@ -321,11 +430,9 @@ useEffect(() => {
     navigator.geolocation.getCurrentPosition(
       async (position) => {
         // Lấy tọa độ thực tế từ GPS
-         const latitude = parseFloat(position.coords.latitude);
-         const longitude = parseFloat(position.coords.longitude);
-        //convert latitude and longitude to double;
+        const latitude = parseFloat(position.coords.latitude);
+        const longitude = parseFloat(position.coords.longitude);
         
-
         try {
           // Tìm registrationId theo eventId và userId
           console.log('Đang tìm thông tin đăng ký cho:', { 
@@ -347,7 +454,8 @@ useEffect(() => {
           if (!registrationId) {
             // Đóng toast loading
             toast.dismiss(loadingToast);
-            toast.error('Bạn chưa đăng ký sự kiện này hoặc không tìm thấy thông tin đăng ký.');
+            setModalMessage('Bạn chưa đăng ký sự kiện này hoặc không tìm thấy thông tin đăng ký.');
+            setShowErrorModal(true);
             return;
           }
           
@@ -368,7 +476,10 @@ useEffect(() => {
           
           // Đóng toast loading và hiển thị thông báo thành công
           toast.dismiss(loadingToast);
-          toast.success('Điểm danh thành công!');
+          
+          // Hiển thị modal thành công thay vì toast
+          setModalMessage(`Điểm danh thành công cho sự kiện "${selectedEvent.eventName}"!`);
+          setShowSuccessModal(true);
           setIsAttended(true);
         } catch (err) {
           console.error('Lỗi khi điểm danh:', err);
@@ -376,16 +487,19 @@ useEffect(() => {
           // Đóng toast loading
           toast.dismiss(loadingToast);
           
-          // Hiển thị thông báo lỗi
+          // Chuẩn bị thông báo lỗi
           let errorMessage = 'Điểm danh thất bại.';
           if (err.message && err.message.includes("không ở trong khu vực")) {
-            errorMessage = err.message;
+            errorMessage = `Bạn không ở trong khu vực tổ chức sự kiện. Vui lòng đến đúng địa điểm sự kiện để điểm danh.`;
           } else if (err.response?.data?.message) {
             errorMessage = err.response.data.message;
           } else if (err.message) {
             errorMessage = err.message;
           }
-          toast.error(errorMessage);
+          
+          // Hiển thị modal lỗi
+          setModalMessage(errorMessage);
+          setShowErrorModal(true);
         }
       },
       (geoError) => {
@@ -394,20 +508,23 @@ useEffect(() => {
         // Đóng toast loading
         toast.dismiss(loadingToast);
         
-        // Hiển thị lỗi phù hợp với từng trường hợp
+        // Chuẩn bị thông báo lỗi GPS
+        let errorMessage = 'Không thể lấy tọa độ GPS. Vui lòng thử lại.';
         switch(geoError.code) {
           case geoError.PERMISSION_DENIED:
-            toast.error('Bạn đã từ chối quyền truy cập vị trí. Vui lòng cho phép trình duyệt sử dụng GPS để điểm danh.');
+            errorMessage = 'Bạn đã từ chối quyền truy cập vị trí. Vui lòng cho phép trình duyệt sử dụng GPS để điểm danh.';
             break;
           case geoError.POSITION_UNAVAILABLE:
-            toast.error('Không thể xác định vị trí của bạn. Vui lòng kiểm tra kết nối GPS và thử lại.');
+            errorMessage = 'Không thể xác định vị trí của bạn. Vui lòng kiểm tra kết nối GPS và thử lại.';
             break;
           case geoError.TIMEOUT:
-            toast.error('Quá thời gian chờ lấy vị trí GPS. Vui lòng thử lại.');
+            errorMessage = 'Quá thời gian chờ lấy vị trí GPS. Vui lòng thử lại.';
             break;
-          default:
-            toast.error('Không thể lấy tọa độ GPS. Vui lòng thử lại.');
         }
+        
+        // Hiển thị modal lỗi
+        setModalMessage(errorMessage);
+        setShowErrorModal(true);
       },
       // Cấu hình bổ sung cho navigator.geolocation
       {
@@ -418,10 +535,75 @@ useEffect(() => {
     );
   } catch (err) {
     console.error('Lỗi khi xử lý điểm danh:', err);
-    toast.error('Có lỗi xảy ra khi thực hiện điểm danh. Vui lòng thử lại.');
+    setModalMessage('Có lỗi xảy ra khi thực hiện điểm danh. Vui lòng thử lại.');
+    setShowErrorModal(true);
   }
 };
-
+  // Add the missing modal components
+  const AttendanceSuccessModal = () => {
+  if (!showSuccessModal) return null;
+  
+  return (
+    <ModalOverlay onClick={(e) => {
+      // Chỉ đóng modal khi click vào nền overlay, không phải nội dung bên trong
+      if (e.target === e.currentTarget) {
+        setShowSuccessModal(false);
+      }
+    }}>
+      <SuccessModal onClick={(e) => e.stopPropagation()}>
+        <ModalCloseButton onClick={() => setShowSuccessModal(false)}>
+          <FaTimes />
+        </ModalCloseButton>
+        
+        <ModalIcon $isSuccess>
+          <FaCheckCircle />
+        </ModalIcon>
+        
+        <ModalTitle $isSuccess>Thành công!</ModalTitle>
+        <ModalText>{modalMessage}</ModalText>
+        
+        <ModalButton 
+          $isSuccess 
+          onClick={() => setShowSuccessModal(false)}
+        >
+          Đã hiểu
+        </ModalButton>
+      </SuccessModal>
+    </ModalOverlay>
+  );
+};
+  
+  const AttendanceErrorModal = () => {
+  if (!showErrorModal) return null;
+  
+  return (
+    <ModalOverlay onClick={(e) => {
+      // Chỉ đóng modal khi click vào nền overlay
+      if (e.target === e.currentTarget) {
+        setShowErrorModal(false);
+      }
+    }}>
+      <ErrorModal onClick={(e) => e.stopPropagation()}>
+        <ModalCloseButton onClick={() => setShowErrorModal(false)}>
+          <FaTimes />
+        </ModalCloseButton>
+        
+        <ModalIcon>
+          <FaTimes />
+        </ModalIcon>
+        
+        <ModalTitle>Lỗi</ModalTitle>
+        <ModalText>{modalMessage}</ModalText>
+        
+        <ModalButton 
+          onClick={() => setShowErrorModal(false)}
+        >
+          Đóng
+        </ModalButton>
+      </ErrorModal>
+    </ModalOverlay>
+  );
+};
   // --- UI ---
   return (
     <PageWrapper>
@@ -498,6 +680,9 @@ useEffect(() => {
           )}
         </>
       )}
+       <AttendanceSuccessModal />
+    <AttendanceErrorModal />
+    <ToastContainer position="top-right" autoClose={5000} />
     </PageWrapper>
   );
 };
