@@ -731,8 +731,8 @@ const CreateEventPage = () => {
           (location.trim() || 'Online Platform') : location.trim(),
         Latitude: latitude || 0, // Default to 0 if not set
         Longitude: longitude || 0, // Default to 0 if not set
-        StartDate: new Date(startDate).toISOString(),
-        EndDate: new Date(endDate).toISOString(),
+        StartDate: startDate,
+        EndDate: endDate,
         Capacity: parseInt(capacity, 10),
         HostId: user?.id,
         LogoUrl: uploadedLogoUrl,
