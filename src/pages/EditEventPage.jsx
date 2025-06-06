@@ -353,8 +353,8 @@ const inputEndDate = convertApiDateTimeToDaNangInputString(fetchedEvent.endDate)
       // Chuyển đổi sang UTC ISO string để gửi cho API (nếu API yêu cầu UTC)
       // Hoặc gửi trực tiếp nếu API muốn chuỗi giờ địa phương (thêm :00 cho giây)
       const daNangTimeZoneOffset = "+07:00";
-      const startDateForAPI = new Date(startDate + ":00" + daNangTimeZoneOffset).toISOString();
-      const endDateForAPI = new Date(endDate + ":00" + daNangTimeZoneOffset).toISOString();
+      const startDateForAPI = new Date(startDate + ":00" + daNangTimeZoneOffset);
+      const endDateForAPI = new Date(endDate + ":00" + daNangTimeZoneOffset);
       
       // Nếu API muốn nhận lại chuỗi giờ Đà Nẵng như lúc nó gửi ra:
       // const startDateForAPI = startDate + ":00"; 
@@ -366,8 +366,8 @@ const inputEndDate = convertApiDateTimeToDaNangInputString(fetchedEvent.endDate)
         Description: description.trim(),
         AttendanceType: attendanceType,
         Location: attendanceType === ATTENDANCE_TYPES.ONLINE ? (location.trim() || 'Online Platform') : location.trim(),
-        StartDate: startDateForAPI, 
-        EndDate: endDateForAPI,     
+        StartDate: startDate, 
+        EndDate: endDate,     
         Capacity: parseInt(capacity, 10),
         HostId: eventData.hostId, 
         LogoUrl: uploadedLogoUrl,
