@@ -11,10 +11,12 @@ import EventCard from '../components/features/Events/EventCard/EventCard';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
+import markerIcon from '../assets/marker-icon.png'; // Đảm bảo file này tồn tại
+
 // Thêm các icons cho map và feature icons
-import { 
+import {
   FaMapMarkerAlt, FaCalendarAlt, FaUsers, FaClock, FaTag, FaInfo,
-  FaRegClock, FaRegCalendarCheck, FaRegBuilding, FaArrowLeft, 
+  FaRegClock, FaRegCalendarCheck, FaRegBuilding, FaArrowLeft,
   FaEdit, FaShareAlt, FaRegBookmark, FaRegUserCircle
 } from 'react-icons/fa';
 
@@ -25,7 +27,13 @@ L.Icon.Default.mergeOptions({
   iconUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon.png',
   shadowUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-shadow.png',
 });
-
+const customIcon = new L.Icon({
+  iconUrl: markerIcon || 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon.png',
+  iconRetinaUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon-2x.png',
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+  popupAnchor: [1, -34],
+});
 // Thêm helper function để geocode địa chỉ
 const geocodeAddress = async (address) => {
   try {
@@ -46,7 +54,7 @@ const geocodeAddress = async (address) => {
 // --- Cập nhật Theme với các giá trị mới ---
 const themeColors = {
   colors: {
-    primary: '#2563EB', 
+    primary: '#2563EB',
     primaryLight: '#EFF6FF',
     primaryDark: '#1E40AF',
     primaryDarkText: '#1E3A8A',
@@ -602,52 +610,91 @@ const EditButtonContainer = styled.div`
 
 
 
+// Sửa đổi MapContainerWrapper để hiển thị bản đồ đầy đủ
 const MapContainerWrapper = styled.div`
-  height: 300px;
-  border-radius: ${props => props.theme.borderRadius.lg};
+  height: 450px;
+  width: 100%;
+  position: relative;
   overflow: hidden;
-  margin-bottom: 1.5rem;
-  border: 1px solid ${props => props.theme.colors.border};
-  box-shadow: ${props => props.theme.boxShadow.sm};
   
   .leaflet-container {
-    height: 100%;
-    width: 100%;
+    height: 100% !important;
+    width: 100% !important;
+  }
+  
+  .leaflet-control-container .leaflet-top {
+    z-index: 999;
+  }
+  
+  .leaflet-div-icon {
+    background: transparent;
+    border: none;
   }
 `;
 
+// Thêm container cho map section
+const MapSection = styled.div`
+  width: 100%;
+  overflow: hidden;
+  margin: 0 auto;
+  max-width: 100%;
+  border-radius: ${props => props.theme.borderRadius.lg};
+  box-shadow: ${props => props.theme.boxShadow.md};
+`;
+
 const EventLocation = styled.div`
-  margin-bottom: 2rem;
-  padding-bottom: 2rem;
-  border-bottom: 1px solid ${props => props.theme.colors.border};
+  margin: 3rem 0 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid ${props => props.theme.colors.border};
+  animation: ${fadeIn} 0.5s ease-out;
 `;
 
 const LocationAddress = styled.div`
   display: flex;
   align-items: flex-start;
   gap: 0.75rem;
-  margin-top: 1rem;
+  margin-top: 1.5rem;
+  background-color: ${props => props.theme.colors.backgroundLight};
+  padding: 1.25rem;
+  border-radius: ${props => props.theme.borderRadius.md};
+  border: 1px solid ${props => props.theme.colors.border};
+  transition: all 0.2s ease;
+  
+  &:hover {
+    background-color: ${props => props.theme.colors.primaryLight};
+    border-color: ${props => props.theme.colors.primary}20;
+  }
   
   svg {
     color: ${props => props.theme.colors.primary};
     font-size: 1.25rem;
     margin-top: 0.125rem;
+    flex-shrink: 0;
   }
   
   p {
     margin: 0;
     font-size: 1.05rem;
     line-height: 1.6;
-    color: ${props => props.theme.colors.textSecondary};
+    color: ${props => props.theme.colors.textPrimary};
+    font-weight: 500;
   }
   
   a {
-    display: block;
-    margin-top: 0.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 0.75rem;
     color: ${props => props.theme.colors.primary};
-    font-weight: 500;
+    font-weight: 600;
     font-size: 0.95rem;
     text-decoration: none;
+    transition: all 0.2s ease;
+    
+    &:hover {
+      color: ${props => props.theme.colors.primaryDark};
+      text-decoration: underline;
+    }
   }
 `;
 
@@ -882,7 +929,7 @@ const EventDetailsPage = () => {
       const now = new Date();
       const startDate = new Date(event.startDate);
       const endDate = event.endDate ? new Date(event.endDate) : null;
-      
+
       if (endDate && now > endDate) {
         setEventStatus('past');
       } else if (endDate && now >= startDate && now <= endDate) {
@@ -898,19 +945,28 @@ const EventDetailsPage = () => {
   // Geocode địa điểm sự kiện
   useEffect(() => {
     const getEventLocation = async () => {
-      if (event && event.location && event.attendanceType !== ATTENDANCE_TYPES.ONLINE) {
+      if (event && event.attendanceType !== ATTENDANCE_TYPES.ONLINE) {
         try {
-          const coordinates = await geocodeAddress(event.location);
-          setEventLocation(coordinates);
+          // Ưu tiên sử dụng tọa độ đã lưu trong DB nếu có
+          if (event.latitude && event.longitude) {
+            console.log("Sử dụng tọa độ từ database:", event.latitude, event.longitude);
+            setEventLocation([parseFloat(event.latitude), parseFloat(event.longitude)]);
+          }
+          // Nếu không có tọa độ lưu sẵn, thực hiện geocoding
+          else if (event.location) {
+            console.log("Thực hiện geocoding cho địa chỉ:", event.location);
+            const coordinates = await geocodeAddress(event.location);
+            setEventLocation(coordinates);
+          }
         } catch (error) {
-          console.error('Error geocoding location:', error);
-          // Fallback to default
+          console.error('Lỗi khi xử lý tọa độ:', error);
         }
       }
     };
-    
+
     getEventLocation();
   }, [event]);
+
 
   // Fetch event details và sự kiện khác
   useEffect(() => {
@@ -921,7 +977,7 @@ const EventDetailsPage = () => {
         setError("Không tìm thấy ID sự kiện.");
         return;
       }
-      
+
       setIsLoading(true);
       setLoadingOtherEvents(true);
       setError(null);
@@ -930,15 +986,15 @@ const EventDetailsPage = () => {
       setRegistrationMessage('');
       setRegistrationError('');
       setIsCurrentlyRegistered(false);
-      
+
       try {
         const response = await eventService.getEvent(eventId);
         const eventData = response.data;
         setEvent(eventData);
-        
+
         if (isAuthenticated && userRoles.includes(ROLES.STUDENT) && user?.id && eventData?.eventId) {
           const registeredEvents = await registrationService.getEventsUserRegisteredFor(user.id);
-          if (Array.isArray(registeredEvents) && registeredEvents.some(reg => 
+          if (Array.isArray(registeredEvents) && registeredEvents.some(reg =>
             (reg.event?.eventId || reg.eventId) === eventData.eventId)) {
             setIsCurrentlyRegistered(true);
           }
@@ -948,11 +1004,11 @@ const EventDetailsPage = () => {
       } finally {
         setIsLoading(false);
       }
-      
+
       try {
         const allEventsResponse = await eventService.getAllEvents();
         const allEventsData = Array.isArray(allEventsResponse) ? allEventsResponse : [];
-        
+
         if (allEventsData.length > 0) {
           const filteredOtherEvents = allEventsData
             .filter(e => String(e.eventId) !== String(eventId))
@@ -966,9 +1022,9 @@ const EventDetailsPage = () => {
         setLoadingOtherEvents(false);
       }
     };
-    
+
     fetchEventDetailsAndOthers();
-    
+
     if (location.state?.autoRegistrationSuccess && location.state?.eventId === eventId) {
       setRegistrationMessage("Sự kiện đã được tự động đăng ký thành công!");
       setIsCurrentlyRegistered(true);
@@ -980,6 +1036,23 @@ const EventDetailsPage = () => {
       navigate(location.pathname, { replace: true, state: {} });
     }
   }, [eventId, isAuthenticated, user?.id, userRoles, location.state, navigate]);
+  useEffect(() => {
+    if (mapRef.current) {
+      setTimeout(() => {
+        mapRef.current.invalidateSize();
+        if (eventLocation) {
+          mapRef.current.setView(eventLocation, 15);
+        }
+      }, 300);
+    }
+  }, [eventLocation, mapRef.current]);
+  useEffect(() => {
+    // Khi tọa độ thay đổi, cập nhật map view
+    if (mapRef.current && eventLocation) {
+      const map = mapRef.current;
+      map.setView(eventLocation, 16, { animate: true });
+    }
+  }, [eventLocation]);
 
   // Xử lý đăng ký sự kiện
   const handleRegister = async () => {
@@ -987,7 +1060,7 @@ const EventDetailsPage = () => {
       navigate('/login', { state: { from: location.pathname } });
       return;
     }
-    
+
     if (!user || !user.id || !userRoles.includes(ROLES.STUDENT)) {
       console.error("User is not authenticated or does not have the STUDENT role.");
       console.log("User roles:", userRoles);
@@ -995,14 +1068,14 @@ const EventDetailsPage = () => {
       setRegistrationError("Chỉ sinh viên mới có thể đăng ký sự kiện.");
       return;
     }
-    
+
     setIsRegistering(true);
     setRegistrationMessage('');
     setRegistrationError('');
-    
+
     try {
       const responseData = await registrationService.registerUserForEvent(user.id, eventId);
-      
+
       if (responseData && responseData.registrationId) {
         setRegistrationMessage("Đăng ký thành công! Bạn đã được thêm vào danh sách tham gia.");
         setIsCurrentlyRegistered(true);
@@ -1022,16 +1095,16 @@ const EventDetailsPage = () => {
     return Array.isArray(event.tagsList) ? event.tagsList : (Array.isArray(event.tags) ? event.tags : []);
   }, [event]);
 
-  const isHost = useMemo(() => 
-    isAuthenticated && user?.id && event?.hostId && 
-    (userRoles.includes(ROLES.EVENT_CREATOR) || userRoles.includes(ROLES.UNION)) && 
-    String(user.id) === String(event.hostId), 
-  [isAuthenticated, user, event, userRoles]);
+  const isHost = useMemo(() =>
+    isAuthenticated && user?.id && event?.hostId &&
+    (userRoles.includes(ROLES.EVENT_CREATOR) || userRoles.includes(ROLES.UNION)) &&
+    String(user.id) === String(event.hostId),
+    [isAuthenticated, user, event, userRoles]);
 
   // Helper function để format thông tin ngày/tháng/năm từ thời gian
   const formatDateInfo = (dateString) => {
     if (!dateString) return { day: '--', month: '---', year: '----' };
-    
+
     try {
       const date = new Date(dateString);
       return {
@@ -1059,9 +1132,9 @@ const EventDetailsPage = () => {
   const renderSidebarContent = (eventsList, listKey) => {
     if (loadingOtherEvents) return <p className="no-events-text">Đang tải...</p>;
     if (!eventsList || eventsList.length === 0) return <p className="no-events-text">Không có sự kiện nào.</p>;
-    
+
     const duplicatedEvents = [...eventsList, ...eventsList];
-    
+
     return (
       <MarqueeContainer>
         <MarqueeContent $duration={calculateMarqueeDuration(eventsList)}>
@@ -1093,7 +1166,7 @@ const EventDetailsPage = () => {
               <div>Đang tải thông tin sự kiện...</div>
             </StatusContainer>
           )}
-          
+
           {!isLoading && error && !event && (
             <ErrorStatusContainer>
               <p>Lỗi: {error}</p>
@@ -1102,7 +1175,7 @@ const EventDetailsPage = () => {
               </Button>
             </ErrorStatusContainer>
           )}
-          
+
           {!isLoading && !event && !error && (
             <StatusContainer>
               Không tìm thấy thông tin sự kiện.
@@ -1113,18 +1186,18 @@ const EventDetailsPage = () => {
             <PageWrapper>
               <CoverImageContainer>
                 {event.coverUrl ? (
-                  <CoverImage 
-                    src={event.coverUrl} 
-                    alt={`${event.eventName || 'Sự kiện'} cover`} 
-                    onError={(e) => { 
-                      e.target.style.display = 'none'; 
-                      e.target.parentElement.innerHTML = '<span>Ảnh bìa sự kiện</span>'; 
-                    }} 
+                  <CoverImage
+                    src={event.coverUrl}
+                    alt={`${event.eventName || 'Sự kiện'} cover`}
+                    onError={(e) => {
+                      e.target.style.display = 'none';
+                      e.target.parentElement.innerHTML = '<span>Ảnh bìa sự kiện</span>';
+                    }}
                   />
                 ) : (
                   <span>Ảnh bìa sự kiện</span>
                 )}
-                
+
                 {/* Date Badge */}
                 {event.startDate && (
                   <DateBadge>
@@ -1133,7 +1206,7 @@ const EventDetailsPage = () => {
                     <span className="year">{formatDateInfo(event.startDate).year}</span>
                   </DateBadge>
                 )}
-                
+
                 {/* Status Badge */}
                 <StatusBadge $status={eventStatus}>
                   {eventStatus === 'upcoming' && (
@@ -1152,7 +1225,7 @@ const EventDetailsPage = () => {
                     </>
                   )}
                 </StatusBadge>
-                
+
                 {/* Meta info overlay */}
                 <EventMeta>
                   <MetaTitle>{event.eventName}</MetaTitle>
@@ -1166,21 +1239,21 @@ const EventDetailsPage = () => {
                   </MetaInfo>
                 </EventMeta>
               </CoverImageContainer>
-              
+
               <ContentPadding>
                 {event.logoUrl && (
                   <HeaderSection>
                     <LogoImageContainer>
-                      <LogoImage 
-                        src={event.logoUrl} 
-                        alt={`${event.eventName || 'Sự kiện'} logo`} 
-                        onError={(e) => { 
-                          e.target.style.display = 'none'; 
-                          e.target.parentElement.innerHTML = '<span>Logo</span>'; 
-                        }} 
+                      <LogoImage
+                        src={event.logoUrl}
+                        alt={`${event.eventName || 'Sự kiện'} logo`}
+                        onError={(e) => {
+                          e.target.style.display = 'none';
+                          e.target.parentElement.innerHTML = '<span>Logo</span>';
+                        }}
                       />
                     </LogoImageContainer>
-                    
+
                     <EventInfoSummary>
                       <InfoItem>
                         <FaCalendarAlt />
@@ -1189,7 +1262,7 @@ const EventDetailsPage = () => {
                           <p>{formatDateTime(event.startDate)}</p>
                         </div>
                       </InfoItem>
-                      
+
                       <InfoItem>
                         <FaRegClock />
                         <div>
@@ -1197,7 +1270,7 @@ const EventDetailsPage = () => {
                           <p>{formatDateTime(event.endDate) || 'Chưa xác định'}</p>
                         </div>
                       </InfoItem>
-                      
+
                       <InfoItem>
                         <FaUsers />
                         <div>
@@ -1205,7 +1278,7 @@ const EventDetailsPage = () => {
                           <p>{event.capacity || 'Không giới hạn'} người</p>
                         </div>
                       </InfoItem>
-                      
+
                       <InfoItem>
                         <FaRegBuilding />
                         <div>
@@ -1214,7 +1287,7 @@ const EventDetailsPage = () => {
                         </div>
                       </InfoItem>
                     </EventInfoSummary>
-                    
+
                     {isHost && (
                       <EditButtonContainer>
                         <RouterLink to={`/admin/edit-event/${event.eventId || eventId}`}>
@@ -1226,152 +1299,150 @@ const EventDetailsPage = () => {
                     )}
                   </HeaderSection>
                 )}
-                
-                <Divider />
-                
-                <EventDetailsTabs>
-  <Tab 
-    $active={activeTab === 'about'} 
-    onClick={() => setActiveTab('about')}
-  >
-    <FaInfo /> Thông tin sự kiện
-  </Tab>
-  <Tab 
-    $active={activeTab === 'location'} 
-    onClick={() => setActiveTab('location')}
-  >
-    <FaMapMarkerAlt /> Địa điểm
-  </Tab>
-</EventDetailsTabs>
-                
-                {activeTab === 'about' && (
-                  <DetailsGrid>
-                    <DescriptionColumn>
-                      <SectionTitle>
-                        <FaInfo /> Mô tả sự kiện
-                      </SectionTitle>
-                      
-                      <DescriptionText dangerouslySetInnerHTML={{ __html: event.description || "Không có mô tả." }} />
-                    </DescriptionColumn>
-                    
-                    <MapAndDetailsColumn>
-                      <EventInfoCard>
-                        <InfoBlock>
-                          <InfoLabel>
-                            <FaCalendarAlt /> Thời gian
-                          </InfoLabel>
-                          <InfoText>
-                            <SemiBold>Bắt đầu:</SemiBold> {formatDateTime(event.startDate)}
-                          </InfoText>
-                          <InfoText>
-                            <SemiBold>Kết thúc:</SemiBold> {formatDateTime(event.endDate)}
-                          </InfoText>
-                        </InfoBlock>
-                        
-                        <InfoBlock>
-                          <InfoLabel>
-                            <FaMapMarkerAlt /> Hình thức & Địa điểm
-                          </InfoLabel>
-                          <InfoText>
-                            {event.attendanceType === ATTENDANCE_TYPES.ONLINE 
-                              ? 'Trực tuyến (Online)' 
-                              : 'Trực tiếp (Offline)'}
-                          </InfoText>
-                          
-                          {event.location && (
-                            <InfoText>
-                              {event.attendanceType === ATTENDANCE_TYPES.ONLINE 
-                                ? 'Nền tảng: ' 
-                                : 'Địa điểm: '}
-                              <SemiBold>{event.location}</SemiBold>
-                            </InfoText>
-                          )}
-                        </InfoBlock>
-                        
-                        <InfoBlock>
-                          <InfoLabel>
-                            <FaUsers /> Số lượng
-                          </InfoLabel>
-                          <InfoText>
-                            Tối đa: <SemiBold>{event.capacity || 'Không giới hạn'} người</SemiBold>
-                          </InfoText>
-                        </InfoBlock>
-                        
-                        {eventTags && eventTags.length > 0 && (
-                          <InfoBlock>
-                            <InfoLabel>
-                              <FaTag /> Thể loại
-                            </InfoLabel>
-                            <TagContainer>
-                              {eventTags.map((tag, index) => (
-                                <TagBadge key={`${tag}-${index}`}>{tag}</TagBadge>
-                              ))}
-                            </TagContainer>
-                          </InfoBlock>
-                        )}
-                      </EventInfoCard>
-                      
-                      {/* Phần buttons chia sẻ */}
-                      <EventActions>
-                        <ActionButton $secondary onClick={() => 
-  navigator.clipboard.writeText(window.location.href)
-    .then(() => alert('Đã sao chép liên kết sự kiện!'))
-}>
-  <FaShareAlt /> Chia sẻ
-</ActionButton>
 
-<ActionButton $secondary>
-  <FaRegBookmark /> Lưu sự kiện
-</ActionButton>
-                      </EventActions>
-                    </MapAndDetailsColumn>
-                  </DetailsGrid>
-                )}
-                
-                {activeTab === 'location' && event.location && event.attendanceType !== ATTENDANCE_TYPES.ONLINE && (
-  <EventLocation>
-    <SectionTitle>
-      <FaMapMarkerAlt /> Địa điểm sự kiện
-    </SectionTitle>
-    
-    <MapContainerWrapper>
-      <MapContainer center={eventLocation} zoom={16} ref={mapRef}>
-        <TileLayer
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-        />
-        <Marker position={eventLocation}>
-          <Popup>
-            <b>{event.eventName}</b><br />
-            {event.location}
-          </Popup>
-        </Marker>
-      </MapContainer>
-    </MapContainerWrapper>
-    
-    <LocationAddress>
-      <FaMapMarkerAlt />
-      <div>
-        <p>{event.location}</p>
-        <a 
-          href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(event.location)}`}
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Xem trên Google Maps →
-        </a>
-      </div>
-    </LocationAddress>
-  </EventLocation>
-)}
-                
+                <Divider />
+
+
+
+
+                <DetailsGrid>
+                  <DescriptionColumn>
+                    <SectionTitle>
+                      <FaInfo /> Mô tả sự kiện
+                    </SectionTitle>
+
+                    {/* Thêm phần nội dung mô tả */}
+                    <DescriptionText dangerouslySetInnerHTML={{ __html: event.description || "Không có mô tả cho sự kiện này." }} />
+                  </DescriptionColumn>
+
+                  <MapAndDetailsColumn>
+                    <EventInfoCard>
+                      <InfoBlock>
+                        <InfoLabel>
+                          <FaCalendarAlt /> Thời gian
+                        </InfoLabel>
+                        <InfoText>
+                          <SemiBold>Bắt đầu:</SemiBold> {formatDateTime(event.startDate)}
+                        </InfoText>
+                        <InfoText>
+                          <SemiBold>Kết thúc:</SemiBold> {formatDateTime(event.endDate)}
+                        </InfoText>
+                      </InfoBlock>
+
+                      <InfoBlock>
+                        <InfoLabel>
+                          <FaMapMarkerAlt /> Hình thức & Địa điểm
+                        </InfoLabel>
+                        <InfoText>
+                          {event.attendanceType === ATTENDANCE_TYPES.ONLINE
+                            ? 'Trực tuyến (Online)'
+                            : 'Trực tiếp (Offline)'}
+                        </InfoText>
+
+                        {event.location && (
+                          <InfoText>
+                            {event.attendanceType === ATTENDANCE_TYPES.ONLINE
+                              ? 'Nền tảng: '
+                              : 'Địa điểm: '}
+                            <SemiBold>{event.location}</SemiBold>
+                          </InfoText>
+                        )}
+                      </InfoBlock>
+
+                      <InfoBlock>
+                        <InfoLabel>
+                          <FaUsers /> Số lượng
+                        </InfoLabel>
+                        <InfoText>
+                          Tối đa: <SemiBold>{event.capacity || 'Không giới hạn'} người</SemiBold>
+                        </InfoText>
+                      </InfoBlock>
+
+                      {eventTags && eventTags.length > 0 && (
+                        <InfoBlock>
+                          <InfoLabel>
+                            <FaTag /> Thể loại
+                          </InfoLabel>
+                          <TagContainer>
+                            {eventTags.map((tag, index) => (
+                              <TagBadge key={`${tag}-${index}`}>{tag}</TagBadge>
+                            ))}
+                          </TagContainer>
+                        </InfoBlock>
+                      )}
+                    </EventInfoCard>
+
+                    {/* Phần buttons chia sẻ */}
+                    <EventActions>
+                      <ActionButton $secondary onClick={() =>
+                        navigator.clipboard.writeText(window.location.href)
+                          .then(() => alert('Đã sao chép liên kết sự kiện!'))
+                      }>
+                        <FaShareAlt /> Chia sẻ
+                      </ActionButton>
+
+                      <ActionButton $secondary>
+                        <FaRegBookmark /> Lưu sự kiện
+                      </ActionButton>
+                    </EventActions>
+                  </MapAndDetailsColumn>
+                </DetailsGrid>
+
+
+
+                <EventLocation>
+                  <SectionTitle>
+                    <FaMapMarkerAlt /> Địa điểm sự kiện
+                  </SectionTitle>
+
+                  <MapSection>
+                    <MapContainerWrapper>
+                      <MapContainer
+                        center={eventLocation}
+                        zoom={15} // Change from 18 to 15 for better view
+                        ref={mapRef}
+                        style={{ height: '100%', width: '100%' }}
+                        scrollWheelZoom={true} // Enable zoom with mouse wheel
+                        doubleClickZoom={true}
+                        zoomControl={true} // Show zoom controls
+                      >
+                        <TileLayer
+                          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                        />
+                        <Marker position={eventLocation} icon={customIcon}>
+                          <Popup>
+                            <b>{event.eventName}</b><br />
+                            {event.location}
+                          </Popup>
+                        </Marker>
+                      </MapContainer>
+                    </MapContainerWrapper>
+                  </MapSection>
+
+                  <LocationAddress>
+                    <FaMapMarkerAlt />
+                    <div>
+                      <p>{event.location}</p>
+                      <a
+                        href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(event.location)}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        Xem trên Google Maps →
+                      </a>
+                    </div>
+                  </LocationAddress>
+                </EventLocation>
+
+
                 {isAuthenticated && userRoles.includes(ROLES.STUDENT) && eventStatus === 'upcoming' && (
                   <RegistrationSection>
                     <RegistrationTitle>Đăng ký tham gia</RegistrationTitle>
                     <RegistrationInfo>
                       Đăng ký tham gia sự kiện để được cập nhật thông tin mới nhất và nhận thông báo từ ban tổ chức.
                     </RegistrationInfo>
-                    
+
                     {registrationMessage ? (
                       <StatusMessage>
                         <FaCheckCircle /> {registrationMessage}
@@ -1383,12 +1454,12 @@ const EventDetailsPage = () => {
                             <FaTimes /> {registrationError}
                           </ErrorRegMessage>
                         )}
-                        
-                        <Button 
-                          onClick={handleRegister} 
-                          isLoading={isRegistering} 
-                          disabled={isRegistering || isCurrentlyRegistered || !!registrationMessage} 
-                          variant={isCurrentlyRegistered || !!registrationMessage ? "success" : "primary"} 
+
+                        <Button
+                          onClick={handleRegister}
+                          isLoading={isRegistering}
+                          disabled={isRegistering || isCurrentlyRegistered || !!registrationMessage}
+                          variant={isCurrentlyRegistered || !!registrationMessage ? "success" : "primary"}
                           size="large"
                         >
                           {isRegistering ? 'Đang xử lý...' : (isCurrentlyRegistered ? 'Đã đăng ký' : 'Đăng ký tham gia')}
@@ -1397,7 +1468,7 @@ const EventDetailsPage = () => {
                     )}
                   </RegistrationSection>
                 )}
-                
+
                 <BackButtonContainer>
                   <Button onClick={() => navigate(-1)} variant="secondary" size="medium">
                     <FaArrowLeft /> Quay lại
