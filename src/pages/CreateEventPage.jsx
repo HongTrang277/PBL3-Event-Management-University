@@ -620,12 +620,13 @@ const CreateEventPage = () => {
     if (!description.trim()) return "Mô tả sự kiện không được để trống.";
     if (!startDate) return "Ngày giờ bắt đầu không được để trống.";
 
-    //         const startTime = new Date(startDate);
-    //         if (startTime < today) return "Ngày bắt đầu không được là một ngày trong quá khứ.";
+           //const startTime = new Date(startDate);
+            
 
     if (!endDate) return "Ngày giờ kết thúc không được để trống.";
     const endTime = new Date(endDate);
     const startTime = new Date(startDate); // Cần startTime ở đây để so sánh
+    if (startTime < today) return "Ngày giờ bắt đầu phải là ngày hiện tại hoặc tương lai.";
     if (endTime <= startTime) return "Ngày giờ kết thúc phải sau ngày giờ bắt đầu.";
 
     if (!capacity || parseInt(capacity, 10) <= 0) return "Số lượng tham gia phải là số dương.";
