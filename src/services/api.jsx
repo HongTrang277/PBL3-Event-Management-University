@@ -44,28 +44,46 @@ export const eventService = {
     return api.get(`/events/${id}`);
   },
   createEvent: async (eventData) => {
-  try {
-    console.log('Sending event data:', eventData);
-    const response = await api.post('/events', eventData, {
-      headers: {
-        'Content-Type': 'application/json'
+    try {
+      console.log('Sending event data:', eventData);
+      const response = await api.post('/events', eventData);
+
+      // KHI THÀNH CÔNG: BE trả về object event.
+      // Một response với status 2xx đã được coi là thành công bởi axios.
+      // Ta chỉ cần kiểm tra xem dữ liệu trả về có đúng định dạng không.
+      if (response.data && response.data.eventId) {
+        console.log('Event created successfully:', response.data);
+        return response.data; // Trả về object sự kiện đã được tạo
+      } else {
+        // Đây là trường hợp phòng vệ: API trả về 2xx nhưng không có dữ liệu event
+        throw new Error('API không trả về dữ liệu sự kiện như mong đợi.');
       }
-    });
-    console.log('Response:', response);
-    return response;
-  } catch (error) {
-    console.error('Error during createEvent:', error);
-    
-    // Add better error logging
-    if (error.response) {
-      console.error('Error response data:', error.response.data);
-      console.error('Error response status:', error.response.status);
-      console.error('Error response headers:', error.response.headers);
+
+    } catch (error) {
+      // KHỐI CATCH NÀY CHỈ CHẠY KHI BE TRẢ VỀ LỖI (HTTP 4xx hoặc 5xx)
+
+      console.error('Error during createEvent:', error.response?.data || error.message);
+
+      // Cố gắng lấy thông điệp lỗi tường minh từ BE
+      let errorMessage = 'Tạo sự kiện thất bại. Vui lòng thử lại.';
+      if (error.response?.data) {
+        const errorData = error.response.data;
+        // Xử lý lỗi validation của ASP.NET Core
+        if (typeof errorData.errors === 'object') {
+          errorMessage = Object.values(errorData.errors).flat().join(' ');
+        }
+        // Xử lý các lỗi dạng { message: "..." } hoặc chuỗi thuần
+        else if (errorData.message) {
+          errorMessage = errorData.message;
+        } else if (typeof errorData === 'string' && errorData.length > 0) {
+          errorMessage = errorData;
+        }
+      }
+      
+      // Ném lại lỗi với thông điệp đã được làm sạch
+      throw new Error(errorMessage);
     }
-    
-    throw error;
-  }
-},
+  },
   updateEvent: async (id, eventData) => {
     return api.put(`/events/${id}`, eventData);
   },

@@ -734,10 +734,9 @@ const CreateEventPage = () => {
         StartDate: startDate,
         EndDate: endDate,
         Capacity: parseInt(capacity, 10),
-        HostId: user?.id,
         LogoUrl: uploadedLogoUrl,
         CoverUrl: uploadedCoverUrl,
-        Tags: selectedTags,
+        // Tags: selectedTags,
         IsRestricted: isRestricted,
         // Add the missing fields
         IsOpenedForRegistration: isOpenedForRegistration,
