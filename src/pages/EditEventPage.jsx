@@ -8,6 +8,7 @@ import { ATTENDANCE_TYPES, TAGS, ROLES } from '../utils/constants';
 import { useAuth } from '../hooks/useAuth';
 import Input from '../components/common/Input/Input';
 import { convertApiDateTimeToDaNangInputString } from '../utils/helpers';
+import LocationPicker from '../components/common/Input/LocationPicker';
 // SỬ DỤNG HELPER MỚI
 
 
@@ -49,6 +50,65 @@ const TagLabel = styled.label` display: inline-flex; align-items: center; backgr
 const ActionContainer = styled.div` display: flex; justify-content: flex-end; gap: 1rem; padding-top: 2rem; margin-top: 1.5rem; border-top: 1px solid ${({ theme }) => theme.colors.border}; `;
 const LoadingOverlay = styled.div` position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(255, 255, 255, 0.7); display: flex; justify-content: center; align-items: center; font-size: 1.2rem; color: ${({ theme }) => theme.colors.primary}; z-index: 1000; `;
 
+const ToggleContainer = styled.div`
+  display: flex;
+  align-items: center;
+  margin-bottom: 1rem;
+`;
+
+const ToggleSwitch = styled.label`
+  position: relative;
+  display: inline-block;
+  width: 50px;
+  height: 26px;
+  margin-left: 15px;
+  
+  input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+  }
+  
+  span {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: ${({ theme }) => theme.colors.textLight};
+    transition: .4s;
+    border-radius: 26px;
+  }
+  
+  span:before {
+    position: absolute;
+    content: "";
+    height: 20px;
+    width: 20px;
+    left: 3px;
+    bottom: 3px;
+    background-color: white;
+    transition: .4s;
+    border-radius: 50%;
+  }
+  
+  input:checked + span {
+    background-color: ${({ theme }) => theme.colors.success};
+  }
+
+  input:checked + span.cancel-switch {
+      background-color: ${({ theme }) => theme.colors.error};
+  }
+  
+  input:focus + span {
+    box-shadow: 0 0 1px ${({ theme }) => theme.colors.accent};
+  }
+  
+  input:checked + span:before {
+    transform: translateX(24px);
+  }
+`;
 
 const EditEventPage = () => {
   const { eventId } = useParams();
@@ -69,12 +129,22 @@ const EditEventPage = () => {
   const [coverPreviewUrl, setCoverPreviewUrl] = useState(null);
   const [attendanceType, setAttendanceType] = useState(ATTENDANCE_TYPES.OFFLINE);
   const [location, setLocation] = useState('');
+  const [latitude, setLatitude] = useState(null);
+    const [longitude, setLongitude] = useState(null);
   const [selectedTags, setSelectedTags] = useState([]);
+
+   const [isOpenedForRegistration, setIsOpenedForRegistration] = useState(true);
+    const [isCancelled, setIsCancelled] = useState(false);
   
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
   const [fileErrors, setFileErrors] = useState({});
+  const handleLocationChange = useCallback((lat, lng) => {
+        setLatitude(lat);
+        setLongitude(lng);
+        console.log(`Tọa độ mới được chọn: Lat=${lat}, Lng=${lng}`);
+    }, []); // useCallback để tránh re-render không cần thiết
 
   const fetchEventDetails = useCallback(async () => {
     if (!eventId) {
@@ -104,11 +174,15 @@ const EditEventPage = () => {
       setEventData(fetchedEvent);
       setEventName(fetchedEvent.eventName || '');
       setDescription(fetchedEvent.description || '');
+      setLatitude(fetchedEvent.latitude || null);
+        setLongitude(fetchedEvent.longitude || null);
       
       // API trả về chuỗi giờ Đà Nẵng (ví dụ: "2025-05-27T09:00:00")
       // Chuyển đổi sang "YYYY-MM-DDTHH:MM" cho input
       console.log("EDIT PAGE - API raw startDate (từ DB):", fetchedEvent.startDate);
       console.log("EDIT PAGE - API raw endDate (từ DB):", fetchedEvent.endDate);
+
+      
       
       const inputStartDate = convertApiDateTimeToDaNangInputString(fetchedEvent.startDate);
 const inputEndDate = convertApiDateTimeToDaNangInputString(fetchedEvent.endDate);
@@ -126,6 +200,9 @@ const inputEndDate = convertApiDateTimeToDaNangInputString(fetchedEvent.endDate)
       setInitialCoverUrl(fetchedEvent.coverUrl || '');
       setLogoPreviewUrl(fetchedEvent.logoUrl || null);
       setCoverPreviewUrl(fetchedEvent.coverUrl || null);
+
+      setIsOpenedForRegistration(fetchedEvent.isOpenedForRegistration ?? true);
+            setIsCancelled(fetchedEvent.isCancelled ?? false);
 
     } catch (err) {
       console.error("Error fetching event details:", err);
@@ -295,7 +372,12 @@ const inputEndDate = convertApiDateTimeToDaNangInputString(fetchedEvent.endDate)
         HostId: eventData.hostId, 
         LogoUrl: uploadedLogoUrl,
         CoverUrl: uploadedCoverUrl,
-        Tags: selectedTags, 
+         Latitude: latitude,
+            Longitude: longitude,
+        //Tags: selectedTags, 
+        IsOpenedForRegistration: isOpenedForRegistration,
+                IsCancelled: isCancelled,
+                Scope: eventData.scope, // Giữ lại scope gốc của sự kiện
       };
       
       console.log('EDIT PAGE - Sending event update data to API:', updatedEventPayload);
@@ -519,6 +601,17 @@ return (
                                     required
                                 />
                             </FormGroup>
+                            {attendanceType === ATTENDANCE_TYPES.OFFLINE && (
+    <FormGroup>
+        <StyledLabel>Chọn Vị trí trên Bản đồ</StyledLabel>
+        <LocationPicker
+            latitude={latitude}
+            longitude={longitude}
+            onLocationChange={handleLocationChange}
+            locationName={location} // Truyền tên địa điểm để LocationPicker có thể tìm kiếm
+        />
+    </FormGroup>
+)}
 
                             <FormGroup>
                                 <StyledLabel>Thể loại (Tags)</StyledLabel>

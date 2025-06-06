@@ -1,5 +1,5 @@
 // Thêm imports mới
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate, Link as RouterLink, useLocation } from 'react-router-dom';
 import styled, { keyframes, ThemeProvider, css } from 'styled-components';
 import { eventService, registrationService } from '../services/api';
@@ -8,16 +8,17 @@ import { ROLES, ATTENDANCE_TYPES } from '../utils/constants';
 import { formatDateTime, extractDateInfo } from '../utils/helpers';
 import Button from '../components/common/Button/Button';
 import EventCard from '../components/features/Events/EventCard/EventCard';
-import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import markerIcon from '../assets/marker-icon.png'; // Đảm bảo file này tồn tại
 
 // Thêm các icons cho map và feature icons
 import {
-  FaMapMarkerAlt, FaCalendarAlt, FaUsers, FaClock, FaTag, FaInfo,
-  FaRegClock, FaRegCalendarCheck, FaRegBuilding, FaArrowLeft,
-  FaEdit, FaShareAlt, FaRegBookmark, FaRegUserCircle
+    FaMapMarkerAlt, FaCalendarAlt, FaUsers, FaClock, FaTag, FaInfo,
+    FaRegClock, FaRegCalendarCheck, FaRegBuilding, FaArrowLeft,
+    FaEdit, FaShareAlt, FaRegBookmark, FaRegUserCircle,
+    FaCheckCircle, FaTimes // Đã thêm 2 icon này
 } from 'react-icons/fa';
 
 // Fix cho Leaflet icon trong React
@@ -901,13 +902,29 @@ const StatusBadge = styled.div`
   `}
 `;
 
+function MapUpdater({ position }) {
+  const map = useMap(); // Hook để lấy instance của map
+  useEffect(() => {
+    if (position && position.length === 2) {
+      // 1. Tính toán lại kích thước bản đồ để fix lỗi ô xám
+      map.invalidateSize();
+      // 2. Di chuyển map đến vị trí mới với hiệu ứng zoom
+      map.flyTo(position, 16, {
+        animate: true,
+        duration: 1.5
+      });
+    }
+  }, [position, map]);
+
+  return null; // Component này không render ra bất cứ thứ gì
+}
+
 // Component chính
 const EventDetailsPage = () => {
   const { eventId } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
   const { user, userRoles, isAuthenticated } = useAuth();
-  const mapRef = useRef(null);
 
   // State mới
   const [activeTab, setActiveTab] = useState('about'); // 'about', 'location'
@@ -925,21 +942,28 @@ const EventDetailsPage = () => {
 
   // Xác định trạng thái event dựa trên thời gian
   useEffect(() => {
-    if (event && event.startDate) {
-      const now = new Date();
-      const startDate = new Date(event.startDate);
-      const endDate = event.endDate ? new Date(event.endDate) : null;
-
-      if (endDate && now > endDate) {
-        setEventStatus('past');
-      } else if (endDate && now >= startDate && now <= endDate) {
-        setEventStatus('ongoing');
-      } else if (!endDate && now > startDate) {
-        setEventStatus('past');
-      } else {
-        setEventStatus('upcoming');
-      }
-    }
+    const getEventLocation = async () => {
+            if (event && event.attendanceType !== ATTENDANCE_TYPES.ONLINE) {
+                let coords = null;
+                if (event.latitude && event.longitude) {
+                    console.log("Sử dụng tọa độ từ database:", event.latitude, event.longitude);
+                    coords = [parseFloat(event.latitude), parseFloat(event.longitude)];
+                } else if (event.location) {
+                    console.log("Thực hiện geocoding cho địa chỉ:", event.location);
+                    coords = await geocodeAddress(event.location);
+                }
+                
+                if (coords) {
+                    setEventLocation(coords);
+                    if (mapRef.current) {
+                        // Invalidate size và set view để đảm bảo map render đúng
+                        mapRef.current.invalidateSize();
+                        mapRef.current.setView(coords, 16);
+                    }
+                }
+            }
+        };
+        getEventLocation();
   }, [event]);
 
   // Geocode địa điểm sự kiện
@@ -1036,23 +1060,23 @@ const EventDetailsPage = () => {
       navigate(location.pathname, { replace: true, state: {} });
     }
   }, [eventId, isAuthenticated, user?.id, userRoles, location.state, navigate]);
-  useEffect(() => {
-    if (mapRef.current) {
-      setTimeout(() => {
-        mapRef.current.invalidateSize();
-        if (eventLocation) {
-          mapRef.current.setView(eventLocation, 15);
-        }
-      }, 300);
-    }
-  }, [eventLocation, mapRef.current]);
-  useEffect(() => {
-    // Khi tọa độ thay đổi, cập nhật map view
-    if (mapRef.current && eventLocation) {
-      const map = mapRef.current;
-      map.setView(eventLocation, 16, { animate: true });
-    }
-  }, [eventLocation]);
+  //   useEffect(() => {
+  //   if (mapRef.current) {
+  //     setTimeout(() => {
+  //       mapRef.current.invalidateSize();
+  //       if (eventLocation) {
+  //         mapRef.current.setView(eventLocation, 15);
+  //       }
+  //     }, 300);
+  //   }
+  // }, [eventLocation, mapRef.current]);
+  // useEffect(() => {
+  //   // Khi tọa độ thay đổi, cập nhật map view
+  //   if (mapRef.current && eventLocation) {
+  //     const map = mapRef.current;
+  //     map.setView(eventLocation, 16, { animate: true });
+  //   }
+  // }, [eventLocation]);
 
   // Xử lý đăng ký sự kiện
   const handleRegister = async () => {
@@ -1400,7 +1424,6 @@ const EventDetailsPage = () => {
                       <MapContainer
                         center={eventLocation}
                         zoom={15} // Change from 18 to 15 for better view
-                        ref={mapRef}
                         style={{ height: '100%', width: '100%' }}
                         scrollWheelZoom={true} // Enable zoom with mouse wheel
                         doubleClickZoom={true}
@@ -1416,6 +1439,7 @@ const EventDetailsPage = () => {
                             {event.location}
                           </Popup>
                         </Marker>
+                        <MapUpdater position={eventLocation} />
                       </MapContainer>
                     </MapContainerWrapper>
                   </MapSection>
@@ -1426,8 +1450,8 @@ const EventDetailsPage = () => {
                       <p>{event.location}</p>
                       <a
                         href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(event.location)}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
+                                                target="_blank"
+                                                rel="noopener noreferrer"
                       >
                         Xem trên Google Maps →
                       </a>
