@@ -173,7 +173,7 @@ const ModalOverlay = styled.div`
   align-items: center;
   justify-content: center;
   z-index: 1000;
-  animation: fadeIn 0.3s ease-out;
+  animation: fadeIn 0.3s ease-out forwards;
   
   @keyframes fadeIn {
     from { opacity: 0; }
@@ -190,7 +190,9 @@ const ModalContent = styled.div`
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
   text-align: center;
   position: relative;
-  animation: slideIn 0.3s ease-out;
+  animation: slideIn 0.3s ease-out forwards;
+  will-change: transform; /* Giúp animation mượt hơn */
+  transform: translateZ(0); /* Force hardware acceleration */
   
   @keyframes slideIn {
     from { transform: translateY(30px); opacity: 0; }
@@ -539,59 +541,69 @@ const handleAttendance = async () => {
 };
   // Add the missing modal components
   const AttendanceSuccessModal = () => {
-    if (!showSuccessModal) return null;
-    
-    return (
-      <ModalOverlay>
-        <SuccessModal>
-          <ModalCloseButton onClick={() => setShowSuccessModal(false)}>
-            <FaTimes />
-          </ModalCloseButton>
-          
-          <ModalIcon $isSuccess>
-            <FaCheckCircle />
-          </ModalIcon>
-          
-          <ModalTitle $isSuccess>Thành công!</ModalTitle>
-          <ModalText>{modalMessage}</ModalText>
-          
-          <ModalButton 
-            $isSuccess 
-            onClick={() => setShowSuccessModal(false)}
-          >
-            Đã hiểu
-          </ModalButton>
-        </SuccessModal>
-      </ModalOverlay>
-    );
-  };
+  if (!showSuccessModal) return null;
+  
+  return (
+    <ModalOverlay onClick={(e) => {
+      // Chỉ đóng modal khi click vào nền overlay, không phải nội dung bên trong
+      if (e.target === e.currentTarget) {
+        setShowSuccessModal(false);
+      }
+    }}>
+      <SuccessModal onClick={(e) => e.stopPropagation()}>
+        <ModalCloseButton onClick={() => setShowSuccessModal(false)}>
+          <FaTimes />
+        </ModalCloseButton>
+        
+        <ModalIcon $isSuccess>
+          <FaCheckCircle />
+        </ModalIcon>
+        
+        <ModalTitle $isSuccess>Thành công!</ModalTitle>
+        <ModalText>{modalMessage}</ModalText>
+        
+        <ModalButton 
+          $isSuccess 
+          onClick={() => setShowSuccessModal(false)}
+        >
+          Đã hiểu
+        </ModalButton>
+      </SuccessModal>
+    </ModalOverlay>
+  );
+};
   
   const AttendanceErrorModal = () => {
-    if (!showErrorModal) return null;
-    
-    return (
-      <ModalOverlay>
-        <ErrorModal>
-          <ModalCloseButton onClick={() => setShowErrorModal(false)}>
-            <FaTimes />
-          </ModalCloseButton>
-          
-          <ModalIcon>
-            <FaTimes />
-          </ModalIcon>
-          
-          <ModalTitle>Lỗi</ModalTitle>
-          <ModalText>{modalMessage}</ModalText>
-          
-          <ModalButton 
-            onClick={() => setShowErrorModal(false)}
-          >
-            Đóng
-          </ModalButton>
-        </ErrorModal>
-      </ModalOverlay>
-    );
-  };
+  if (!showErrorModal) return null;
+  
+  return (
+    <ModalOverlay onClick={(e) => {
+      // Chỉ đóng modal khi click vào nền overlay
+      if (e.target === e.currentTarget) {
+        setShowErrorModal(false);
+      }
+    }}>
+      <ErrorModal onClick={(e) => e.stopPropagation()}>
+        <ModalCloseButton onClick={() => setShowErrorModal(false)}>
+          <FaTimes />
+        </ModalCloseButton>
+        
+        <ModalIcon>
+          <FaTimes />
+        </ModalIcon>
+        
+        <ModalTitle>Lỗi</ModalTitle>
+        <ModalText>{modalMessage}</ModalText>
+        
+        <ModalButton 
+          onClick={() => setShowErrorModal(false)}
+        >
+          Đóng
+        </ModalButton>
+      </ErrorModal>
+    </ModalOverlay>
+  );
+};
   // --- UI ---
   return (
     <PageWrapper>
