@@ -1127,6 +1127,7 @@ const EventDetailsPage = () => {
   // Xử lý đăng ký sự kiện
   const handleRegister = async () => {
     if (!isAuthenticated) {
+      toast.info("Vui lòng đăng nhập để đăng ký sự kiện.");
       navigate('/login', { state: { from: location.pathname } });
       return;
     }
@@ -1136,7 +1137,27 @@ const EventDetailsPage = () => {
       console.log("User roles:", userRoles);
       console.log("User object:", user);
       setRegistrationError("Chỉ sinh viên mới có thể đăng ký sự kiện.");
+      toast.error("Chỉ tài khoản sinh viên mới có thể đăng ký.");
       return;
+    }
+
+    const isProfileVerified = user.fullName && user.studentId && user.class && user.facultyId;
+    if (!isProfileVerified) {
+        setRegistrationError("Bạn cần cập nhật đầy đủ thông tin cá nhân trước khi đăng ký.");
+        toast.warn(
+            <div>
+                Vui lòng cập nhật đầy đủ thông tin (Họ tên, MSSV, Lớp, Khoa) trong trang Hồ sơ cá nhân.
+                <Button 
+                    variant="link" 
+                    onClick={() => navigate('/profile')} 
+                    style={{ marginLeft: '10px', textDecoration: 'underline', color: '#2563EB' }}
+                >
+                    Đi đến trang hồ sơ
+                </Button>
+            </div>,
+            { autoClose: 8000 } // Tăng thời gian hiển thị toast
+        );
+        return;
     }
 
     setIsRegistering(true);
