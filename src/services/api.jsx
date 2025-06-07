@@ -134,6 +134,10 @@ export const registrationService = {
       const response = await api.get(`/Registrations/Users/${eventId}`);
       return response.data;
     } catch (error) {
+      if (error.response && error.response.status === 404) {
+        console.log(`Event ${eventId} has no registered users. Returning an empty array.`);
+        return []; // Trả về mảng rỗng thay vì ném lỗi
+      }
       console.error(`Error fetching users registered for event ${eventId}:`, error.response?.data || error.message);
       throw error;
     }

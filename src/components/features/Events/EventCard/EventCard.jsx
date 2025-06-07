@@ -1,16 +1,19 @@
 // src/components/features/Events/EventCard/EventCard.jsx
-import React from 'react';
 // Bỏ 'useTheme' nếu không còn sử dụng trực tiếp nữa
+import React, {useState, useEffect, useMemo} from 'react';
+import ReactDOM from 'react-dom';
 import styled /* , { useTheme } */ from 'styled-components';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../../hooks/useAuth';
 import { formatDate } from '../../../../utils/helpers';
 import { ATTENDANCE_TYPES, ROLES } from '../../../../utils/constants';
 import Button from '../../../common/Button/Button';
-import { useEffect, useState } from 'react';
-import { authService } from '../../../../services/api';
+import { authService, uploadService, registrationService, facultyService } from '../../../../services/api';
 import { format, differenceInDays, isPast, isFuture, isToday } from 'date-fns';
 import { vi } from 'date-fns/locale';
+import {FaUsers, FaSearch, FaTimes, FaIdCard, FaEnvelope, FaSchool, FaChalkboard, FaFileExcel} from 'react-icons/fa';
+import * as XLSX from 'xlsx';
+
 
 // --- Styled Icons (Giữ nguyên) ---
 //! Thêm constants cho trạng thái sự kiện
@@ -19,6 +22,244 @@ const EVENT_STATUS = {
     ONGOING: 'ongoing',
     PAST: 'past',
 };
+
+const ModalOverlay = styled.div`
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  opacity: ${props => props.$isOpen ? 1 : 0};
+  visibility: ${props => props.$isOpen ? 'visible' : 'hidden'};
+  transition: all 0.3s ease;
+`;
+
+const ModalContent = styled.div`
+  background-color: #f9fafb; // Màu nền nhẹ nhàng hơn
+  padding: 0; // Bỏ padding cũ để chia layout header/content/footer
+  border-radius: 0.75rem;
+  width: 90%;
+  max-width: 900px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04);
+  transform: ${props => props.isOpen ? 'translateY(0)' : 'translateY(-20px)'};
+  transition: all 0.3s ease;
+  overflow: hidden; // Quan trọng để bo góc hoạt động đúng
+`;
+
+const ModalHeader = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid #e5e7eb;
+  background-color: white;
+
+  h2 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: #1f2937;
+    margin: 0;
+    display: -webkit-box;
+    -webkit-line-clamp: 1;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+`;
+
+const CloseButton = styled.button`
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  cursor: pointer;
+  color: #9ca3af;
+  line-height: 1;
+  &:hover { color: #6b7280; }
+`;
+
+const SearchAndActions = styled.div`
+    padding: 1rem 1.5rem;
+    background-color: white;
+    border-bottom: 1px solid #e5e7eb;
+`;
+
+const SearchBarContainer = styled.div`
+  position: relative;
+`;
+
+const SearchInput = styled.input`
+  width: 100%;
+  padding: 0.75rem 1rem 0.75rem 2.5rem;
+  border: 1px solid #d1d5db;
+  border-radius: 0.5rem;
+  font-size: 1rem;
+  &:focus { outline: none; border-color: #3b82f6; box-shadow: 0 0 0 1px #3b82f6; }
+`;
+
+const SearchIcon = styled(FaSearch)`
+  position: absolute;
+  left: 1rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #9ca3af;
+`;
+
+const RegistrantListContainer = styled.div`
+  overflow-y: auto;
+  flex-grow: 1;
+  padding: 1rem 1.5rem;
+`;
+
+// Thẻ thông tin người đăng ký
+const RegistrantCard = styled.div`
+    background-color: white;
+    border-radius: 0.5rem;
+    padding: 1rem;
+    margin-bottom: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    border: 1px solid #e5e7eb;
+    transition: all 0.2s ease-in-out;
+
+    &:hover {
+        border-color: #3b82f6;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
+    }
+`;
+
+const Avatar = styled.div`
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background-color: #dbeafe;
+    color: #1e40af;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 1.25rem;
+    flex-shrink: 0; // Không bị co lại
+`;
+
+const UserInfo = styled.div`
+    flex-grow: 1;
+    min-width: 0; // Quan trọng để text-overflow hoạt động
+`;
+
+const FullName = styled.p`
+    font-size: 1rem;
+    font-weight: 600;
+    color: #111827;
+    margin: 0 0 0.25rem 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+`;
+
+const Email = styled.p`
+    font-size: 0.875rem;
+    color: #6b7280;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+`;
+
+const UserDetails = styled.div`
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 0.5rem 1rem;
+    margin-top: 0.75rem;
+    padding-top: 0.75rem;
+    border-top: 1px dashed #e5e7eb;
+    width: 100%;
+`;
+
+const InfoItem = styled.div`
+    display: flex;
+    align-items: center;
+    font-size: 0.875rem;
+    color: #374151;
+    gap: 0.5rem;
+
+    svg {
+        color: #9ca3af;
+        flex-shrink: 0;
+    }
+    span {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+`;
+
+const ModalFooter = styled.div`
+    padding: 1rem 1.5rem;
+    border-top: 1px solid #e5e7eb;
+    background-color: white;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+`;
+
+const SummaryText = styled.p`
+    margin: 0;
+    font-size: 0.875rem;
+    color: #6b7280;
+`;
+
+const ExportButton = styled.button`
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    border: 1px solid #d1d5db;
+    background-color: #ffffff;
+    color: #374151;
+    font-weight: 500;
+    font-size: 0.875rem;
+    border-radius: 0.375rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+
+    &:hover {
+        background-color: #f9fafb;
+        border-color: #9ca3af;
+    }
+
+    svg {
+        color: #166534; // Màu xanh của Excel
+    }
+`;
+
+const EmptyStateContainer = styled.div`
+    text-align: center;
+    padding: 3rem 1rem;
+    color: #6b7280;
+    
+    svg {
+        font-size: 3rem;
+        margin-bottom: 1rem;
+        color: #d1d5db;
+    }
+
+    p {
+        font-size: 1rem;
+        margin: 0;
+    }
+`;
 
 // Thêm styled components cho Status Badge
 const StatusBadge = styled.div`
@@ -317,6 +558,175 @@ const StyledLink = styled(Link)`
   text-decoration: none;
 `;
 
+const RegisteredUsersModal = ({ isOpen, onClose, eventId, eventName }) => {
+    const [registrants, setRegistrants] = useState([]);
+    const [faculties, setFaculties] = useState([]);
+    const [isLoading, setIsLoading] = useState(false);
+    const [error, setError] = useState(null);
+    const [searchTerm, setSearchTerm] = useState('');
+
+    useEffect(() => {
+        const fetchFaculties = async () => {
+            try {
+                const facultyData = await facultyService.getAllFaculties();
+                setFaculties(facultyData || []);
+            } catch (err) { console.error("Could not fetch faculties", err); }
+        };
+        fetchFaculties();
+    }, []);
+
+    useEffect(() => {
+        if (isOpen && eventId) {
+            const fetchRegistrants = async () => {
+                setIsLoading(true);
+                setError(null);
+                try {
+                    const data = await registrationService.getUsersRegisteredForEvent(eventId);
+                    setRegistrants(Array.isArray(data) ? data : []);
+                } catch (err) {
+                    setError("Không thể tải danh sách người đăng ký.");
+                } finally {
+                    setIsLoading(false);
+                }
+            };
+            fetchRegistrants();
+        }
+    }, [isOpen, eventId]);
+
+    const getFacultyName = (facultyId) => {
+        if (!facultyId || faculties.length === 0) return 'N/A';
+        const faculty = faculties.find(f => f.facultyId === facultyId);
+        return faculty ? faculty.facultyName : 'Không rõ';
+    };
+
+    const filteredRegistrants = useMemo(() => {
+        if (!searchTerm) return registrants;
+        const lowercasedFilter = searchTerm.toLowerCase();
+        return registrants.filter(user => 
+            (user.fullName && user.fullName.toLowerCase().includes(lowercasedFilter)) ||
+            (user.studentId && user.studentId.toLowerCase().includes(lowercasedFilter)) ||
+            (user.email && user.email.toLowerCase().includes(lowercasedFilter)) ||
+            (user.class && user.class.toLowerCase().includes(lowercasedFilter)) ||
+            getFacultyName(user.facultyId).toLowerCase().includes(lowercasedFilter)
+        );
+    }, [searchTerm, registrants, faculties]);
+        // Hàm xuất Excel
+    const handleExport = () => {
+        const dataToExport = filteredRegistrants.map(user => ({
+            'Họ và Tên': user.fullName || 'N/A',
+            'MSSV': user.studentId || 'N/A',
+            'Email': user.email,
+            'Lớp': user.class || 'N/A',
+            'Khoa': getFacultyName(user.facultyId)
+        }));
+
+        const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "DanhSachDangKy");
+
+        // Đặt tên file
+        const safeEventName = eventName.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+        XLSX.writeFile(workbook, `DSDK_${safeEventName}.xlsx`);
+    };
+    
+    // Hàm lấy chữ cái đầu
+    const getInitials = (name) => {
+      if (!name) return '?';
+      const nameParts = name.split(' ');
+      const initials = nameParts.length > 1
+          ? nameParts[0].charAt(0) + nameParts[nameParts.length - 1].charAt(0)
+          : nameParts[0].charAt(0);
+      return initials.toUpperCase();
+    }
+
+    if (!isOpen) return null;
+
+    return ReactDOM.createPortal(
+        <ModalOverlay $isOpen={isOpen} onClick={onClose}>
+            <ModalContent isOpen={isOpen} onClick={e => e.stopPropagation()}>
+                <ModalHeader>
+                    {/* Hiển thị tổng số người đăng ký */}
+                    <h2>DS Đăng ký ({registrants.length} người): {eventName}</h2>
+                    <CloseButton onClick={onClose}><FaTimes /></CloseButton>
+                </ModalHeader>
+
+                <SearchAndActions>
+                    <SearchBarContainer>
+                        <SearchIcon />
+                        <SearchInput type="text" placeholder="Tìm theo tên, MSSV, lớp, khoa..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
+                    </SearchBarContainer>
+                </SearchAndActions>
+
+                {/* Render danh sách thẻ */}
+                <RegistrantListContainer>
+                    {isLoading && <p style={{textAlign: 'center'}}>Đang tải...</p>}
+                    {error && <p style={{ color: 'red', textAlign: 'center' }}>{error}</p>}
+                    {!isLoading && !error && (
+                        <>
+                            {filteredRegistrants.length > 0 ? (
+                                filteredRegistrants.map((user) => (
+                                    <RegistrantCard key={user.id}>
+                                        <Avatar>{getInitials(user.fullName)}</Avatar>
+                                        <div style={{ flexGrow: 1, minWidth: 0 }}>
+                                            <UserInfo>
+                                                <FullName title={user.fullName}>{user.fullName || 'N/A'}</FullName>
+                                                <Email title={user.email}>
+                                                    <FaEnvelope />
+                                                    {user.email}
+                                                </Email>
+                                            </UserInfo>
+                                            <UserDetails>
+                                                <InfoItem title={user.studentId}>
+                                                    <FaIdCard />
+                                                    <span>{user.studentId || 'N/A'}</span>
+                                                </InfoItem>
+                                                <InfoItem title={user.class}>
+                                                    {/* Sử dụng FaChalkboard đã import */}
+                                                    <FaChalkboard />
+                                                    <span>{user.class || 'N/A'}</span>
+                                                </InfoItem>
+                                                <InfoItem title={getFacultyName(user.facultyId)}>
+                                                    <FaSchool />
+                                                    <span>{getFacultyName(user.facultyId)}</span>
+                                                </InfoItem>
+                                            </UserDetails>
+                                        </div>
+                                    </RegistrantCard>
+                                ))
+                            ) : (
+                                // Giao diện khi không có dữ liệu
+                                <EmptyStateContainer>
+                                    <FaUsers />
+                                    <p>{searchTerm ? 'Không tìm thấy kết quả phù hợp.' : 'Chưa có ai đăng ký sự kiện này.'}</p>
+                                </EmptyStateContainer>
+                            )}
+                        </>
+                    )}
+                </RegistrantListContainer>
+                
+                {/* Footer với nút export */}
+                <ModalFooter>
+                    <SummaryText>
+                        {filteredRegistrants.length > 0
+                          ? `Hiển thị ${filteredRegistrants.length} / ${registrants.length} người đăng ký.`
+                          : 'Không có dữ liệu.'
+                        }
+                    </SummaryText>
+                    {filteredRegistrants.length > 0 && (
+                        <ExportButton onClick={handleExport}>
+                            <FaFileExcel />
+                            Xuất Excel
+                        </ExportButton>
+                    )}
+                </ModalFooter>
+
+            </ModalContent>
+        </ModalOverlay>,
+        document.body
+    );
+};
+
+
 // --- Component chính EventCard ---
 const EventCard = ({
     event,
@@ -332,6 +742,9 @@ const EventCard = ({
     const [hostInfo, setHostInfo] = useState(null);
     const [isLoadingHost, setIsLoadingHost] = useState(false);
     const [eventStatus, setEventStatus] = useState(null);
+    const [isRegisteredModalOpen, setRegisteredModalOpen] = useState(false);
+
+    console.log(`Event: "${event?.eventName}" - isRegisteredModalOpen:`, isRegisteredModalOpen);
 
     if (!event) {
         console.warn("EventCard: event prop is null or undefined.");
@@ -518,6 +931,17 @@ const EventCard = ({
             if (isCreatorRole && isOwner) {
                 adminFlowButtons = (
                     <>
+                        
+                        <Button
+                        variant="outline"
+                        size="small"
+                        onClick={() => setRegisteredModalOpen(true)}
+                        title="Xem danh sách đăng ký"
+                        style={{ marginRight: '8px' }}
+                    >
+                        <FaUsers />
+                    </Button>
+
                         <StyledLink to={`/admin/edit-event/${event_id_from_api}`} style={{ textDecoration: 'none' }}>
                             <Button variant="secondary" size="small" style={{ marginRight: '8px' }}>
                                 Sửa
@@ -553,6 +977,7 @@ const EventCard = ({
     // --- PHẦN JSX CHÍNH CỦA EVENTCARD ---
     // Thay đổi JSX return
     return (
+        <>
         <CardWrapper status={eventStatus}>
             <ImageContainer>
                 {cover_url_from_api ? (
@@ -655,6 +1080,13 @@ const EventCard = ({
                 {renderActionButtons()}
             </ContentArea>
         </CardWrapper>
+        <RegisteredUsersModal
+                isOpen={isRegisteredModalOpen}
+                onClose={() => setRegisteredModalOpen(false)}
+                eventId={event_id_from_api}
+                eventName={event_name_from_api}
+            />
+        </>
     );
 }; // Kết thúc EventCard component
 
