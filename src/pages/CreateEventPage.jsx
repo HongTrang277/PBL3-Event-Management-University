@@ -8,7 +8,7 @@ import { useAuth } from '../hooks/useAuth';
 import Input from '../components/common/Input/Input'; // Giả định Input đã được style hoặc chấp nhận className/style props
 import { facultyService } from '../services/api';
 import LocationPicker from '../components/common/Input/LocationPicker';
-
+// import { eventService, uploadService } from '../services/api';
 // --- Định nghĩa Theme (Màu sắc, Font, etc.) ---
 const theme = {
   colors: {
@@ -700,55 +700,40 @@ const CreateEventPage = () => {
       if (logo) {
         try {
           const logoUploadResponse = await uploadService.uploadFile(logo);
-          if (logoUploadResponse?.saveUrl) {
-            let correctSaveUrl = logoUploadResponse.saveUrl;
-            if (correctSaveUrl.startsWith("//")) correctSaveUrl = correctSaveUrl.substring(1);
-            const apiUrl = import.meta.env.VITE_API_BASE_URL;
-            if (!apiUrl) {
-              console.error("LỖI CẤU HÌNH: Biến môi trường VITE_API_BASE_URL không được định nghĩa!");
-              setError("Lỗi cấu hình hệ thống. (ENV_API_URL_MISSING)");
-              setIsLoading(false); return;
-            }
-            const domainApi = apiUrl.replace('/api', '');
-            uploadedLogoUrl = domainApi + correctSaveUrl;
-          } else if (logoUploadResponse?.fileName) {
-            uploadedLogoUrl = uploadService.getFileUrl(logoUploadResponse.fileName);
-          } else if (logoUploadResponse?.url) {
-            uploadedLogoUrl = logoUploadResponse.url;
-          } else {
-            throw new Error("Không nhận được thông tin file logo sau khi upload.");
-          }
-        } catch (uploadError) {
-          console.error('Lỗi upload logo:', uploadError);
-          setError(`Lỗi upload logo: ${uploadError.response?.data?.message || uploadError.message || 'Không thể tải lên logo.'}`);
-          setIsLoading(false); return;
+          const saveUrl = logoUploadResponse?.saveUrl; 
+
+        if (saveUrl) {
+            // Bước 1: Tách lấy tên file từ chuỗi saveUrl
+            // "/uploads/a1b2c3d4.png" -> "a1b2c3d4.png"
+            const fileName = saveUrl.split('/').pop(); 
+
+            // Bước 2: Dùng hàm getFileUrl để tạo ra URL API chính xác
+            uploadedLogoUrl = uploadService.getFileUrl(fileName);
+
+        } else {
+            throw new Error("API upload không trả về saveUrl cho logo.");
+        }
+    } catch (uploadError) {
+        setError(`Lỗi upload logo: ${uploadError.message}`);
+        setIsLoading(false);
+        return;
         }
       }
       if (cover) {
         try {
           const coverUploadResponse = await uploadService.uploadFile(cover);
-          if (coverUploadResponse?.saveUrl) {
-            let correctSaveUrl = coverUploadResponse.saveUrl;
-            if (correctSaveUrl.startsWith("//")) correctSaveUrl = correctSaveUrl.substring(1);
-            const apiUrl = import.meta.env.VITE_API_BASE_URL;
-            if (!apiUrl) {
-              console.error("LỖI CẤU HÌNH: VITE_API_BASE_URL không định nghĩa!");
-              setError("Lỗi cấu hình hệ thống (ENV_API_URL_MISSING_COVER).");
-              setIsLoading(false); return;
-            }
-            const domainApi = apiUrl.replace('/api', '');
-            uploadedCoverUrl = domainApi + correctSaveUrl;
-          } else if (coverUploadResponse?.fileName) {
-            uploadedCoverUrl = uploadService.getFileUrl(coverUploadResponse.fileName);
-          } else if (coverUploadResponse?.url) {
-            uploadedCoverUrl = coverUploadResponse.url;
-          } else {
-            throw new Error("Không nhận được thông tin file ảnh bìa sau khi upload.");
-          }
-        } catch (uploadError) {
-          console.error('Lỗi upload ảnh bìa:', uploadError);
-          setError(`Lỗi upload ảnh bìa: ${uploadError.response?.data?.message || uploadError.message || 'Không thể tải lên ảnh bìa.'}`);
-          setIsLoading(false); return;
+          const saveUrl = coverUploadResponse?.saveUrl;
+
+        if (saveUrl) {
+            const fileName = saveUrl.split('/').pop();
+            uploadedCoverUrl = uploadService.getFileUrl(fileName);
+        } else {
+            throw new Error("API upload không trả về saveUrl cho ảnh bìa.");
+        }
+    } catch (uploadError) {
+        setError(`Lỗi upload ảnh bìa: ${uploadError.message}`);
+        setIsLoading(false);
+        return;
         }
       }
       console.log(">>> STATE 'startDate' TRƯỚC new Date():", startDate); // QUAN TRỌNG!

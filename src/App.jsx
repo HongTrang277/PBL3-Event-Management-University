@@ -28,6 +28,7 @@ import MyProfile from './pages/MyProfile';
 // import ProfilePage from './pages/ProfilePage'; 
 // import NotFoundPage from './pages/NotFoundPage'; 
 // import EventCreatorDashboardPage from './pages/EventCreatorDashboardPage';
+import EditEventPage from './pages/EditEventPage';
 
 // Đảm bảo RoleGate được import, hoặc tạo mới nếu chưa có
 // import { RoleGate } from './components/common/RoleGate';
@@ -102,6 +103,12 @@ function App() {
             <Route path="my-events" element={
               <ProtectedRoute allowedRoles={['Organizer','event_creator', 'EventCreator', 'union', 'Union', 'Admin']}>
                 <MyEventsPage />
+              </ProtectedRoute>
+            } />
+
+            <Route path="edit-event/:eventId" element={
+              <ProtectedRoute allowedRoles={['Organizer','event_creator', 'EventCreator', 'union', 'Union', 'Admin']}>
+                <EditEventPage />
               </ProtectedRoute>
             } />
             
