@@ -8,9 +8,10 @@ import { formatDate } from '../../../../utils/helpers';
 import { ATTENDANCE_TYPES, ROLES } from '../../../../utils/constants';
 import Button from '../../../common/Button/Button';
 import { useEffect, useState } from 'react';
-import { authService } from '../../../../services/api';
+import { authService, uploadService } from '../../../../services/api';
 import { format, differenceInDays, isPast, isFuture, isToday } from 'date-fns';
 import { vi } from 'date-fns/locale';
+
 
 // --- Styled Icons (Giữ nguyên) ---
 //! Thêm constants cho trạng thái sự kiện
@@ -338,11 +339,34 @@ const EventCard = ({
         return null;
     }
 
+         
+    const getCorrectApiUrl = (url) => {
+        if (!url || typeof url !== 'string' || url.includes('/api/uploads/')) {
+            // Nếu không có URL, hoặc URL đã đúng định dạng, trả về chính nó.
+            return url;
+        }
+
+        // URL có thể ở dạng cũ: http://.../Uploads/tên-file.png
+        // Tách lấy phần cuối cùng (tên file)
+        const urlParts = url.split('/');
+        const fileName = urlParts.pop(); // Lấy phần tử cuối cùng
+
+        if (fileName) {
+            // Dùng service để tạo lại URL đúng
+            return uploadService.getFileUrl(fileName);
+        }
+
+        // Nếu không thể xử lý, trả về url gốc để tránh lỗi
+        return url;
+    };
+
+
+
     const event_id_from_api = event.eventId;
     const event_name_from_api = event.eventName || "Tên sự kiện không xác định";
-    const cover_url_from_api = event.coverUrl;
-    const logo_url_from_api = event.logoUrl;
-    const host_id_from_api = event.hostId;
+    const cover_url_from_api = getCorrectApiUrl(event.coverUrl);
+    const logo_url_from_api = getCorrectApiUrl(event.logoUrl);
+    const host_id_from_api = event.hstId;
     const start_date_from_api = event.startDate;
     const end_date_from_api = event.endDate || null; // Có thể không có ngày kết thúc
     const location_from_api = event.location;
