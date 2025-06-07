@@ -993,28 +993,24 @@ const EventDetailsPage = () => {
   // Xác định trạng thái event dựa trên thời gian
   useEffect(() => {
     const getEventLocation = async () => {
-            if (event && event.attendanceType !== ATTENDANCE_TYPES.ONLINE) {
-                let coords = null;
-                if (event.latitude && event.longitude) {
-                    console.log("Sử dụng tọa độ từ database:", event.latitude, event.longitude);
-                    coords = [parseFloat(event.latitude), parseFloat(event.longitude)];
-                } else if (event.location) {
-                    console.log("Thực hiện geocoding cho địa chỉ:", event.location);
-                    coords = await geocodeAddress(event.location);
-                }
-                
-                if (coords) {
-                    setEventLocation(coords);
-                    if (mapRef.current) {
-                        // Invalidate size và set view để đảm bảo map render đúng
-                        mapRef.current.invalidateSize();
-                        mapRef.current.setView(coords, 16);
-                    }
-                }
+        if (event && event.attendanceType !== ATTENDANCE_TYPES.ONLINE) {
+            let coords = null;
+            
+            if (event.latitude && event.longitude) {
+                coords = [parseFloat(event.latitude), parseFloat(event.longitude)];
+            } else if (event.location) {
+                coords = await geocodeAddress(event.location);
             }
-        };
-        getEventLocation();
-  }, [event]);
+
+            // Chỉ cần làm một việc duy nhất: CẬP NHẬT STATE
+            if (coords) {
+                setEventLocation(coords);
+            }
+        }
+    };
+
+    getEventLocation();
+}, [event]);
 
   // Geocode địa điểm sự kiện
   useEffect(() => {
