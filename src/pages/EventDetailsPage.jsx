@@ -922,6 +922,7 @@ const EventDetailsPage = () => {
   const [otherEvents, setOtherEvents] = useState([]);
   const [loadingOtherEvents, setLoadingOtherEvents] = useState(true);
   const [eventStatus, setEventStatus] = useState('upcoming'); // 'upcoming', 'ongoing', 'past'
+  const [eventCategories, setEventCategories] = useState([]);
 
   // Xác định trạng thái event dựa trên thời gian
   useEffect(() => {

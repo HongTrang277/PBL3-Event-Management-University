@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { get } from 'lodash';
 import { v4 as uuid } from 'uuid';
 // Lấy URL API từ biến môi trường hoặc mặc định
 
@@ -502,6 +503,86 @@ export const facultyService ={
       return response.data;
     } catch (error) {
       console.error(`Error fetching faculty with ID ${id}:`, error.response?.data || error.message);
+      throw error;
+    }
+  }
+}
+export const CategoryService = {
+  getAllCategories: async () => {
+    try {
+      const response = await api.get('/categories');
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching categories:', error.response?.data || error.message);
+      throw error;
+    }
+  },
+  getCategoryById: async (id) => {
+    try {
+      const response = await api.get(`/categories/${id}`);
+      return response.data;
+    } catch (error) {
+      console.error(`Error fetching category with ID ${id}:`, error.response?.data || error.message);
+      throw error;
+    }
+  }
+}
+export const EventCategoryService = {
+  getAllEventCategories: async () => {
+    try {
+      const response = await api.get('/eventcategories');
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching event categories:', error.response?.data || error.message);
+      throw error;
+    }
+  },
+  getEventCategoryById: async (id) => {
+    try {
+      const response = await api.get(`/eventcategories/${id}`);
+      return response.data;
+    } catch (error) {
+      console.error(`Error fetching event category with ID ${id}:`, error.response?.data || error.message);
+      throw error;
+    }
+  },
+     // Cập nhật hàm addEventCategory trong api.jsx
+  addEventCategory: async (eventId, categoryIds) => {
+    try {
+      // Chuyển đổi thành mảng nếu chưa phải
+      const categoryArray = Array.isArray(categoryIds) ? categoryIds : [categoryIds];
+      if (categoryArray.length === 0) {
+        throw new Error('Category IDs array cannot be empty');
+      }
+      
+      console.log(`Adding categories to event ${eventId}:`, categoryArray);
+      
+      // Lấy tên category từ các categoryId
+      const categoryNames = await Promise.all(
+        categoryArray.map(async (categoryId) => {
+          try {
+            const categoryData = await CategoryService.getCategoryById(categoryId);
+            return categoryData.categoryName; // Trả về tên category
+          } catch (error) {
+            console.error(`Error fetching category ${categoryId}:`, error);
+            throw error;
+          }
+        })
+      );
+      
+      console.log('Category names to be sent:', categoryNames);
+      
+      // Gửi danh sách tên category tới API
+      const response = await api.post(`/eventcategories/${eventId}/categories`, categoryNames, {
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      console.log('Response after adding categories:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error(`Error adding categories to event ${eventId}:`, error.response?.data || error.message);
       throw error;
     }
   }

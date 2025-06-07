@@ -2,12 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import styled, { createGlobalStyle, css, ThemeProvider } from 'styled-components'; // Thêm ThemeProvider và createGlobalStyle
 import Button from '../components/common/Button/Button';
-import { eventService, uploadService } from '../services/api';
+import { eventService, uploadService, CategoryService, EventCategoryService } from '../services/api';
 import { ATTENDANCE_TYPES, TAGS } from '../utils/constants';
 import { useAuth } from '../hooks/useAuth';
 import Input from '../components/common/Input/Input'; // Giả định Input đã được style hoặc chấp nhận className/style props
 import { facultyService } from '../services/api';
 import LocationPicker from '../components/common/Input/LocationPicker';
+
 // --- Định nghĩa Theme (Màu sắc, Font, etc.) ---
 const theme = {
   colors: {
@@ -97,9 +98,9 @@ const StyledForm = styled.form`
 `;
 
 const ErrorMessage = styled.div`
-  background-color: ${props => props.success ? props.theme.colors.successLight : props.theme.colors.errorLight};
-  border-left: 4px solid ${props => props.success ? props.theme.colors.success : props.theme.colors.error};
-  color: ${props => props.success ? props.theme.colors.success : props.theme.colors.error};
+  background-color: ${props => props.$success ? props.theme.colors.successLight : props.theme.colors.errorLight};
+  border-left: 4px solid ${props => props.$success ? props.theme.colors.success : props.theme.colors.error};
+  color: ${props => props.$success ? props.theme.colors.success : props.theme.colors.error};
   padding: 1rem;
   margin-bottom: 1.75rem;
   border-radius: ${({ theme }) => theme.borderRadius};
@@ -484,6 +485,26 @@ const CreateEventPage = () => {
   const [isCancelled, setIsCancelled] = useState(false);
   const [latitude, setLatitude] = useState(0);
   const [longitude, setLongitude] = useState(0);
+  const [categories, setCategories] = useState([]);
+  const [selectedCategories, setSelectedCategories] = useState([]);
+  const [isLoadingCategories, setIsLoadingCategories] = useState(false);
+  useEffect(() => {
+    const fetchCategories = async () => {
+      setIsLoadingCategories(true);
+      try {
+        const categoriesData = await CategoryService.getAllCategories();
+        console.log('Categories fetched:', categoriesData);
+        setCategories(Array.isArray(categoriesData) ? categoriesData : []);
+      } catch (error) {
+        console.error('Error fetching categories:', error);
+        setError('Không thể tải danh sách thể loại: ' + (error.message || 'Lỗi không xác định'));
+      } finally {
+        setIsLoadingCategories(false);
+      }
+    };
+
+    fetchCategories();
+  }, []);
   useEffect(() => {
     const fetchFaculties = async () => {
       setIsFetchingFaculties(true);
@@ -561,11 +582,17 @@ const CreateEventPage = () => {
     setError(null);
   };
 
-  const handleTagChange = (event) => {
+  const handleCategoryChange = (event) => {
     const { value, checked } = event.target;
-    setSelectedTags(prevTags =>
-      checked ? [...prevTags, value] : prevTags.filter(tag => tag !== value)
-    );
+    const categoryId = value;
+
+    setSelectedCategories(prevSelected => {
+      if (checked) {
+        return [...prevSelected, categoryId];
+      } else {
+        return prevSelected.filter(id => id !== categoryId);
+      }
+    });
   };
 
   // Add this handler for faculty selection
@@ -605,7 +632,7 @@ const CreateEventPage = () => {
       setLatitude(0);
       setLongitude(0);
     }
-    
+
   };
 
   // Then update the toggle input:
@@ -620,8 +647,8 @@ const CreateEventPage = () => {
     if (!description.trim()) return "Mô tả sự kiện không được để trống.";
     if (!startDate) return "Ngày giờ bắt đầu không được để trống.";
 
-           //const startTime = new Date(startDate);
-            
+    //const startTime = new Date(startDate);
+
 
     if (!endDate) return "Ngày giờ kết thúc không được để trống.";
     const endTime = new Date(endDate);
@@ -644,6 +671,8 @@ const CreateEventPage = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError(null);
+    setSuccess(null);
+
     const validationError = validateForm();
     const currentFileErrors = { ...fileErrors };
     if (!logo && !currentFileErrors.logo) currentFileErrors.logo = "Vui lòng tải lên ảnh logo.";
@@ -751,10 +780,16 @@ const CreateEventPage = () => {
 
       console.log('Sending event data:', eventData);
       const response = await eventService.createEvent(eventData);
-      if (isRestricted && selectedFaculties.length > 0 && response.data?.eventId) {
+      console.log('Response from eventService.createEvent:', response);
+      console.log('Event created with ID:', response.data?.eventId);
+      console.log('Selected faculties:', selectedFaculties);
+      console.log('Selected categories:', selectedCategories);
+
+      if (isRestricted && selectedFaculties.length > 0 && response?.eventId) {
         try {
           console.log('Adding faculties to event scope:', selectedFaculties);
-          const eventId = response.data.eventId;
+          const eventId = response.eventId;
+          console.log('Event ID for adding faculties:', eventId);
           await eventService.addFacultiesToScope(eventId, selectedFaculties);
           console.log('Faculties added to event scope successfully');
         } catch (scopeError) {
@@ -763,8 +798,21 @@ const CreateEventPage = () => {
         }
       }
       console.log('Event created successfully:', response.data);
-      setSuccess('Sự kiện đã được tạo thành công!');
+      if (selectedCategories.length > 0) {
+        try {
+          const eventId = response.eventId;
+          console.log('Event ID for adding categories:', eventId);
+          console.log('Adding categories to event:', selectedCategories);
+          await EventCategoryService.addEventCategory(eventId, selectedCategories);
+          console.log('Categories added to event successfully');
+        } catch (categoriesError) {
+          console.error('Error adding categories to event:', categoriesError);
+          // Don't fail the whole operation, just log a warning
+          console.warn('Event created but categories could not be added');
+        }
+      }
       // If event is restricted and we have selected faculties, add them to the event scope
+            setSuccess('Sự kiện đã được tạo thành công!');
 
       // Reset form
       setEventName(''); setDescription(''); setStartDate(''); setEndDate('');
@@ -1067,15 +1115,38 @@ const CreateEventPage = () => {
             )}
 
             <FormGroup>
-              <StyledLabel>Thể loại (Tags)</StyledLabel>
-              <TagGrid>
-                {TAGS.map(tag => (
-                  <TagLabel key={tag} className={selectedTags.includes(tag) ? 'tag-checked' : ''}>
-                    <input type="checkbox" value={tag} checked={selectedTags.includes(tag)} onChange={handleTagChange} />
-                    <span>{tag}</span> {/* Bọc text trong span để style dễ hơn nếu cần */}
-                  </TagLabel>
-                ))}
-              </TagGrid>
+              <StyledLabel>Thể loại sự kiện</StyledLabel>
+
+              {isLoadingCategories && (
+                <div style={{ padding: '1rem', textAlign: 'center' }}>
+                  <p style={{ color: theme.colors.textSecondary }}>Đang tải danh sách thể loại...</p>
+                </div>
+              )}
+
+              {!isLoadingCategories && categories.length === 0 && (
+                <div style={{ padding: '1rem', textAlign: 'center' }}>
+                  <p style={{ color: theme.colors.textSecondary }}>Không có thể loại nào.</p>
+                </div>
+              )}
+
+              {!isLoadingCategories && categories.length > 0 && (
+                <TagGrid>
+                  {categories.map(category => (
+                    <TagLabel
+                      key={category.categoryId}
+                      className={selectedCategories.includes(category.categoryId) ? 'tag-checked' : ''}
+                    >
+                      <input
+                        type="checkbox"
+                        value={category.categoryId}
+                        checked={selectedCategories.includes(category.categoryId)}
+                        onChange={handleCategoryChange}
+                      />
+                      <span>{category.categoryName}</span>
+                    </TagLabel>
+                  ))}
+                </TagGrid>
+              )}
             </FormGroup>
 
             <ActionContainer>
