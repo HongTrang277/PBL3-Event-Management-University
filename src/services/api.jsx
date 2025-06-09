@@ -112,11 +112,6 @@ addFacultiesToScope: async (eventId, facultyIds) => {
 }
 };
 
-export const categoryService = {
-  getAllCategories: async ()  => {
-    return api.get('/categories');
-  },
-};
 
 export const registrationService = {
   registerUserForEvent: async (userId, eventId) => {
@@ -828,4 +823,19 @@ export const badgeService = {
             throw error;
         }
     }
+};
+
+// Trong file src/services/api.js
+
+export const userService = {
+    getAllUsers: async () => {
+        try {
+            // SỬA LẠI ĐÚNG ĐƯỜNG DẪN TỪ '/users' THÀNH '/AppUsers'
+            const response = await api.get('/AppUsers'); 
+            return response.data;
+        } catch (error) {
+            console.error('Error fetching all users:', error.response?.data || error.message);
+            throw error;
+        }
+    },
 };

@@ -478,7 +478,7 @@ const inputEndDate = convertApiDateTimeToDaNangInputString(fetchedEvent.endDate)
       // Không fetchEventDetails() ngay lập tức nếu có setTimeout chuyển trang
       setTimeout(() => {
         navigate(`/events/${eventId}`);
-      }, 1500); // Giảm thời gian chờ một chút
+      }, 150); // Giảm thời gian chờ một chút
 
     } catch (err) {
       console.error('Error during event update process:', err);
