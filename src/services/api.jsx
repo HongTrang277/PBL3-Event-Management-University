@@ -112,11 +112,6 @@ export const eventService = {
   }
 };
 
-export const categoryService = {
-  getAllCategories: async () => {
-    return api.get('/categories');
-  },
-};
 
 export const registrationService = {
   registerUserForEvent: async (userId, eventId) => {
@@ -604,7 +599,7 @@ export const EventCategoryService = {
   },
   getEventCategoryById: async (id) => {
     try {
-      const response = await api.get(`/eventcategories/${id}`);
+      const response = await api.get(`/eventcategories/${id}/categories`);
       return response.data;
     } catch (error) {
       console.error(`Error fetching event category with ID ${id}:`, error.response?.data || error.message);
@@ -759,6 +754,112 @@ export const qrService = {
     };
   }
 };
+// Thêm vào cuối file, trước export default api
+
+export const timeSlotService = {
+  /**
+   * Lấy tất cả timeslot trong hệ thống
+   * GET /api/TimeSlots
+   */
+  getAllTimeSlots: async () => {
+    try {
+      const response = await api.get('/TimeSlots');
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching all time slots:', error.response?.data || error.message);
+      throw error;
+    }
+  },
+
+  /**
+   * Lấy tất cả timeslot của một sự kiện
+   * GET /api/TimeSlots/Event/{eventId}
+   */
+  getTimeSlotsByEventId: async (eventId) => {
+    try {
+      const response = await api.get(`/TimeSlots/Event/${eventId}`);
+      return response.data;
+    } catch (error) {
+      if (error.response && error.response.status === 404) {
+        console.log(`No time slots found for event ${eventId}. Returning empty array.`);
+        return []; // Trả về mảng rỗng thay vì ném lỗi
+      }
+      console.error(`Error fetching time slots for event ${eventId}:`, error.response?.data || error.message);
+      throw error;
+    }
+  },
+
+  /**
+   * Thêm một timeslot mới
+   * POST /api/TimeSlots
+   */
+  addTimeSlot: async (timeSlotData) => {
+    try {
+      const response = await api.post('/TimeSlots', timeSlotData);
+      return response.data;
+    } catch (error) {
+      console.error('Error adding time slot:', error.response?.data || error.message);
+      throw error;
+    }
+  },
+
+  /**
+   * Thêm nhiều timeslot cùng lúc
+   * Hàm helper bên frontend, gọi addTimeSlot nhiều lần
+   */
+  addMultipleTimeSlots: async (eventId, timeSlots) => {
+    try {
+      if (!Array.isArray(timeSlots) || timeSlots.length === 0) {
+        throw new Error('Time slots must be a non-empty array');
+      }
+
+      const results = await Promise.all(
+        timeSlots.map(async (slot) => {
+          // Đảm bảo mỗi slot có eventId
+          const timeSlotWithEventId = {
+            ...slot,
+            eventId: eventId
+          };
+          
+          return await timeSlotService.addTimeSlot(timeSlotWithEventId);
+        })
+      );
+
+      return results;
+    } catch (error) {
+      console.error('Error adding multiple time slots:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Cập nhật một timeslot
+   * PUT /api/TimeSlots/{timeSlotId}
+   */
+  updateTimeSlot: async (timeSlotId, timeSlotData) => {
+    try {
+      const response = await api.put(`/TimeSlots/${timeSlotId}`, timeSlotData);
+      return response.data;
+    } catch (error) {
+      console.error(`Error updating time slot ${timeSlotId}:`, error.response?.data || error.message);
+      throw error;
+    }
+  },
+
+  /**
+   * Xóa một timeslot
+   * DELETE /api/TimeSlots/{id}
+   */
+  removeTimeSlot: async (timeSlotId) => {
+    try {
+      const response = await api.delete(`/TimeSlots/${timeSlotId}`);
+      return response.data;
+    } catch (error) {
+      console.error(`Error deleting time slot ${timeSlotId}:`, error.response?.data || error.message);
+      throw error;
+    }
+  }
+};
 
 
 export default api;
@@ -867,3 +968,20 @@ export const badgeService = {
         }
     }
 };
+
+// Trong file src/services/api.js
+
+export const userService = {
+    getAllUsers: async () => {
+        try {
+            // SỬA LẠI ĐÚNG ĐƯỜNG DẪN TỪ '/users' THÀNH '/AppUsers'
+            const response = await api.get('/AppUsers'); 
+            return response.data;
+        } catch (error) {
+            console.error('Error fetching all users:', error.response?.data || error.message);
+            throw error;
+        }
+    },
+};
+
+

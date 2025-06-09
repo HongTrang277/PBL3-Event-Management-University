@@ -176,7 +176,7 @@ const RegisterPage = () => {
             });
             setTimeout(() => {
                 navigate('/login'); // Redirect to login after success
-            }, 2000); // Redirect after 2 seconds
+            }, 20); // Redirect after 2 seconds
 
 
         } catch (err) {

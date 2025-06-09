@@ -137,7 +137,7 @@ function App() {
             
             {/* Thống kê tổng quát - Chỉ cho union */}
             <Route path="statistics" element={
-              <ProtectedRoute allowedRoles={['union', 'Union', 'Admin']}>
+              <ProtectedRoute allowedRoles={['union', 'Union', 'Admin', 'Organizer']}>
                 <StatisticsPage />
               </ProtectedRoute>
             } />
@@ -145,7 +145,7 @@ function App() {
             {/* Thống kê theo khoa */}
             <Route path="faculty-statistics" element={
               <ProtectedRoute allowedRoles={['union','Organizer', 'Union', 'Admin']}>
-                <StatisticsLCDPage />
+                <StatisticsPage />
               </ProtectedRoute>
             } />
 
@@ -166,3 +166,5 @@ function App() {
 }
 
 export default App;
+
+

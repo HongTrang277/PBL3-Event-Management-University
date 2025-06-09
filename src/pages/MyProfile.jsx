@@ -936,7 +936,7 @@ const MyProfile = () => {
       setShowUpdateSuccess(true);
       setTimeout(() => {
         setShowUpdateSuccess(false);
-      }, 3000);
+      }, 300);
     } else {
       toast.error('Không nhận được phản hồi từ server.');
     }

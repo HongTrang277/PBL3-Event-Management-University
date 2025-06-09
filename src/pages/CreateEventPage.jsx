@@ -2,12 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import styled, { createGlobalStyle, css, ThemeProvider } from 'styled-components'; // Thêm ThemeProvider và createGlobalStyle
 import Button from '../components/common/Button/Button';
-import { eventService, uploadService, CategoryService, EventCategoryService, badgeService } from '../services/api';
 import { ATTENDANCE_TYPES, TAGS } from '../utils/constants';
 import { useAuth } from '../hooks/useAuth';
 import Input from '../components/common/Input/Input'; // Giả định Input đã được style hoặc chấp nhận className/style props
 import { facultyService } from '../services/api';
 import LocationPicker from '../components/common/Input/LocationPicker';
+import { eventService, uploadService, CategoryService, EventCategoryService, badgeService, timeSlotService } from '../services/api';
+import { FaCalendarAlt, FaClock, FaPlus, FaTrash, FaPen } from 'react-icons/fa';
+
 // import { eventService, uploadService } from '../services/api';
 // --- Định nghĩa Theme (Màu sắc, Font, etc.) ---
 const theme = {
@@ -475,6 +477,131 @@ const BadgePreview = styled.img`
   padding: 0.25rem;
   background-color: ${({ theme }) => theme.colors.surface};
 `;
+// Thêm styled components cho phần TimeSlot
+const TimeSlotSection = styled.div`
+  margin-top: 2rem;
+  background-color: ${({ theme }) => theme.colors.background};
+  border-radius: ${({ theme }) => theme.borderRadius};
+  padding: 1.5rem;
+  border: 1px solid ${({ theme }) => theme.colors.border};
+`;
+
+const TimeSlotForm = styled.div`
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+  margin-top: 1rem;
+  padding: 1rem;
+  background-color: ${({ theme }) => theme.colors.surface};
+  border-radius: ${({ theme }) => theme.borderRadius};
+  border: 1px dashed ${({ theme }) => theme.colors.border};
+  
+  @media (min-width: 768px) {
+    grid-template-columns: repeat(2, 1fr);
+  }
+`;
+
+const TimeSlotList = styled.div`
+  margin-top: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+`;
+
+const TimeSlotCard = styled.div`
+  display: flex;
+  align-items: center;
+  padding: 1rem;
+  background-color: ${({ theme }) => theme.colors.surface};
+  border-radius: ${({ theme }) => theme.borderRadius};
+  border-left: 4px solid ${({ theme }) => theme.colors.accent};
+  box-shadow: ${({ theme }) => theme.boxShadow};
+  position: relative;
+`;
+
+const TimeSlotInfo = styled.div`
+  flex: 1;
+`;
+
+const TimeSlotTitle = styled.h4`
+  font-size: 1rem;
+  font-weight: 600;
+  color: ${({ theme }) => theme.colors.text};
+  margin: 0 0 0.25rem 0;
+`;
+
+const TimeSlotTime = styled.div`
+  display: flex;
+  align-items: center;
+  font-size: 0.875rem;
+  color: ${({ theme }) => theme.colors.textSecondary};
+  
+  svg {
+    margin-right: 0.5rem;
+  }
+`;
+
+const TimeSlotDescription = styled.p`
+  font-size: 0.875rem;
+  color: ${({ theme }) => theme.colors.textSecondary};
+  margin: 0.5rem 0 0 0;
+`;
+
+const TimeSlotActions = styled.div`
+  display: flex;
+  gap: 0.5rem;
+`;
+
+const ActionButton = styled.button`
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 1rem;
+  padding: 0.5rem;
+  border-radius: 50%;
+  color: ${({ theme, $delete }) => 
+    $delete ? theme.colors.error : theme.colors.accent};
+  
+  &:hover {
+    background-color: ${({ theme, $delete }) => 
+      $delete ? theme.colors.errorLight : theme.colors.accentLight}33;
+  }
+`;
+
+const NoTimeSlotsMessage = styled.div`
+  text-align: center;
+  padding: 2rem;
+  background-color: ${({ theme }) => theme.colors.surface};
+  border-radius: ${({ theme }) => theme.borderRadius};
+  border: 1px dashed ${({ theme }) => theme.colors.border};
+  color: ${({ theme }) => theme.colors.textSecondary};
+  font-style: italic;
+`;
+
+const AddButton = styled.button`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  background-color: ${({ theme }) => theme.colors.accent};
+  color: white;
+  border: none;
+  border-radius: ${({ theme }) => theme.borderRadius};
+  padding: 0.75rem 1.25rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  margin-top: 1rem;
+  
+  &:hover {
+    background-color: ${({ theme }) => theme.colors.accentLight};
+  }
+  
+  &:disabled {
+    background-color: ${({ theme }) => theme.colors.border};
+    cursor: not-allowed;
+  }
+`;
 
 // --- Component Chính ---
 const CreateEventPage = () => {
@@ -511,6 +638,25 @@ const CreateEventPage = () => {
     const [badgeText, setBadgeText] = useState('');
     const [badgeIconFile, setBadgeIconFile] = useState(null);
     const [badgeIconPreviewUrl, setBadgeIconPreviewUrl] = useState(null);
+
+    const [timeSlots, setTimeSlots] = useState([]);
+  const [showTimeSlotForm, setShowTimeSlotForm] = useState(false);
+  const [editingTimeSlotIndex, setEditingTimeSlotIndex] = useState(-1);
+  const [currentTimeSlot, setCurrentTimeSlot] = useState({
+    title: '',
+    startTime: '',
+    endTime: '',
+    description: ''
+  });
+  const [timeSlotError, setTimeSlotError] = useState('');
+  const handleTimeSlotChange = (e) => {
+    const { name, value } = e.target;
+    setCurrentTimeSlot(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
 
   useEffect(() => {
     const fetchCategories = async () => {
@@ -669,6 +815,133 @@ const CreateEventPage = () => {
     }
 
   };
+  const handleAddTimeSlot = () => {
+    // Validate thời gian
+    if (!currentTimeSlot.title.trim()) {
+      setTimeSlotError('Vui lòng nhập tiêu đề cho phiên sự kiện');
+      return;
+    }
+    
+    if (!currentTimeSlot.startTime) {
+      setTimeSlotError('Vui lòng chọn thời gian bắt đầu');
+      return;
+    }
+    
+    if (!currentTimeSlot.endTime) {
+      setTimeSlotError('Vui lòng chọn thời gian kết thúc');
+      return;
+    }
+    
+    const slotStart = new Date(currentTimeSlot.startTime);
+    const slotEnd = new Date(currentTimeSlot.endTime);
+    const eventStart = new Date(startDate);
+    const eventEnd = new Date(endDate);
+    
+    if (slotStart >= slotEnd) {
+      setTimeSlotError('Thời gian kết thúc phải sau thời gian bắt đầu');
+      return;
+    }
+    
+    if (slotStart < eventStart || slotEnd > eventEnd) {
+      setTimeSlotError('Thời gian phiên sự kiện phải nằm trong khoảng thời gian diễn ra sự kiện');
+      return;
+    }
+
+    // Kiểm tra trùng lặp với các timeslot khác
+    const hasOverlap = timeSlots.some((slot, index) => {
+      if (editingTimeSlotIndex === index) return false; // Bỏ qua slot đang được chỉnh sửa
+      
+      const existingStart = new Date(slot.startTime);
+      const existingEnd = new Date(slot.endTime);
+      
+      return (
+        (slotStart < existingEnd && slotEnd > existingStart) ||
+        (existingStart < slotEnd && existingEnd > slotStart)
+      );
+    });
+    
+    if (hasOverlap) {
+      setTimeSlotError('Thời gian phiên sự kiện trùng lặp với phiên sự kiện khác');
+      return;
+    }
+    
+    setTimeSlotError('');
+    
+    if (editingTimeSlotIndex >= 0) {
+      // Cập nhật TimeSlot đã tồn tại
+      const updatedTimeSlots = [...timeSlots];
+      updatedTimeSlots[editingTimeSlotIndex] = { ...currentTimeSlot };
+      setTimeSlots(updatedTimeSlots);
+      setEditingTimeSlotIndex(-1);
+    } else {
+      // Thêm TimeSlot mới
+      setTimeSlots([...timeSlots, { ...currentTimeSlot }]);
+    }
+    
+    // Reset form
+    setCurrentTimeSlot({
+      title: '',
+      startTime: '',
+      endTime: '',
+      description: ''
+    });
+    setShowTimeSlotForm(false);
+  };
+  const handleDeleteTimeSlot = (index) => {
+    const updatedTimeSlots = [...timeSlots];
+    updatedTimeSlots.splice(index, 1);
+    setTimeSlots(updatedTimeSlots);
+    
+    if (editingTimeSlotIndex === index) {
+      setEditingTimeSlotIndex(-1);
+      setCurrentTimeSlot({
+        title: '',
+        startTime: '',
+        endTime: '',
+        description: ''
+      });
+      setShowTimeSlotForm(false);
+    }
+  };
+
+  // Hàm sửa TimeSlot
+  const handleEditTimeSlot = (index) => {
+    setCurrentTimeSlot({ ...timeSlots[index] });
+    setEditingTimeSlotIndex(index);
+    setShowTimeSlotForm(true);
+    setTimeSlotError('');
+  };
+
+  // Hàm hủy việc thêm/sửa TimeSlot
+  const handleCancelTimeSlot = () => {
+    setCurrentTimeSlot({
+      title: '',
+      startTime: '',
+      endTime: '',
+      description: ''
+    });
+    setEditingTimeSlotIndex(-1);
+    setShowTimeSlotForm(false);
+    setTimeSlotError('');
+  };
+
+  // Mở form thêm TimeSlot
+  const openAddTimeSlotForm = () => {
+    if (!startDate || !endDate) {
+      setError("Vui lòng nhập thời gian bắt đầu và kết thúc sự kiện trước khi thêm phiên họp");
+      return;
+    }
+    
+    setCurrentTimeSlot({
+      title: '',
+      startTime: '',
+      endTime: '',
+      description: ''
+    });
+    setEditingTimeSlotIndex(-1);
+    setShowTimeSlotForm(true);
+    setTimeSlotError('');
+  };
 
   // Then update the toggle input:
 
@@ -791,6 +1064,25 @@ const CreateEventPage = () => {
         if (selectedCategories.length > 0) {
             await EventCategoryService.addEventCategory(newEventId, selectedCategories);
         }
+        if (timeSlots.length > 0) {
+            console.log("%cĐang thêm các phiên sự kiện...", "color: blue; font-weight: bold;");
+            try {
+                const formattedTimeSlots = timeSlots.map(slot => ({
+                    eventId: newEventId,
+                    title: slot.title.trim(),
+                    description: slot.description.trim(),
+                    startTime: new Date(slot.startTime).toISOString(),
+                    endTime: new Date(slot.endTime).toISOString()
+                }));
+                
+                await timeSlotService.addMultipleTimeSlots(newEventId, formattedTimeSlots);
+                console.log("%cĐã thêm phiên sự kiện thành công!", "color: green; font-weight: bold;");
+            } catch (timeSlotError) {
+                console.error("Lỗi khi thêm phiên sự kiện:", timeSlotError);
+                // Ghi nhận lỗi nhưng không dừng luồng xử lý
+                setError(`Sự kiện đã tạo thành công, nhưng có lỗi khi thêm phiên sự kiện: ${timeSlotError.message || 'Lỗi không xác định'}`);
+            }
+        }
 
         // 5. Tạo huy hiệu (nếu có)
         console.log("%cKiểm tra thông tin huy hiệu:", "color: blue; font-weight: bold;", { badgeText, uploadedBadgeIconUrl });
@@ -820,7 +1112,7 @@ const CreateEventPage = () => {
         // --- THÀNH CÔNG VÀ DỌN DẸP ---
         setSuccess('Sự kiện đã được tạo thành công!');
         // Reset form...
-        setTimeout(() => { navigate('/admin/my-events'); }, 2000);
+        setTimeout(() => { navigate('/admin/my-events'); }, 200);
 
     } catch (err) {
         console.error('Lỗi trong quá trình tạo sự kiện:', err);
@@ -829,6 +1121,158 @@ const CreateEventPage = () => {
         setIsLoading(false);
     }
 };
+ const timeSlotUI = (
+    <>
+      <SectionTitle>Phiên họp (Agenda)</SectionTitle>
+      <TimeSlotSection>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <p style={{ marginTop: 0 }}>Thêm các phiên họp, buổi thảo luận hoặc hoạt động trong khuôn khổ sự kiện này.</p>
+          <AddButton 
+            type="button" 
+            onClick={openAddTimeSlotForm}
+            disabled={!startDate || !endDate}
+          >
+            <FaPlus /> Thêm phiên họp
+          </AddButton>
+        </div>
+
+        {timeSlotError && (
+          <ErrorMessage style={{ marginTop: '1rem' }} role="alert">
+            <p>{timeSlotError}</p>
+          </ErrorMessage>
+        )}
+
+        {showTimeSlotForm && (
+          <TimeSlotForm>
+            <FormGroup>
+              <Input
+                id="timeSlotTitle"
+                label="Tiêu đề phiên họp"
+                name="title"
+                value={currentTimeSlot.title}
+                onChange={handleTimeSlotChange}
+                placeholder="Ví dụ: Khai mạc, Thảo luận chuyên đề, Workshop..."
+                required
+              />
+            </FormGroup>
+
+            <FormGroup>
+              <Input
+                id="timeSlotDescription"
+                label="Mô tả (tùy chọn)"
+                name="description"
+                value={currentTimeSlot.description}
+                onChange={handleTimeSlotChange}
+                placeholder="Mô tả nội dung, người trình bày, yêu cầu..."
+              />
+            </FormGroup>
+
+            <FormGroup>
+              <Input
+                id="timeSlotStartTime"
+                label="Thời gian bắt đầu"
+                name="startTime"
+                type="datetime-local"
+                value={currentTimeSlot.startTime}
+                onChange={handleTimeSlotChange}
+                required
+                min={startDate || ''}
+                max={endDate || ''}
+              />
+            </FormGroup>
+
+            <FormGroup>
+              <Input
+                id="timeSlotEndTime"
+                label="Thời gian kết thúc"
+                name="endTime"
+                type="datetime-local"
+                value={currentTimeSlot.endTime}
+                onChange={handleTimeSlotChange}
+                required
+                min={currentTimeSlot.startTime || startDate || ''}
+                max={endDate || ''}
+              />
+            </FormGroup>
+
+            <div style={{ gridColumn: '1 / -1', display: 'flex', justifyContent: 'flex-end', gap: '0.5rem', marginTop: '1rem' }}>
+              <Button 
+                type="button" 
+                variant="secondary" 
+                onClick={handleCancelTimeSlot}
+              >
+                Hủy
+              </Button>
+              <Button 
+                type="button" 
+                variant="primary" 
+                onClick={handleAddTimeSlot}
+              >
+                {editingTimeSlotIndex >= 0 ? 'Cập nhật' : 'Thêm'}
+              </Button>
+            </div>
+          </TimeSlotForm>
+        )}
+
+        <TimeSlotList>
+          {timeSlots.length === 0 ? (
+            <NoTimeSlotsMessage>
+              Chưa có phiên họp nào được thêm vào sự kiện này.
+            </NoTimeSlotsMessage>
+          ) : (
+            timeSlots.map((slot, index) => (
+              <TimeSlotCard key={index}>
+                <TimeSlotInfo>
+                  <TimeSlotTitle>{slot.title}</TimeSlotTitle>
+                  
+                  <TimeSlotTime>
+                    <FaCalendarAlt />
+                    {new Date(slot.startTime).toLocaleDateString('vi-VN', {
+                      weekday: 'long', 
+                      year: 'numeric', 
+                      month: 'long', 
+                      day: 'numeric'
+                    })}
+                  </TimeSlotTime>
+                  
+                  <TimeSlotTime>
+                    <FaClock />
+                    {new Date(slot.startTime).toLocaleTimeString('vi-VN', {
+                      hour: '2-digit',
+                      minute: '2-digit'
+                    })} - {new Date(slot.endTime).toLocaleTimeString('vi-VN', {
+                      hour: '2-digit',
+                      minute: '2-digit'
+                    })}
+                  </TimeSlotTime>
+                  
+                  {slot.description && (
+                    <TimeSlotDescription>{slot.description}</TimeSlotDescription>
+                  )}
+                </TimeSlotInfo>
+                
+                <TimeSlotActions>
+                  <ActionButton 
+                    title="Chỉnh sửa" 
+                    onClick={() => handleEditTimeSlot(index)}
+                  >
+                    <FaPen />
+                  </ActionButton>
+                  <ActionButton 
+                    title="Xóa" 
+                    $delete 
+                    onClick={() => handleDeleteTimeSlot(index)}
+                  >
+                    <FaTrash />
+                  </ActionButton>
+                </TimeSlotActions>
+              </TimeSlotCard>
+            ))
+          )}
+        </TimeSlotList>
+      </TimeSlotSection>
+    </>
+  );
 
 
 
@@ -1172,6 +1616,8 @@ const CreateEventPage = () => {
                 </TagGrid>
               )}
             </FormGroup>
+            {timeSlotUI}
+
 
             <ActionContainer>
               <Button type="button" variant="secondary" onClick={() => navigate(-1)} disabled={isLoading}>

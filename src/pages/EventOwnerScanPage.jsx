@@ -11,6 +11,8 @@ const EventOwnerScanPage = () => {
   const [scanHistory, setScanHistory] = useState([]);
   const [isCameraActive, setIsCameraActive] = useState(true);
   const [manualInput, setManualInput] = useState('');
+  const [scannerError, setScannerError] = useState(false);
+
 
   // Reset scan result after 5 seconds
   useEffect(() => {
@@ -18,7 +20,7 @@ const EventOwnerScanPage = () => {
     if (scanResult) {
       timer = setTimeout(() => {
         setScanResult(null);
-      }, 5000);
+      }, 1000);
     }
     
     return () => {
@@ -27,43 +29,81 @@ const EventOwnerScanPage = () => {
   }, [scanResult]);
 
   const handleScan = async (registrationId) => {
-    if (isLoading) return;
-    
-    setIsLoading(true);
-    setScanResult(null);
-    
-    try {
-      const response = await qrService.checkInUser(registrationId);
-      
-      // Create scan result object
-      const result = {
-        id: Date.now(),
-        registrationId,
-        timestamp: new Date().toLocaleTimeString(),
-        success: response.success,
-        message: response.success 
-          ? `Điểm danh thành công!` 
-          : `Điểm danh thất bại: ${response.message || 'Lỗi không xác định'}`
-      };
-      
-      // Update state with scan result
-      setScanResult(result);
-      
-      // Add to scan history
-      setScanHistory(prev => [result, ...prev].slice(0, 10));
-    } catch (error) {
-      // Handle error
-      setScanResult({
-        id: Date.now(),
-        registrationId,
-        timestamp: new Date().toLocaleTimeString(),
-        success: false,
-        message: `Lỗi: ${error.message || 'Không thể kết nối đến máy chủ'}`
-      });
-    } finally {
-      setIsLoading(false);
+  if (isLoading) return;
+  
+  setIsLoading(true);
+  setScanResult(null);
+  
+  try {
+    // Validate input format first
+    if (!registrationId || typeof registrationId !== 'string' || registrationId.trim() === '') {
+      throw new Error('Mã QR không hợp lệ hoặc không được nhận dạng');
     }
-  };
+
+    // Trim whitespace and clean input
+    const cleanedId = registrationId.trim();
+    console.log('Processing QR code:', cleanedId);
+    
+    // Call API
+    const response = await qrService.checkInUser(cleanedId);
+    console.log('Check-in response:', response);
+    
+    // Create scan result object
+    const result = {
+      id: Date.now(),
+      registrationId: cleanedId,
+      timestamp: new Date().toLocaleTimeString(),
+      success: response.success,
+      message: response.success 
+        ? `Điểm danh thành công!` 
+        : `Điểm danh thất bại: ${response.message || 'Lỗi không xác định'}`
+    };
+    
+    // Update state with scan result
+    setScanResult(result);
+    
+    // Add to scan history
+    setScanHistory(prev => [result, ...prev].slice(0, 10));
+  } catch (error) {
+    console.error('Error during QR check-in:', error);
+    
+    // Extract meaningful error message
+    let errorMessage = 'Không thể kết nối đến máy chủ';
+    
+    if (error.response) {
+      // Handle backend API errors
+      if (error.response.status === 400 && error.response.data) {
+        errorMessage = error.response.data.message || error.response.data || 'Yêu cầu không hợp lệ';
+      } else if (error.response.status === 404) {
+        errorMessage = 'Không tìm thấy mã đăng ký';
+      } else if (error.response.status === 409) {
+        errorMessage = 'Đã điểm danh trước đó';
+      }
+    } else if (error.message) {
+      errorMessage = error.message;
+    }
+    
+    // Handle error
+    setScanResult({
+      id: Date.now(),
+      registrationId: registrationId?.trim() || 'unknown',
+      timestamp: new Date().toLocaleTimeString(),
+      success: false,
+      message: `Lỗi: ${errorMessage}`
+    });
+    
+    // Still add failed attempts to history
+    setScanHistory(prev => [{
+      id: Date.now(),
+      registrationId: registrationId?.trim() || 'unknown',
+      timestamp: new Date().toLocaleTimeString(),
+      success: false,
+      message: `Lỗi: ${errorMessage}`
+    }, ...prev].slice(0, 10));
+  } finally {
+    setIsLoading(false);
+  }
+};
 
   const handleManualInput = (e) => {
     e.preventDefault();
@@ -76,6 +116,19 @@ const EventOwnerScanPage = () => {
   const toggleCamera = () => {
     setIsCameraActive(prev => !prev);
   };
+  const handleScannerError = () => {
+  console.log('Scanner error detected, restarting...');
+  setScannerError(true);
+  
+  // Toggle camera off and on để restart scanner
+  setIsCameraActive(false);
+  
+  setTimeout(() => {
+    setScannerError(false);
+    setIsCameraActive(true);
+  }, 1500);
+};
+
 
   return (
     <motion.div 
@@ -125,8 +178,8 @@ const EventOwnerScanPage = () => {
                   className="relative rounded-2xl overflow-hidden shadow-lg border-4 border-blue-500"
                 >
                   {/* Scanner */}
-                  <QRScanner onScan={handleScan} />
-                  
+                  <QRScanner onScan={handleScan} onError={handleScannerError} />
+
                   {/* Loading Overlay */}
                   {isLoading && (
                     <div className="absolute inset-0 bg-blue-900 bg-opacity-70 flex items-center justify-center">

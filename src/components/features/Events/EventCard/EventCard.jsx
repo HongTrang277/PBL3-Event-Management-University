@@ -524,28 +524,33 @@ const DetailText = styled.span`
 `;
 
 const TagSection = styled.div`
-    font-size: 0.875rem;
-    color: ${props => props.theme?.colors?.['custom-gray']?.[700] || '#4b5563'};
-    margin-bottom: 1rem;
-    display: flex;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 0.375rem;
+  font-size: 0.875rem;
+  color: ${props => props.theme?.colors?.['custom-gray']?.[700] || '#4b5563'};
+  margin-bottom: 0.5rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem;
 `;
 
 const TagBadge = styled.span`
-    padding: 0.25rem 0.625rem;
-    background-color: ${props => props.theme?.colors?.['primary-2'] || '#dbeafe'};
-    color: ${props => props.theme?.colors?.['primary-3'] || '#1e40af'};
-    font-size: 0.75rem;
-    font-weight: 500;
-    border-radius: ${props => props.theme?.borderRadius?.full || '9999px'};
-    line-height: 1;
+  padding: 0.25rem 0.625rem;
+  background-color: ${props => props.theme?.colors?.['primary-2'] || '#dbeafe'};
+  color: ${props => props.theme?.colors?.['primary-3'] || '#1e40af'};
+  font-size: 0.75rem;
+  font-weight: 500;
+  border-radius: ${props => props.theme?.borderRadius?.full || '9999px'};
+  line-height: 1;
+`;
+
+const CategoryBadge = styled(TagBadge)`
+  background-color: ${props => props.theme?.colors?.['primary-2'] || '#ecfdf5'};
+  color: ${props => props.theme?.colors?.['primary-3'] || '#065f46'};
+  margin-bottom: 0.5rem;
 `;
 
 const MoreTagsBadge = styled(TagBadge)`
-    background-color: ${props => props.theme?.colors?.['custom-gray']?.[200] || '#e5e7eb'};
-    color: ${props => props.theme?.colors?.['custom-gray']?.[700] || '#4b5563'};
+  background-color: ${props => props.theme?.colors?.['custom-gray']?.[200] || '#e5e7eb'};
+  color: ${props => props.theme?.colors?.['custom-gray']?.[700] || '#4b5563'};
 `;
 
 const ActionsArea = styled.div`
@@ -1073,7 +1078,18 @@ const EventCard = ({
                                 "Không xác định"}
                     </span>
                 </HostInfo>
-
+                {event.categories && event.categories.length > 0 && (
+  <div style={{ marginBottom: '0.75rem' }}>
+    {event.categories.slice(0, 3).map((category, index) => (
+      <CategoryBadge key={`${category.categoryName || category}-${index}`}>
+        {category.categoryName || category}
+      </CategoryBadge>
+    ))}
+    {event.categories.length > 3 && (
+      <MoreTagsBadge>+{event.categories.length - 3}</MoreTagsBadge>
+    )}
+  </div>
+)}
                 <DetailsSection>
                     {start_date_from_api && (
                         <DetailItem>
@@ -1092,15 +1108,15 @@ const EventCard = ({
                 </DetailsSection>
 
                 {tags_from_api.length > 0 && (
-                    <TagSection>
-                        <TagIcon />
-                        {displayTags.map((tag, index) => (
-                            <TagBadge key={`${tag}-${index}`}>{tag}</TagBadge>
-                        ))}
-                        {remainingTagsCount > 0 && (
-                            <MoreTagsBadge>+{remainingTagsCount}</MoreTagsBadge>
-                        )}
-                    </TagSection>
+ <TagSection>
+    <TagIcon />
+    {displayTags.map((tag, index) => (
+      <TagBadge key={`${tag}-${index}`}>{tag}</TagBadge>
+    ))}
+    {remainingTagsCount > 0 && (
+      <MoreTagsBadge>+{remainingTagsCount}</MoreTagsBadge>
+    )}
+  </TagSection>
                 )}
 
                 {renderActionButtons()}

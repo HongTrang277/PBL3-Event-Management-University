@@ -192,9 +192,12 @@ const StudentNavbar = () => {
                         <>
                             <li><StyledNavLink to="/admin/my-events" onClick={closeMenu}>Sự kiện của tôi</StyledNavLink></li>
                             <li><StyledNavLink to="/admin/events" onClick={closeMenu}>Tất cả sự kiện</StyledNavLink></li>
-                            <li><StyledNavLink to="/admin/qr-scan" onClick={closeMenu}>QR Scan</StyledNavLink></li>
                             <li><StyledNavLink to="/admin/create-event" onClick={closeMenu}>Tạo sự kiện</StyledNavLink></li>
+                            <li><StyledNavLink to="/admin/qr-scan" onClick={closeMenu}>QR Scan</StyledNavLink></li>
+                            <li><StyledNavLink to="/admin/faculty-statistics" onClick={closeMenu}>Thống kê hoạt động</StyledNavLink></li>
+
                             <li><StyledNavLink to="/profile" onClick={closeMenu}>Hồ sơ</StyledNavLink></li>
+
                         </>
                     )}
                 </NavLinks>

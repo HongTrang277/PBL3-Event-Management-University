@@ -1,209 +1,232 @@
+import { eventService, facultyService, registrationService, CategoryService} from '../services/api';
 // src/pages/StatisticsPage.jsx
-import React, { useState, useEffect } from 'react';
-import styled from 'styled-components';
-import { getStatisticsData } from '../services/mockData'; // Đảm bảo đường dẫn đúng
+import React, { useState, useEffect, useMemo } from 'react';
+import styled, { keyframes } from 'styled-components';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import _ from 'lodash';
 
-// --- Styled Components ---
+
+// --- Animation Keyframes ---
+const fadeIn = keyframes`
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+`;
+
+// --- Styled Components (Cải tiến với animation và giao diện hiện đại hơn) ---
 
 const PageWrapper = styled.div`
-    /* container mx-auto p-4 md:p-6 space-y-8 */
-    width: 100%;
-    max-width: 1280px; /* Example max-width */
-    margin-left: auto;
-    margin-right: auto;
-    padding: 1rem; /* p-4 */
-    & > * + * {
-        margin-top: 2rem; /* space-y-8 */
-    }
+  width: 100%;
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 1.5rem;
+  animation: ${fadeIn} 0.5s ease-out;
 
-    @media (min-width: 768px) { /* md */
-        padding: 1.5rem; /* md:p-6 */
-    }
+  @media (min-width: 768px) {
+    padding: 2rem;
+  }
 `;
 
 const Title = styled.h1`
-    /* text-2xl md:text-3xl font-bold font-dm-sans text-gray-800 */
-    font-size: 1.5rem; /* text-2xl */
-    line-height: 2rem;
-    font-weight: 700; /* font-bold */
-    font-family: 'DM Sans', sans-serif; /* font-dm-sans */
-    color: #1f2937; /* text-gray-800 */
-    margin-bottom: 0; /* Reset default margin */
+  font-size: 1.875rem; /* text-3xl */
+  font-weight: 800;
+  font-family: 'DM Sans', sans-serif;
+  color: #111827; /* text-gray-900 */
+  margin-bottom: 1.5rem;
 
-    @media (min-width: 768px) { /* md */
-        font-size: 1.875rem; /* md:text-3xl */
-        line-height: 2.25rem;
-    }
+  @media (min-width: 768px) {
+    font-size: 2.25rem; /* text-4xl */
+  }
 `;
 
 const Section = styled.section`
-    /* bg-white p-6 rounded-lg shadow space-y-6 */
-    background-color: #ffffff;
-    padding: 1.5rem; /* p-6 */
-    border-radius: 0.5rem; /* rounded-lg */
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); /* shadow */
-    & > * + * {
-        margin-top: 1.5rem; /* space-y-6 */
-    }
+  background-color: #ffffff;
+  padding: 1.5rem;
+  border-radius: 0.75rem; /* rounded-xl */
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
+  margin-top: 2rem;
+  border: 1px solid #f3f4f6;
+
+  @media (min-width: 768px) {
+    padding: 2rem;
+  }
 `;
 
 const SectionTitle = styled.h2`
-    /* text-xl font-semibold text-gray-700 font-dm-sans mb-4 */
-    font-size: 1.25rem; /* text-xl */
-    line-height: 1.75rem;
-    font-weight: 600; /* font-semibold */
-    color: #374151; /* text-gray-700 */
-    font-family: 'DM Sans', sans-serif; /* font-dm-sans */
-    margin-bottom: 1rem; /* mb-4 */
-    margin-top: 0; /* Reset default */
+  font-size: 1.5rem; /* text-2xl */
+  line-height: 1.75rem;
+  font-weight: 700;
+  color: #1f2937; /* text-gray-800 */
+  font-family: 'DM Sans', sans-serif;
+  margin-bottom: 1.5rem;
+  margin-top: 0;
+  border-bottom: 2px solid #3b82f6; /* primary-color */
+  padding-bottom: 0.5rem;
+  display: inline-block;
 `;
 
 const StatsGrid = styled.div`
-    /* grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 */
-    display: grid;
-    grid-template-columns: repeat(1, minmax(0, 1fr));
-    gap: 1rem; /* gap-4 */
-
-    @media (min-width: 640px) { /* sm */
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-    @media (min-width: 1024px) { /* lg */
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-    }
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 1.5rem;
 `;
 
 const StatCard = styled.div`
-    /* bg-white p-6 rounded-lg shadow hover:shadow-md transition-shadow */
-    /* Adjusted since parent is Section */
-    background-color: #f9fafb; /* Lighter bg for contrast within Section */
-    padding: 1.5rem; /* p-6 */
-    border-radius: 0.5rem; /* rounded-lg */
-    border: 1px solid #e5e7eb; /* Add subtle border */
-    transition: box-shadow 0.3s ease-in-out;
+  background: linear-gradient(135deg, #f9fafb 0%, #f3f4f6 100%);
+  padding: 1.5rem;
+  border-radius: 0.75rem;
+  border: 1px solid #e5e7eb;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
 
-    &:hover {
-        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05); /* shadow-md */
+  &:before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 4px;
+    background-color: ${(props) => props.color || '#3b82f6'};
+    opacity: 0.8;
+    transition: all 0.3s ease;
+  }
+
+  &:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.07), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    &:before {
+      opacity: 1;
+      height: 6px;
     }
+  }
 `;
 
 const CardTitle = styled.h3`
-    /* text-sm font-medium text-gray-500 uppercase */
-    font-size: 0.875rem; /* text-sm */
-    line-height: 1.25rem;
-    font-weight: 500; /* font-medium */
-    color: #6b7280; /* text-gray-500 */
-    text-transform: uppercase;
-    margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #4b5563; /* text-gray-600 */
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin: 0;
 `;
 
 const CardValue = styled.p`
-    /* mt-1 text-3xl font-semibold text-gray-900 */
-    margin-top: 0.25rem; /* mt-1 */
-    font-size: 1.875rem; /* text-3xl */
-    line-height: 2.25rem;
-    font-weight: 600; /* font-semibold */
-    color: #111827; /* text-gray-900 */
-    margin-bottom: 0;
+  margin-top: 0.5rem;
+  font-size: 2.25rem; /* text-4xl */
+  font-weight: 800;
+  color: #111827; /* text-gray-900 */
+  margin-bottom: 0;
+  line-height: 1;
 `;
 
 const ChartContainer = styled.div`
-    height: 20rem; /* h-80 */
-    @media (min-width: 768px) { /* md */
-        height: 24rem; /* md:h-96 */
-    }
+  height: 22rem; /* h-88 */
+  margin-top: 2rem;
+  @media (min-width: 768px) {
+    height: 26rem; /* md:h-104 */
+  }
 `;
 
 const TableWrapper = styled.div`
-    overflow-x: auto;
-    margin-top: 1.5rem; /* mt-6 */
+  overflow-x: auto;
+  margin-top: 2rem;
 `;
 
 const StyledTable = styled.table`
-    min-width: 100%;
-    border-collapse: collapse; /* Use collapse for cleaner lines */
-    /* divide-y divide-gray-200 */
-     td, th {
-        border-bottom: 1px solid #e5e7eb; /* divide-gray-200 */
-    }
-    th {
-         border-top: 1px solid #e5e7eb; /* Add top border for header */
-    }
-
+  min-width: 100%;
+  border-collapse: collapse;
+  font-family: 'Inter', sans-serif;
 `;
 
 const Thead = styled.thead`
-    background-color: #f9fafb; /* bg-gray-50 */
+  background-color: #f9fafb;
 `;
 
-const Tbody = styled.tbody`
-    background-color: #ffffff;
-     /* divide-y handled by StyledTable */
-`;
+const Tbody = styled.tbody``;
 
 const Tr = styled.tr`
-    ${(props) => props.highlight && `background-color: #fefce8;`} /* bg-yellow-50 */
-    &:hover {
-         background-color: #f3f4f6; /* Subtle hover */
-    }
+  border-bottom: 1px solid #e5e7eb;
+  transition: background-color 0.2s ease-in-out;
+
+  ${(props) =>
+    props.highlight &&
+    `
+    background-color: #eff6ff;
+    font-weight: 600;
+  `}
+
+  &:last-child {
+    border-bottom: none;
+  }
+
+  &:hover {
+    background-color: #f3f4f6;
+  }
 `;
 
 const Th = styled.th`
-    /* px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider */
-    padding: 0.75rem 1.5rem; /* px-6 py-3 */
-    text-align: left;
-    font-size: 0.75rem; /* text-xs */
-    line-height: 1rem;
-    font-weight: 500; /* font-medium */
-    color: #6b7280; /* text-gray-500 */
-    text-transform: uppercase;
-    letter-spacing: 0.05em; /* tracking-wider */
+  padding: 1rem 1.5rem;
+  text-align: left;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #4b5563;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 
-    &.center { text-align: center; }
+  &.center { text-align: center; }
+  &.right { text-align: right; }
 `;
 
 const Td = styled.td`
-    /* px-6 py-4 whitespace-nowrap text-sm */
-    padding: 1rem 1.5rem; /* px-6 py-4 */
-    white-space: nowrap;
-    font-size: 0.875rem; /* text-sm */
-    line-height: 1.25rem;
-    color: #374151; /* text-gray-700 - Adjusted base text color */
+  padding: 1rem 1.5rem;
+  font-size: 0.875rem;
+  color: #374151;
+  white-space: nowrap;
 
-    &.font-medium { font-weight: 500; } /* font-medium */
-    &.text-gray-900 { color: #111827; }
-    &.text-gray-500 { color: #6b7280; }
-    &.center { text-align: center; }
+  &.rank {
+    font-weight: 700;
+    color: #1d4ed8;
+  }
+  &.faculty-name {
+    font-weight: 600;
+    color: #1f2937;
+  }
+  &.center { text-align: center; }
+  &.right { text-align: right; }
 `;
 
 const StatusContainer = styled.div`
-    text-align: center;
-    padding: 2.5rem 0; /* py-10 */
+  text-align: center;
+  padding: 3rem;
+  font-size: 1.125rem;
+  color: #4b5563;
+  background-color: #f9fafb;
+  border-radius: 0.75rem;
+  margin-top: 2rem;
 `;
-
-const ErrorStatusContainer = styled(StatusContainer)`
-    color: #dc2626; /* text-red-600 */
-`;
-
 
 // --- Recharts Config ---
+const PIE_COLORS = ['#3b82f6', '#10b981', '#ef4444', '#f97316', '#8b5cf6', '#ec4899', '#6366f1'];
 
-const PIE_COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#AF19FF', '#FF1919', '#19D4FF'];
+const renderCustomizedLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent, name }) => {
+  const RADIAN = Math.PI / 180;
+  const radius = innerRadius + (outerRadius - innerRadius) * 0.6;
+  const x = cx + radius * Math.cos(-midAngle * RADIAN);
+  const y = cy + radius * Math.sin(-midAngle * RADIAN);
 
-const renderCustomizedLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent, index, name }) => {
-    const RADIAN = Math.PI / 180;
-    const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
-    const x = cx + radius * Math.cos(-midAngle * RADIAN);
-    const y = cy + radius * Math.sin(-midAngle * RADIAN);
+  if (percent * 100 < 3) return null; // Ẩn label quá nhỏ
 
-    if (percent * 100 < 5) return null;
-
-    return (
-        <text x={x} y={y} fill="white" textAnchor={x > cx ? 'start' : 'end'} dominantBaseline="central" fontSize={12}>
-            {`${name} (${(percent * 100).toFixed(0)}%)`}
-        </text>
-    );
+  return (
+    <text x={x} y={y} fill="white" textAnchor={x > cx ? 'start' : 'end'} dominantBaseline="central" fontSize={12} fontWeight={600}>
+      {`${(percent * 100).toFixed(0)}%`}
+    </text>
+  );
 };
 
 // --- Component ---
@@ -211,37 +234,123 @@ const renderCustomizedLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, per
 const StatisticsPage = () => {
     const [statsData, setStatsData] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
+    const [loadingMessage, setLoadingMessage] = useState('Đang khởi tạo thống kê...');
     const [error, setError] = useState(null);
 
     useEffect(() => {
-        const fetchData = async () => {
+        const fetchDataAndProcess = async () => {
             setIsLoading(true);
             setError(null);
+
             try {
-                const response = await getStatisticsData();
-                setStatsData(response.data);
+                // 1. Fetch all required data in parallel
+                setLoadingMessage('Đang tải dữ liệu sự kiện, khoa, và đăng ký...');
+                const [events, faculties, registrations, categories] = await Promise.all([
+                    eventService.getAllEvents(),
+                    facultyService.getAllFaculties(),
+                    registrationService.getAllRegistrations(),
+                    CategoryService.getAllCategories(),
+                ]);
+
+                // Validate data
+                if (!Array.isArray(events) || !Array.isArray(faculties) || !Array.isArray(registrations) || !Array.isArray(categories)) {
+                    throw new Error("Dữ liệu trả về từ API không hợp lệ.");
+                }
+
+                setLoadingMessage('Đang xử lý và tổng hợp dữ liệu...');
+
+                // 2. Process data
+                // Summary Stats
+                const totalEvents = events.length;
+                const totalRegistrations = registrations.length;
+                const totalCapacity = _.sumBy(events, e => e.capacity || 0);
+                const overallAvgParticipation = totalCapacity > 0 ? (totalRegistrations / totalCapacity) * 100 : 0;
+
+                const summary = {
+                    totalEvents,
+                    totalRegistrations,
+                    overallAvgParticipation,
+                };
+
+                // Event Type Distribution
+                const eventTypeDistribution = _.chain(events)
+                    .flatMap(event => event.tagsList || event.tags || [])
+                    .countBy()
+                    .map((value, name) => ({ name, value }))
+                    .sortBy('value')
+                    .reverse()
+                    .value();
+
+                // Faculty Ranking
+                const facultyStats = {};
+                faculties.forEach(f => {
+                    facultyStats[f.facultyId] = {
+                        name: f.facultyName,
+                        eventsHosted: 0,
+                        totalRegistered: 0,
+                        totalCapacity: 0,
+                    };
+                });
+                
+                events.forEach(event => {
+                    const hostId = event.hostId;
+                    if (facultyStats[hostId]) {
+                        facultyStats[hostId].eventsHosted += 1;
+                        facultyStats[hostId].totalCapacity += (event.capacity || 0);
+                    }
+                });
+
+                registrations.forEach(reg => {
+                    const event = events.find(e => e.eventId === reg.eventId);
+                    if (event && facultyStats[event.hostId]) {
+                        facultyStats[event.hostId].totalRegistered += 1;
+                    }
+                });
+
+                const facultyRanking = _.chain(facultyStats)
+                    .map((stats, facultyId) => ({
+                        ...stats,
+                        facultyId,
+                        avgParticipation: stats.totalCapacity > 0 ? (stats.totalRegistered / stats.totalCapacity) * 100 : 0,
+                    }))
+                    .orderBy(['totalRegistered', 'eventsHosted'], ['desc', 'desc'])
+                    .value();
+
+
+                setStatsData({
+                    summary,
+                    eventTypeDistribution,
+                    facultyRanking,
+                });
+
             } catch (err) {
-                setError(err.message || 'Không thể tải dữ liệu thống kê.');
+                console.error("Error processing statistics data:", err);
+                setError(err.message || 'Không thể tải và xử lý dữ liệu thống kê.');
             } finally {
                 setIsLoading(false);
+                setLoadingMessage('');
             }
         };
-        fetchData();
+
+        fetchDataAndProcess();
     }, []);
 
+    const topFacultiesData = useMemo(() => {
+        if (!statsData) return [];
+        return statsData.facultyRanking.slice(0, 10);
+    }, [statsData]);
+
     if (isLoading) {
-        return <StatusContainer>Đang tải dữ liệu thống kê...</StatusContainer>;
+        return <StatusContainer>{loadingMessage}</StatusContainer>;
     }
 
     if (error) {
-        return <ErrorStatusContainer>Lỗi: {error}</ErrorStatusContainer>;
+        return <StatusContainer style={{ color: '#dc2626' }}>Lỗi: {error}</StatusContainer>;
     }
 
     if (!statsData) {
         return <StatusContainer>Không có dữ liệu thống kê để hiển thị.</StatusContainer>;
     }
-
-    const topFacultiesData = statsData.facultyRanking.slice(0, 10);
 
     return (
         <PageWrapper>
@@ -249,15 +358,15 @@ const StatisticsPage = () => {
 
             {/* 1. Section Tổng quan */}
             <StatsGrid>
-                <StatCard>
+                <StatCard color="#3b82f6">
                     <CardTitle>Tổng số sự kiện</CardTitle>
                     <CardValue>{statsData.summary.totalEvents}</CardValue>
                 </StatCard>
-                <StatCard>
-                    <CardTitle>Tổng lượt đăng ký (Mô phỏng)</CardTitle>
+                <StatCard color="#10b981">
+                    <CardTitle>Tổng lượt đăng ký</CardTitle>
                     <CardValue>{statsData.summary.totalRegistrations.toLocaleString('vi-VN')}</CardValue>
                 </StatCard>
-                <StatCard>
+                <StatCard color="#f97316">
                     <CardTitle>Tỷ lệ tham gia trung bình</CardTitle>
                     <CardValue>{statsData.summary.overallAvgParticipation.toFixed(1)}%</CardValue>
                 </StatCard>
@@ -266,53 +375,66 @@ const StatisticsPage = () => {
             {/* 2. Section Thi đua Liên chi đoàn */}
             <Section>
                 <SectionTitle>Thi đua Liên chi đoàn (Top 10)</SectionTitle>
-                {/* Biểu đồ cột */}
                 <ChartContainer>
                     <ResponsiveContainer width="100%" height="100%">
                         <BarChart
                             data={topFacultiesData}
-                            margin={{ top: 5, right: 5, left: 0, bottom: 45 }} // Adjust margins
+                            margin={{ top: 20, right: 30, left: 20, bottom: 60 }}
                         >
-                            <CartesianGrid strokeDasharray="3 3" vertical={false}/>
+                            <CartesianGrid strokeDasharray="3 3" vertical={false} />
                             <XAxis
                                 dataKey="name"
-                                angle={-30}
+                                angle={-45}
                                 textAnchor="end"
                                 interval={0}
-                                tick={{ fontSize: 10 }}
-                                height={60} // Ensure space for slanted labels
+                                tick={{ fontSize: 11, fill: '#4b5563' }}
+                                height={80}
                             />
-                            <YAxis yAxisId="left" orientation="left" stroke="#8884d8" tick={{ fontSize: 10 }} label={{ value: 'Lượt đăng ký', angle: -90, position: 'insideLeft', fill: '#8884d8', fontSize: 12, dx: -10 }}/>
-                            <YAxis yAxisId="right" orientation="right" stroke="#82ca9d" tick={{ fontSize: 10 }} label={{ value: 'Số sự kiện', angle: -90, position: 'insideRight', fill: '#82ca9d', fontSize: 12, dx: 10 }}/>
-                            <Tooltip formatter={(value, name, props) => [`${value.toLocaleString ? value.toLocaleString('vi-VN') : value}`, props.payload.name]}/>
-                            <Legend verticalAlign="top" wrapperStyle={{fontSize: "12px", paddingBottom: '10px'}}/>
-                            <Bar yAxisId="left" dataKey="totalRegistered" fill="#8884d8" name="Tổng lượt đăng ký" />
-                            <Bar yAxisId="right" dataKey="eventsHosted" fill="#82ca9d" name="Số sự kiện tổ chức" />
+                            <YAxis
+                                yAxisId="left"
+                                stroke="#3b82f6"
+                                tick={{ fontSize: 11 }}
+                                label={{ value: 'Lượt đăng ký', angle: -90, position: 'insideLeft', fill: '#3b82f6', dx: -15 }}
+                            />
+                            <YAxis
+                                yAxisId="right"
+                                orientation="right"
+                                stroke="#10b981"
+                                tick={{ fontSize: 11 }}
+                                label={{ value: 'Số sự kiện', angle: -90, position: 'insideRight', fill: '#10b981', dx: 15 }}
+                            />
+                            <Tooltip
+                                contentStyle={{ borderRadius: '0.5rem', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}
+                                formatter={(value, name, props) => [`${value.toLocaleString ? value.toLocaleString('vi-VN') : value}`, name]}
+                            />
+                            <Legend verticalAlign="top" wrapperStyle={{ paddingBottom: '20px' }} />
+                            <Bar yAxisId="left" dataKey="totalRegistered" fill="#3b82f6" name="Tổng Lượt Đăng ký" radius={[4, 4, 0, 0]} />
+                            <Bar yAxisId="right" dataKey="eventsHosted" fill="#10b981" name="Số Sự kiện Tổ chức" radius={[4, 4, 0, 0]} />
                         </BarChart>
                     </ResponsiveContainer>
                 </ChartContainer>
-                {/* Bảng xếp hạng chi tiết */}
+
                 <TableWrapper>
                     <StyledTable>
                         <Thead>
                             <tr>
-                                <Th>Hạng</Th>
+                                <Th className="center">Hạng</Th>
                                 <Th>Khoa / Đơn vị</Th>
-                                <Th className="center">Sự kiện tổ chức</Th>
-                                <Th className="center">Tổng Đăng ký</Th>
-                                <Th className="center">Tổng Sức chứa</Th>
-                                <Th className="center">Tham gia TB (%)</Th>
+                                <Th className="right">Sự kiện tổ chức</Th>
+                                <Th className="right">Tổng Đăng ký</Th>
+                                <Th className="right">Tổng Sức chứa</Th>
+                                <Th className="right">Tham gia TB (%)</Th>
                             </tr>
                         </Thead>
                         <Tbody>
                             {statsData.facultyRanking.map((faculty, index) => (
-                                <Tr key={faculty.name} highlight={index < 3}>
-                                    <Td className="font-medium text-gray-900">{index + 1}</Td>
-                                    <Td className="font-medium text-gray-900">{faculty.name}</Td>
-                                    <Td className="text-gray-500 center">{faculty.eventsHosted}</Td>
-                                    <Td className="text-gray-500 center">{faculty.totalRegistered.toLocaleString('vi-VN')}</Td>
-                                    <Td className="text-gray-500 center">{faculty.totalCapacity.toLocaleString('vi-VN')}</Td>
-                                    <Td className="text-gray-500 center">{faculty.avgParticipation.toFixed(1)}%</Td>
+                                <Tr key={faculty.facultyId} highlight={index < 3}>
+                                    <Td className="center rank">#{index + 1}</Td>
+                                    <Td className="faculty-name">{faculty.name}</Td>
+                                    <Td className="right">{faculty.eventsHosted.toLocaleString('vi-VN')}</Td>
+                                    <Td className="right">{faculty.totalRegistered.toLocaleString('vi-VN')}</Td>
+                                    <Td className="right">{faculty.totalCapacity.toLocaleString('vi-VN')}</Td>
+                                    <Td className="right">{faculty.avgParticipation.toFixed(1)}%</Td>
                                 </Tr>
                             ))}
                         </Tbody>
@@ -333,7 +455,7 @@ const StatisticsPage = () => {
                                     cy="50%"
                                     labelLine={false}
                                     label={renderCustomizedLabel}
-                                    outerRadius="80%"
+                                    outerRadius="85%"
                                     fill="#8884d8"
                                     dataKey="value"
                                     nameKey="name"
@@ -342,14 +464,13 @@ const StatisticsPage = () => {
                                         <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
                                     ))}
                                 </Pie>
-                                <Tooltip formatter={(value, name) => [`${value} sự kiện`, name]}/>
-                                <Legend iconType="circle" wrapperStyle={{fontSize: "12px"}}/>
+                                <Tooltip formatter={(value, name) => [`${value} sự kiện`, name]} />
+                                <Legend iconType="circle" />
                             </PieChart>
                         </ResponsiveContainer>
                     </ChartContainer>
                 </Section>
             )}
-
         </PageWrapper>
     );
 };

@@ -65,20 +65,33 @@ const QRScanner = ({ onScan }) => {
             qrbox: { width: qrboxSize, height: qrboxSize },
             aspectRatio: aspectRatio
           },
-          (decodedText) => {
-            console.log(`QR Code detected: ${decodedText}`);
-            onScan(decodedText);
-            
-            // Optionally pause scanner after successful scan
-            scannerRef.current.pause();
-            
-            // Resume scanner after 3 seconds
-            setTimeout(() => {
-              if (scannerRef.current) {
-                scannerRef.current.resume();
-              }
-            }, 3000);
-          },
+          // Thay thế đoạn code xử lý sau khi quét thành công
+(decodedText) => {
+  console.log(`QR Code detected: ${decodedText}`);
+  onScan(decodedText);
+  
+  // Sửa cách xử lý pause/resume để tránh lỗi
+  try {
+    if (scannerRef.current && scannerRef.current.isScanning) {
+      scannerRef.current.pause();
+      
+      // Resume scanner after 3 seconds
+      setTimeout(() => {
+        try {
+          if (scannerRef.current && !scannerRef.current.isScanning) {
+            scannerRef.current.resume();
+          }
+        } catch (resumeErr) {
+          console.warn("Error resuming scanner:", resumeErr);
+          // Nếu không resume được, thử start lại scanner
+          startScanner();
+        }
+      }, 3000);
+    }
+  } catch (err) {
+    console.warn("Error pausing scanner:", err);
+  }
+},
           (errorMessage) => {
             // QR error is logged but doesn't affect UI - this is just for individual scan errors
             console.log(errorMessage);

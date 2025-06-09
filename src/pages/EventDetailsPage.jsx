@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate, Link as RouterLink, useLocation } from 'react-router-dom';
 import styled, { keyframes, ThemeProvider, css } from 'styled-components';
-import { authService, eventService, registrationService } from '../services/api';
+import { authService, eventService, registrationService, timeSlotService } from '../services/api';
 import { useAuth } from '../hooks/useAuth';
 import { ROLES, ATTENDANCE_TYPES } from '../utils/constants';
 import { formatDateTime, extractDateInfo } from '../utils/helpers';
@@ -15,12 +15,10 @@ import markerIcon from '../assets/marker-icon.png'; // Đảm bảo file này t�
 import { toast } from 'react-toastify';
 
 // Thêm các icons cho map và feature icons
-import {
-  FaMapMarkerAlt, FaCalendarAlt, FaUsers, FaClock, FaTag, FaInfo,
-  FaRegClock, FaRegCalendarCheck, FaRegBuilding, FaArrowLeft,
-  FaEdit, FaShareAlt, FaRegBookmark, FaRegUserCircle,
-  FaCheckCircle, FaTimes // Đã thêm 2 icon này
-} from 'react-icons/fa';
+import { FaCalendarAlt, FaClock, FaUsers, FaTag, FaInfo, FaRegClock, 
+  FaRegCalendarCheck, FaRegBuilding, FaArrowLeft, FaEdit, FaShareAlt, 
+  FaRegBookmark, FaRegUserCircle, FaCheckCircle, FaTimes, FaCalendarDay, 
+  FaStream } from 'react-icons/fa'; // Thêm FaCalendarDay và FaStream
 import { is } from 'date-fns/locale';
 
 // Fix cho Leaflet icon trong React
