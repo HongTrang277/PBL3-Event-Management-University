@@ -482,18 +482,13 @@ const LoginPage = () => {
 
                             {/* Alternative Logins */}
                             <AlternativeLogins>
-                                <AltButton
-                                    type="button"
-                                    onClick={() => handleSocialLogin("Apple")}
-                                >
-                                    <FaApple /> Apple
-                                </AltButton>
-                                <AltButton
+                                
+                                {/* <AltButton
                                     type="button"
                                     onClick={() => handleSocialLogin("Google")}
                                 >
                                     <FcGoogle /> Google
-                                </AltButton>
+                                </AltButton> */}
                             </AlternativeLogins>
 
                             {/* Footer Links */}

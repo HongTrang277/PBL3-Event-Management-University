@@ -217,7 +217,7 @@ const RegisterPage = () => {
 
          <Input
            id="name"
-           label="Họ và Tên"
+           label="Tên đăng nhập"
            type="text"
            value={formData.name}
            onChange={handleChange}

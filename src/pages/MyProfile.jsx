@@ -1051,7 +1051,7 @@ const MyProfile = () => {
                 <p>Sự kiện tham gia</p>
               </StatItem>
               <StatItem>
-                <h3>{profileData.facultyId ? '1' : '0'}</h3>
+                <h3>{profileData.facultyName ? '1' : '0'}</h3>
                 <p>Khoa</p>
               </StatItem>
             </ProfileStats>
@@ -1289,7 +1289,7 @@ const MyProfile = () => {
                         </InfoIconWrapper>
                         <InfoContent>
                           <InfoLabel>Khoa</InfoLabel>
-                          <InfoValue>{profileData.facultyId || 'Chưa cập nhật'}</InfoValue>
+                          <InfoValue>{getFacultyName(profileData.facultyId)  || 'Chưa cập nhật'}</InfoValue>
                         </InfoContent>
                       </InfoItem>
 
