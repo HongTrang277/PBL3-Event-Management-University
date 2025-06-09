@@ -174,6 +174,7 @@ const ModalOverlay = styled.div`
   justify-content: center;
   z-index: 1000;
   animation: fadeIn 0.3s ease-out forwards;
+  will-change: opacity; /* Cải thiện hiệu suất với GPU acceleration */
   
   @keyframes fadeIn {
     from { opacity: 0; }
@@ -191,14 +192,16 @@ const ModalContent = styled.div`
   text-align: center;
   position: relative;
   animation: slideIn 0.3s ease-out forwards;
-  will-change: transform; /* Giúp animation mượt hơn */
+  will-change: transform;
   transform: translateZ(0); /* Force hardware acceleration */
+  backface-visibility: hidden; /* Ngăn chặn flickering trên một số trình duyệt */
   
   @keyframes slideIn {
     from { transform: translateY(30px); opacity: 0; }
     to { transform: translateY(0); opacity: 1; }
   }
 `;
+
 
 const SuccessModal = styled(ModalContent)`
   border-top: 6px solid #22c55e;
@@ -542,16 +545,31 @@ const handleAttendance = async () => {
   // Add the missing modal components
   const AttendanceSuccessModal = () => {
   if (!showSuccessModal) return null;
+  useEffect(() => {
+    // Vô hiệu hóa cuộn trang khi modal hiển thị
+    document.body.style.overflow = 'hidden';
+    
+    // Khôi phục cuộn khi modal đóng
+    return () => {
+      document.body.style.overflow = 'auto';
+    };
+  }, []);
+  const handleCloseModal = () => {
+    setShowSuccessModal(false);
+  };
+  
+  const handleOverlayClick = (e) => {
+    // Chỉ đóng modal khi click vào overlay, không phải nội dung
+    if (e.target === e.currentTarget) {
+      handleCloseModal();
+    }
+  };
   
   return (
-    <ModalOverlay onClick={(e) => {
-      // Chỉ đóng modal khi click vào nền overlay, không phải nội dung bên trong
-      if (e.target === e.currentTarget) {
-        setShowSuccessModal(false);
-      }
-    }}>
+     
+    <ModalOverlay onClick={handleOverlayClick}>
       <SuccessModal onClick={(e) => e.stopPropagation()}>
-        <ModalCloseButton onClick={() => setShowSuccessModal(false)}>
+        <ModalCloseButton onClick={handleCloseModal}>
           <FaTimes />
         </ModalCloseButton>
         
@@ -564,7 +582,7 @@ const handleAttendance = async () => {
         
         <ModalButton 
           $isSuccess 
-          onClick={() => setShowSuccessModal(false)}
+          onClick={handleCloseModal}
         >
           Đã hiểu
         </ModalButton>
@@ -572,19 +590,37 @@ const handleAttendance = async () => {
     </ModalOverlay>
   );
 };
-  
   const AttendanceErrorModal = () => {
+  // Chỉ render khi cần thiết
   if (!showErrorModal) return null;
   
+  // Sử dụng useEffect để đảm bảo rằng modal hiển thị đúng
+  useEffect(() => {
+    // Vô hiệu hóa cuộn trang khi modal hiển thị
+    document.body.style.overflow = 'hidden';
+    
+    // Khôi phục cuộn khi modal đóng
+    return () => {
+      document.body.style.overflow = 'auto';
+    };
+  }, []);
+  
+  // Xử lý đóng modal
+  const handleCloseModal = () => {
+    setShowErrorModal(false);
+  };
+  
+  const handleOverlayClick = (e) => {
+    // Chỉ đóng modal khi click vào overlay, không phải nội dung
+    if (e.target === e.currentTarget) {
+      handleCloseModal();
+    }
+  };
+  
   return (
-    <ModalOverlay onClick={(e) => {
-      // Chỉ đóng modal khi click vào nền overlay
-      if (e.target === e.currentTarget) {
-        setShowErrorModal(false);
-      }
-    }}>
+    <ModalOverlay onClick={handleOverlayClick}>
       <ErrorModal onClick={(e) => e.stopPropagation()}>
-        <ModalCloseButton onClick={() => setShowErrorModal(false)}>
+        <ModalCloseButton onClick={handleCloseModal}>
           <FaTimes />
         </ModalCloseButton>
         
@@ -595,15 +631,14 @@ const handleAttendance = async () => {
         <ModalTitle>Lỗi</ModalTitle>
         <ModalText>{modalMessage}</ModalText>
         
-        <ModalButton 
-          onClick={() => setShowErrorModal(false)}
-        >
+        <ModalButton onClick={handleCloseModal}>
           Đóng
         </ModalButton>
       </ErrorModal>
     </ModalOverlay>
   );
 };
+
   // --- UI ---
   return (
     <PageWrapper>
@@ -617,7 +652,7 @@ const handleAttendance = async () => {
       {!isLoading && !error && (
         <>
           {registeredEvents.length === 0 ? (
-            <StatusText>Bạn chưa đăng ký sự kiện nào.</StatusText>
+            <StatusText>Hiện chưa có sự kiện nào đang mở điểm danh.</StatusText>
           ) : selectedEvent ? (
             <DetailWrapper>
               <CurrentTime>
