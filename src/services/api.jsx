@@ -31,7 +31,7 @@ api.interceptors.request.use(
 
 export const eventService = {
   getAllEvents: async () => {
-    try{
+    try {
       const response = await api.get('/events');
       console.log('Response:', response);
       return response.data;
@@ -80,7 +80,7 @@ export const eventService = {
           errorMessage = errorData;
         }
       }
-      
+
       // Ném lại lỗi với thông điệp đã được làm sạch
       throw new Error(errorMessage);
     }
@@ -91,74 +91,82 @@ export const eventService = {
   deleteEvent: async (id) => {
     return api.delete(`/events/${id}`);
   },
-addFacultiesToScope: async (eventId, facultyIds) => {
-  try {
-    // Make sure facultyIds is an array
-    const facultyIdsArray = Array.isArray(facultyIds) ? facultyIds : [facultyIds];
-    
-    // Send the array of faculty IDs to the backend
-    const response = await api.post(`/events/${eventId}/AddFacultiesToScope`, facultyIdsArray, {
-      headers: {
-        'Content-Type': 'application/json'
-      }
-    });
-    
-    console.log('Faculty scope response:', response);
-    return response.data;
-  } catch (error) {
-    console.error('Error adding faculties to event scope:', error);
-    throw error;
+  addFacultiesToScope: async (eventId, facultyIds) => {
+    try {
+      // Make sure facultyIds is an array
+      const facultyIdsArray = Array.isArray(facultyIds) ? facultyIds : [facultyIds];
+
+      // Send the array of faculty IDs to the backend
+      const response = await api.post(`/events/${eventId}/AddFacultiesToScope`, facultyIdsArray, {
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+
+      console.log('Faculty scope response:', response);
+      return response.data;
+    } catch (error) {
+      console.error('Error adding faculties to event scope:', error);
+      throw error;
+    }
   }
-}
 };
 
 export const categoryService = {
-  getAllCategories: async ()  => {
+  getAllCategories: async () => {
     return api.get('/categories');
   },
 };
 
 export const registrationService = {
   registerUserForEvent: async (userId, eventId) => {
-  try {
-    // Đăng ký người dùng cho sự kiện
-    const response = await api.post(`/Registrations/${userId}/${eventId}`);
-    console.log('Response from registerUserForEvent:', response.data);
-    
-    if (response.status === 200 || response.status === 201) {
-      try {
-        // Lấy email người dùng
-        const userResponse = await api.get(`/appusers/${userId}`);
-        console.log('User response:', userResponse);
-        
-        if (userResponse.data && userResponse.data.email) {
-          const userEmail = userResponse.data.email;
-          console.log('User email retrieved:', userEmail);
-          
-          // CÁCH 1: Gửi email thông qua query params (lựa chọn tốt nhất)
-          await api.post(`/Email/SendRegisteredConfirmation/${eventId}?recipientEmails=${userEmail}`);
-          
-          // HOẶC - CÁCH 2: Gửi email dưới dạng form data
-          // const formData = new FormData();
-          // formData.append('recipientEmails', userEmail);
-          // await api.post(`/Email/SendRegisteredConfirmation/${eventId}`, formData);
-          
-          console.log('Email sent successfully to:', userEmail);
-        } else {
-          console.warn('User email not found in the response');
+    try {
+      // Đăng ký người dùng cho sự kiện
+      const response = await api.post(`/Registrations/${userId}/${eventId}`);
+      console.log('Response from registerUserForEvent:', response.data);
+
+      if (response.status === 200 || response.status === 201) {
+        try {
+          // Lấy email người dùng
+          const userResponse = await api.get(`/appusers/${userId}`);
+          console.log('User response:', userResponse);
+
+          if (userResponse.data && userResponse.data.email) {
+            const userEmail = userResponse.data.email;
+            console.log('User email retrieved:', userEmail);
+
+            // CÁCH 1: Gửi email thông qua query params (lựa chọn tốt nhất)
+            await api.post(
+              `http://localhost:5044/api/Email/SendRegisteredConfirmation/${eventId}`,
+              [userEmail], // gửi array trong body
+              {
+                headers: {
+                  "Content-Type": "application/json"
+                }
+              }
+            );
+
+            // HOẶC - CÁCH 2: Gửi email dưới dạng form data
+            // const formData = new FormData();
+            // formData.append('recipientEmails', userEmail);
+            // await api.post(`/Email/SendRegisteredConfirmation/${eventId}`, formData);
+
+            console.log('Email sent successfully to:', userEmail);
+          } else {
+            console.warn('User email not found in the response');
+          }
+        } catch (emailError) {
+          console.error('Error sending registration confirmation email:', emailError);
+          console.error('Error details:', emailError.response?.data || emailError.message);
         }
-      } catch (emailError) {
-        console.error('Error sending registration confirmation email:', emailError);
-        console.error('Error details:', emailError.response?.data || emailError.message);
       }
+
+      return response.data;
+    } catch (error) {
+      console.error('Error during registerUserForEvent:', error.response?.data || error.message);
+      throw error;
     }
-    
-    return response.data;
-  } catch (error) {
-    console.error('Error during registerUserForEvent:', error.response?.data || error.message);
-    throw error;
-  }
-},
+  },
   getUsersRegisteredForEvent: async (eventId) => {
     try {
       const response = await api.get(`/Registrations/Users/${eventId}`);
@@ -197,7 +205,7 @@ export const registrationService = {
       const response = await api.get('/Registrations'); // Đảm bảo viết hoa 'R'
       return response.data;
     } catch (error) {
-       console.error('Error fetching all registrations:', error.response?.data || error.message);
+      console.error('Error fetching all registrations:', error.response?.data || error.message);
       throw error;
     }
   },
@@ -232,7 +240,7 @@ export const attendanceService = {
   },
   // Chấm công (điểm danh)
   markAttendance: async ({ registrationId, latitude = 0, longitude = 0 }) => {
-    try{
+    try {
       const response = await api.post('/Attendances/Mark', {
         registrationId,
         latitude,
@@ -243,9 +251,9 @@ export const attendanceService = {
     catch (error) {
       console.error('Error marking attendance:', error.response?.data || error.message);
       throw error;
-  }
-},
-  
+    }
+  },
+
   // Lấy danh sách user đã điểm danh cho 1 event
   getUsersMarkedAttendanceForEvent: async (eventId) => {
     const response = await api.get(`/Attendances/Users/${eventId}`);
@@ -256,13 +264,13 @@ export const attendanceService = {
     const response = await api.get(`/Attendances/Events/${userId}`);
     return response.data;
   },
-  
+
   // Xóa attendance
   removeAttendance: async (attendanceId) => {
     const response = await api.delete(`/Attendances/${attendanceId}`);
     return response.data;
   },
-  markAttendanceByQrCode: async (registrationId)=>{
+  markAttendanceByQrCode: async (registrationId) => {
     try {
       const response = await api.post(`/Attendances/MarkByQRRegistration/${registrationId}`);
       return response.data;
@@ -284,8 +292,8 @@ export const uploadService = {
     try {
       const response = await api.post('/uploads', formData, {
         headers: {
-        'Content-Type': null, // Hoặc 'Content-Type': undefined
-         }
+          'Content-Type': null, // Hoặc 'Content-Type': undefined
+        }
       });
       console.log('File uploaded successfully:', response.data);
       return response.data; // API trả về kết quả từ _uploadService.SaveFileAsync(file)
@@ -300,32 +308,32 @@ export const uploadService = {
   }
 };
 
-export const authService={
+export const authService = {
   login: async (credentials) => {
     try {
       const response = await api.post('/auth/login', {
         email: credentials.email,
         password: credentials.password
       });
-          console.log('Login response:', response.data); // Thêm log để kiểm tra cấu trúc
+      console.log('Login response:', response.data); // Thêm log để kiểm tra cấu trúc
 
       if (response.data.token) {
-      // Store JWT token
-      localStorage.setItem('token', response.data.token);
-      
-      // Store refresh token if your backend provides it
-      if (response.data.refreshToken) {
-        localStorage.setItem('refreshToken', response.data.refreshToken);
+        // Store JWT token
+        localStorage.setItem('token', response.data.token);
+
+        // Store refresh token if your backend provides it
+        if (response.data.refreshToken) {
+          localStorage.setItem('refreshToken', response.data.refreshToken);
+        }
+
+        // Lưu thông tin user - điều chỉnh phù hợp với cấu trúc API trả về
+        if (response.data.user) {
+          localStorage.setItem('user', JSON.stringify(response.data.user));
+        } else if (response.data.userData) {
+          localStorage.setItem('user', JSON.stringify(response.data.userData));
+        }
       }
-      
-      // Lưu thông tin user - điều chỉnh phù hợp với cấu trúc API trả về
-      if (response.data.user) {
-        localStorage.setItem('user', JSON.stringify(response.data.user));
-      } else if (response.data.userData) {
-        localStorage.setItem('user', JSON.stringify(response.data.userData));
-      }
-    }
-      
+
       return response.data;
     } catch (error) {
       console.error('Login error:', error.response?.data || error.message);
@@ -333,8 +341,8 @@ export const authService={
     }
   },
   register: async (userData) => {
-    try{
-      const response= await api.post('/auth/register', {
+    try {
+      const response = await api.post('/auth/register', {
         userName: userData.userName,
         email: userData.email,
         password: userData.password,
@@ -351,15 +359,15 @@ export const authService={
       if (!refreshToken) {
         throw new Error('No refresh token found');
       }
-      
+
       const response = await api.post('/auth/refresh', { token: refreshToken });
-      
+
       // Update tokens in localStorage
       localStorage.setItem('token', response.data.token);
       if (response.data.refreshToken) {
         localStorage.setItem('refreshToken', response.data.refreshToken);
       }
-      
+
       return response.data;
     } catch (error) {
       console.error('Refresh token error:', error.response?.data || error.message);
@@ -371,7 +379,7 @@ export const authService={
     localStorage.removeItem('token');
     localStorage.removeItem('refreshToken');
   },
-   isAuthenticated: () => {
+  isAuthenticated: () => {
     return !!localStorage.getItem('token');
   },
 
@@ -383,22 +391,22 @@ export const authService={
     const user = localStorage.getItem('user');
     return user ? JSON.parse(user) : null;
   },
-  getProfile: async ()=>{
-    try{
+  getProfile: async () => {
+    try {
       const response = await api.get('appusers/me');
       return response.data;
     }
-    catch (error){
+    catch (error) {
       console.error('Error fetching profile:', error.response?.data || error.message);
       throw error;
     }
   },
-  getUserRoles: async(userId)=>{
-    try{
-      const response= await api.get(`/appusers/${userId}/roles`);
+  getUserRoles: async (userId) => {
+    try {
+      const response = await api.get(`/appusers/${userId}/roles`);
       return response.data;
     }
-    catch (error){
+    catch (error) {
       console.error('Error fetching user roles:', error.response?.data || error.message);
       throw error;
     }
@@ -416,7 +424,7 @@ export const authService={
       throw error;
     }
   },
-  
+
   decodeToken: (token) => {
     try {
       // Base64Url decode
@@ -437,65 +445,65 @@ export const authService={
     }
   },
   getClaims: (tokenParam = null) => {
-  const jwtToken = tokenParam || localStorage.getItem('token');
-  if (!jwtToken) return null;
-  
-  try {
-    // Kiểm tra tokenParam có phải là chuỗi không
-    if (typeof jwtToken !== 'string') {
-      console.error('JWT token is not a string:', jwtToken);
-      return null;
-    }
-    
-    const parts = jwtToken.split('.');
-    if (parts.length !== 3) {
-      console.error('Invalid JWT token format:', jwtToken);
-      return null;
-    }
-    
-    // Giải mã phần payload
-    const encodedPayload = parts[1];
-    const base64 = encodedPayload.replace(/-/g, '+').replace(/_/g, '/');
-    
-    // Giải mã base64 an toàn
+    const jwtToken = tokenParam || localStorage.getItem('token');
+    if (!jwtToken) return null;
+
     try {
-      const jsonPayload = decodeURIComponent(
-        atob(base64)
-          .split('')
-          .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
-          .join('')
-      );
-      return JSON.parse(jsonPayload);
-    } catch (e) {
-      console.error('Error decoding base64:', e);
-      // Fallback: thử decode trực tiếp
-      try {
-        const rawPayload = atob(base64);
-        return JSON.parse(rawPayload);
-      } catch (e2) {
-        console.error('Error with fallback decoding:', e2);
+      // Kiểm tra tokenParam có phải là chuỗi không
+      if (typeof jwtToken !== 'string') {
+        console.error('JWT token is not a string:', jwtToken);
         return null;
       }
+
+      const parts = jwtToken.split('.');
+      if (parts.length !== 3) {
+        console.error('Invalid JWT token format:', jwtToken);
+        return null;
+      }
+
+      // Giải mã phần payload
+      const encodedPayload = parts[1];
+      const base64 = encodedPayload.replace(/-/g, '+').replace(/_/g, '/');
+
+      // Giải mã base64 an toàn
+      try {
+        const jsonPayload = decodeURIComponent(
+          atob(base64)
+            .split('')
+            .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+            .join('')
+        );
+        return JSON.parse(jsonPayload);
+      } catch (e) {
+        console.error('Error decoding base64:', e);
+        // Fallback: thử decode trực tiếp
+        try {
+          const rawPayload = atob(base64);
+          return JSON.parse(rawPayload);
+        } catch (e2) {
+          console.error('Error with fallback decoding:', e2);
+          return null;
+        }
+      }
+    } catch (error) {
+      console.error('Error decoding JWT token:', error);
+      return null;
     }
-  } catch (error) {
-    console.error('Error decoding JWT token:', error);
-    return null;
-  }
-},
+  },
   hasRole: (role) => {
     const claims = authService.getClaims();
     if (!claims) return false;
-    
+
     // Kiểm tra claim "role" hoặc "http://schemas.microsoft.com/ws/2008/06/identity/claims/role"
     const roles = claims.role || claims['http://schemas.microsoft.com/ws/2008/06/identity/claims/role'];
-    
+
     if (!roles) return false;
-    
+
     // Nếu roles là mảng
     if (Array.isArray(roles)) {
       return roles.includes(role);
     }
-    
+
     // Nếu roles là string
     return roles === role;
   },
@@ -503,18 +511,18 @@ export const authService={
     try {
       console.log(`Fetching user with ID: ${userId}`);
       const response = await api.get(`/appusers/${userId}`);
-      
+
       // Check if we have valid data
       if (!response || !response.data) {
         console.warn('API returned empty response');
         return { data: null };
       }
-      
+
       // Log the response for debugging
       console.log('API Response:', response);
-      
+
       // Return formatted data
-      return { 
+      return {
         data: {
           ...response.data,
           // Add default values for missing fields
@@ -532,7 +540,7 @@ export const authService={
       return { data: null };
     }
   },
-  
+
   updateUserProfile: async (userId, userData) => {
     try {
       console.log(`Updating user ${userId} with data:`, userData);
@@ -544,7 +552,7 @@ export const authService={
     }
   }
 }
-export const facultyService ={
+export const facultyService = {
   getAllFaculties: async () => {
     try {
       const response = await api.get('/faculties');
@@ -603,7 +611,7 @@ export const EventCategoryService = {
       throw error;
     }
   },
-     // Cập nhật hàm addEventCategory trong api.jsx
+  // Cập nhật hàm addEventCategory trong api.jsx
   addEventCategory: async (eventId, categoryIds) => {
     try {
       // Chuyển đổi thành mảng nếu chưa phải
@@ -611,9 +619,9 @@ export const EventCategoryService = {
       if (categoryArray.length === 0) {
         throw new Error('Category IDs array cannot be empty');
       }
-      
+
       console.log(`Adding categories to event ${eventId}:`, categoryArray);
-      
+
       // Lấy tên category từ các categoryId
       const categoryNames = await Promise.all(
         categoryArray.map(async (categoryId) => {
@@ -626,16 +634,16 @@ export const EventCategoryService = {
           }
         })
       );
-      
+
       console.log('Category names to be sent:', categoryNames);
-      
+
       // Gửi danh sách tên category tới API
       const response = await api.post(`/eventcategories/${eventId}/categories`, categoryNames, {
         headers: {
           'Content-Type': 'application/json'
         }
       });
-      
+
       console.log('Response after adding categories:', response.data);
       return response.data;
     } catch (error) {
@@ -653,13 +661,13 @@ export const qrService = {
       return { success: true, data: response.data };
     } catch (error) {
       console.error('Error during check-in:', error.response?.data || error.message);
-      return { 
-        success: false, 
+      return {
+        success: false,
         message: error.response?.data?.message || error.message || 'Check-in failed'
       };
     }
   },
-  
+
   // Fix the getUserRegistrations method to work properly
   getUserRegistrations: async () => {
     try {
@@ -667,7 +675,7 @@ export const qrService = {
       if (!userData || !userData.id) {
         throw new Error('User not authenticated');
       }
-      
+
       // Use the existing method from registrationService
       const response = await registrationService.getEventsUserRegisteredFor(userData.id);
       const responseRegistrationId = await registrationService.getUserRegistrations(userData.id);
@@ -683,11 +691,11 @@ export const qrService = {
       });
       console.log('Merged response:', mergedResponse);
       // Kiểm tra xem mergedResponse có phải là mảng không
-      
-      
+
+
       // Convert to the format expected by our components
       const formattedData = Array.isArray(mergedResponse) ? mergedResponse.map(event => ({
-        registrationId: event.registrationId ,
+        registrationId: event.registrationId,
         eventId: event.eventId,
         eventName: event.eventName || event.name,
         eventDate: event.startDate || event.start_date,
@@ -695,11 +703,11 @@ export const qrService = {
         status: event.status || "confirmed"
       })) : [];
       console.log('Formatted user registrations:', formattedData);
-      
+
       return formattedData;
     } catch (error) {
       console.error('Error getting user registrations:', error.response?.data || error.message);
-      
+
       // In development mode, return sample data instead of failing
       if (process.env.NODE_ENV === 'development') {
         return [
@@ -712,7 +720,7 @@ export const qrService = {
             status: "confirmed"
           },
           {
-            registrationId: "sample-reg-456", 
+            registrationId: "sample-reg-456",
             eventId: "event2",
             eventName: "Workshop AI",
             eventDate: new Date().toISOString(),
@@ -721,7 +729,7 @@ export const qrService = {
           }
         ];
       }
-      
+
       throw error;
     }
   },
@@ -729,9 +737,9 @@ export const qrService = {
   checkInUser: async (registrationId) => {
     try {
       const response = await api.post(`/Attendances/MarkByQRRegistration/${registrationId}`);
-      return { 
-        success: true, 
-        data: response.data 
+      return {
+        success: true,
+        data: response.data
       };
     } catch (error) {
       console.error('Error during QR check-in:', error.response?.data || error.message);
