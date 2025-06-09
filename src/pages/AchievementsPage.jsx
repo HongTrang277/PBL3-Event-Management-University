@@ -1,104 +1,138 @@
-// src/pages/AchievementsPage.jsx
 import React, { useState, useEffect } from 'react';
 import styled, { keyframes } from 'styled-components';
 import { useAuth } from '../contexts/AuthContext';
-import { badgeService, attendanceService } from '../services/api';
+// [CHỈNH SỬA] Giữ lại các service cần thiết
+import { badgeService, eventService, attendanceService } from '../services/api';
+import { FaTrophy } from "react-icons/fa";
 
+// --- IMPORT CÁC COMPONENT GIAO DIỆN ---
 import BadgeCollection from '../components/features/Achievements/BadgeCollection';
 import AttendedEventsList from '../components/features/Achievements/AttendedEventsList';
 
-// Keyframes cho hiệu ứng xuất hiện
+// -- KEYFRAMES --
 const fadeIn = keyframes`
-  from {
-    opacity: 0;
-    transform: translateY(20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  from { opacity: 0; transform: translateY(15px); }
+  to { opacity: 1; transform: translateY(0); }
 `;
 
 // -- STYLED COMPONENTS --
-
-// Container chính với nền gradient xanh biển
 const PageContainer = styled.div`
-  padding: 2rem 3rem;
-  max-width: 1400px;
-  margin: 0 auto;
-  background: linear-gradient(180deg, #F0F7FA 0%, #E0F2F1 100%);
+  background-color: #E3F2FD; 
   min-height: 100vh;
-`;
+  padding: 2rem 3rem; 
 
-const Header = styled.header`
-    text-align: center;
-    margin-bottom: 3rem;
-    animation: ${fadeIn} 0.5s ease-out forwards;
-`;
-
-const MainTitle = styled.h1`
-    font-size: 2.75rem;
-    font-weight: 800;
-    color: #004D40; // Màu xanh đậm cho tiêu đề chính
-    text-shadow: 1px 1px 2px rgba(0,0,0,0.1);
-`;
-
-const Section = styled.section`
-  margin-bottom: 4rem;
-  animation: ${fadeIn} 0.7s ease-out forwards;
-  opacity: 0; // Bắt đầu ẩn đi
-  animation-fill-mode: forwards; // Giữ trạng thái cuối của animation
-
-  &:nth-child(2) {
-    animation-delay: 0.2s;
+  @media (max-width: 768px) {
+    padding: 1.5rem;
   }
 `;
 
-const SectionTitle = styled.h2`
-  font-size: 2rem;
+const Header = styled.header`
+  margin-bottom: 2.5rem;
+  animation: ${fadeIn} 0.5s ease-out forwards;
+`;
+
+const MainTitle = styled.h1`
+  font-size: 2.2rem;
   font-weight: 700;
-  margin-bottom: 1.5rem;
-  color: #00796B; // Màu xanh trung bình cho tiêu đề section
+  color: #1976D2; 
+  margin-bottom: 0.5rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+`;
+
+const TitleIcon = styled.div`
+  width: 48px;
+  height: 48px;
+  background-color: #1976D2; 
+  color: white;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.75rem;
+`;
+
+const Subtitle = styled.p`
+    font-size: 1.1rem;
+    color: #0D47A1; 
+    margin-top: 0;
+`;
+
+const MainContent = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 2.5rem; 
+`;
+
+const SectionCard = styled.div`
+  animation: ${fadeIn} 0.6s ease-out forwards;
+`;
+
+const SectionTitle = styled.h2`
+  font-size: 1.7rem;
+  font-weight: 600;
+  color: #1976D2; 
+  margin: 0 0 1.5rem 0;
   padding-bottom: 0.75rem;
-  border-bottom: 3px solid #B2DFDB; // Đường kẻ chân trang nhạt hơn
+  border-bottom: 2px solid #42A5F5; 
 `;
 
 const StatusMessage = styled.p`
-    font-size: 1.2rem;
-    color: #00796B;
-    text-align: center;
-    padding: 2rem;
+  font-size: 1.2rem;
+  color: #0D47A1;
+  text-align: center;
+  padding: 3rem;
+  font-weight: 500;
 `;
-
 
 const AchievementsPage = () => {
     const { user } = useAuth();
+    // [THAY ĐỔI] Chỉ cần state cho huy hiệu đã nhận
     const [earnedBadges, setEarnedBadges] = useState([]);
-    const [allBadges, setAllBadges] = useState([]);
     const [attendedEvents, setAttendedEvents] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
 
     useEffect(() => {
-        if (!user?.id) {
-            setLoading(false);
-            return;
+        if (!user?.id) { 
+            setLoading(false); 
+            return; 
         }
-
+        
         const fetchData = async () => {
             try {
                 setLoading(true);
-                const [earnedBadgesData, allBadgesData, attendedEventsData] = await Promise.all([
-                    badgeService.getBadgesByUserId(user.id),
-                    badgeService.getAllBadges(),
-                    attendanceService.getEventsUserMarkedAttendanceFor(user.id)
+                
+                // [THAY ĐỔI] Xóa bỏ việc gọi allBadges, chỉ gọi những gì cần thiết
+                const [
+                    earnedBadgesData, 
+                    attendedEventsData,
+                    allEventsData 
+                ] = await Promise.all([
+                    badgeService.getBadgesByUserId(user.id), // <-- Chỉ lấy huy hiệu của user
+                    attendanceService.getEventsUserMarkedAttendanceFor(user.id),
+                    eventService.getAllEvents() // <-- Vẫn cần để lấy tên sự kiện
                 ]);
-                setEarnedBadges(earnedBadgesData || []);
-                setAllBadges(allBadgesData || []);
+
+                // Tạo bản đồ để tra cứu tên sự kiện (giữ nguyên)
+                const eventNameMap = new Map(
+                    (allEventsData || []).map(event => [event.eventId, event.eventName])
+                );
+
+                // [THAY ĐỔI] "Làm giàu" dữ liệu cho danh sách huy hiệu *đã nhận*
+                const enrichedEarnedBadges = (earnedBadgesData || []).map(badge => ({
+                    ...badge,
+                    eventName: eventNameMap.get(badge.eventId) || 'Sự kiện không xác định'
+                }));
+
+                // Cập nhật state
+                setEarnedBadges(enrichedEarnedBadges); // <-- Sử dụng danh sách đã được làm giàu
                 setAttendedEvents(attendedEventsData || []);
+
             } catch (err) {
-                setError("Không thể tải dữ liệu thành tích. Vui lòng thử lại sau.");
-                console.error(err);
+                console.error("Lỗi khi tải dữ liệu thành tích:", err);
+                setError("Không thể tải dữ liệu thành tích.");
             } finally {
                 setLoading(false);
             }
@@ -107,24 +141,44 @@ const AchievementsPage = () => {
         fetchData();
     }, [user]);
 
-    if (loading) return <PageContainer><StatusMessage>Đang tải thành tích của bạn...</StatusMessage></PageContainer>;
-    if (error) return <PageContainer><StatusMessage>{error}</StatusMessage></PageContainer>;
+    if (loading) {
+        return (
+            <PageContainer>
+                <StatusMessage>Đang tải...</StatusMessage>
+            </PageContainer>
+        );
+    }
+
+    if (error) {
+        return (
+            <PageContainer>
+                <StatusMessage>{error}</StatusMessage>
+            </PageContainer>
+        );
+    }
 
     return (
         <PageContainer>
             <Header>
-                <MainTitle>Trang Thành Tích</MainTitle>
+                <MainTitle>
+                    <TitleIcon><FaTrophy /></TitleIcon>
+                    Bảng Thành Tích
+                </MainTitle>
+                <Subtitle>Theo dõi tiến trình và các thành tựu bạn đã đạt được.</Subtitle>
             </Header>
 
-            <Section>
-                <SectionTitle>Bộ Sưu Tập Huy Hiệu</SectionTitle>
-                <BadgeCollection allBadges={allBadges} earnedBadges={earnedBadges} />
-            </Section>
+            <MainContent>
+                <SectionCard>
+                    <SectionTitle>Bộ sưu tập Huy hiệu</SectionTitle>
+                    {/* [THAY ĐỔI] Chỉ truyền xuống danh sách huy hiệu đã nhận */}
+                    <BadgeCollection badges={earnedBadges} />
+                </SectionCard>
 
-            <Section>
-                <SectionTitle>Các Sự Kiện Đã Tham Gia</SectionTitle>
-                <AttendedEventsList events={attendedEvents} />
-            </Section>
+                <SectionCard>
+                    <SectionTitle>Sự kiện đã tham gia</SectionTitle>
+                    <AttendedEventsList events={attendedEvents} />
+                </SectionCard>
+            </MainContent>
         </PageContainer>
     );
 };

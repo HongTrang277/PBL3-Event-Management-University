@@ -1,111 +1,49 @@
-// src/components/features/Achievements/BadgeCollection.jsx
+// src/components/features/Achievements/BadgeCollection.js
+
 import React from 'react';
-import styled, { keyframes } from 'styled-components';
-import { Tooltip } from 'react-tooltip';
+import styled from 'styled-components';
+import BadgeIcon from './BadgeIcon';
 
-// -- KEYFRAMES --
-const cardFadeIn = keyframes`
-  from { opacity: 0; transform: scale(0.98) translateY(10px); }
-  to { opacity: 1; transform: scale(1) translateY(0); }
-`;
-
-// -- STYLED COMPONENTS --
-const BadgeGrid = styled.div`
+const BadgesGrid = styled.div`
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-  gap: 1.5rem;
-`;
-
-const BadgeCard = styled.div`
-  background-color: #FFFFFF;
-  border-radius: 12px;
-  border: 2px solid ${props => (props.$isEarned ? '#00ACC1' : '#B2EBF2')};
-  padding: 1rem;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-  transition: all 0.3s ease;
-  cursor: pointer;
-  opacity: 0;
-  animation: ${cardFadeIn} 0.5s ease-out forwards;
-  animation-delay: ${props => props.$delay || '0s'};
-  
-  filter: ${props => (props.$isEarned ? 'none' : 'grayscale(80%)')};
-  opacity: ${props => (props.$isEarned ? 1 : 0.8)};
-
-  &:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 8px 20px rgba(0, 121, 107, 0.15);
-    border-color: #00796B;
-    filter: none;
-    opacity: 1;
-  }
-`;
-
-const BadgeIcon = styled.img`
-  width: 60px;
-  height: 60px;
-  object-fit: contain;
-  margin-bottom: 0.75rem;
-`;
-
-const BadgeText = styled.p`
-  font-size: 0.875rem;
-  color: #37474F;
-  font-weight: 500;
-  line-height: 1.3;
+  gap: 2.5rem 1.5rem;
+  padding: 2rem;
+  background-color: rgba(255, 255, 255, 0.7);
+  border-radius: 16px;
+  border: 1px solid #B3E5FC;
 `;
 
 const EmptyStateText = styled.p`
-  color: #00796B;
-  padding: 1rem;
+  color: #0D47A1;
+  padding: 2rem 1rem;
   text-align: center;
+  font-style: italic;
+  width: 100%;
 `;
 
-const BadgeCollection = ({ allBadges, earnedBadges }) => {
-    const earnedBadgeIds = new Set(earnedBadges.map(b => b.badgeId));
+// [THAY ĐỔI] Component giờ chỉ cần nhận 1 prop `badges`
+const BadgeCollection = ({ badges }) => {
+  // [THAY ĐỔI] Nếu danh sách rỗng hoặc không có, hiển thị thông báo
+  if (!badges || badges.length === 0) {
+    return <EmptyStateText>Bạn chưa nhận được huy hiệu nào. Hãy tham gia các sự kiện để sưu tập nhé!</EmptyStateText>;
+  }
 
-    if (!allBadges || allBadges.length === 0) {
-        return <EmptyStateText>Chưa có huy hiệu nào trong hệ thống.</EmptyStateText>;
-    }
-
-    return (
-        <>
-            <BadgeGrid>
-                {allBadges.map((badge, index) => {
-                    const isEarned = earnedBadgeIds.has(badge.badgeId);
-                    const tooltipId = `badge-tooltip-${badge.badgeId}`;
-
-                    return (
-                        <BadgeCard
-                            key={badge.badgeId}
-                            data-tooltip-id={tooltipId}
-                            data-tooltip-content={badge.badgeText}
-                            data-tooltip-place="top"
-                            $isEarned={isEarned}
-                            $delay={`${index * 0.05}s`}
-                        >
-                            <BadgeIcon src={badge.iconUrl} alt={badge.badgeText} />
-                            <BadgeText>{badge.badgeText}</BadgeText>
-                        </BadgeCard>
-                    );
-                })}
-            </BadgeGrid>
-            
-            <Tooltip
-                id={allBadges.map(b => `badge-tooltip-${b.badgeId}`).join(' ')}
-                style={{
-                  backgroundColor: "#004D40",
-                  color: "#FFFFFF",
-                  borderRadius: "6px",
-                  fontSize: "0.875rem",
-                  padding: "0.5rem 1rem",
-                }}
-            />
-        </>
-    );
+  // [THAY ĐỔI] Logic được đơn giản hóa tối đa
+  return (
+    <BadgesGrid>
+      {badges.map((badge) => (
+        <BadgeIcon
+          key={badge.badgeId}
+          badgeName={badge.badgeText}
+          eventName={badge.eventName} // Tên sự kiện đã được thêm ở component cha
+          imageUrl={badge.iconUrl || 'https://via.placeholder.com/80'}
+          isEarned={true} // Mọi huy hiệu ở đây đều đã nhận
+          earnedDate={badge.dateEarned} // Lấy trực tiếp từ object
+        />
+      ))}
+    </BadgesGrid>
+  );
 };
 
 export default BadgeCollection;
