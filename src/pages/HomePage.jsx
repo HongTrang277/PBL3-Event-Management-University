@@ -62,20 +62,25 @@ const SearchContainer = styled.div`
     @media (max-width: 992px) { margin-left: auto; margin-right: auto; padding: 0 1rem; }
 `;
 const EventsSectionWrapper = styled.section`
-    padding: 2rem 0; flex-grow: 1; width: 100%;
+    padding: 2rem 0; flex-grow: 1; width: 100%; overflow-x: hidden;
 `;
 const EventsSectionContent = styled.div`
-    max-width: 1280px; margin: 0 auto; padding: 0 1.5rem;
-    .slick-slide > div { padding: 0 8px; }
+    width: 100%;
+    .slick-slide > div { padding: 0 12px; }
     .slick-prev, .slick-next { background-color: rgba(0, 54, 82, 0.5); border-radius: 50%; width: 40px; height: 40px; z-index: 1; }
     .slick-prev:hover, .slick-next:hover { background-color: rgba(0, 54, 82, 0.8); }
     .slick-prev:before, .slick-next:before { color: white; font-size: 20px; }
-    .slick-prev { left: -50px; @media (max-width: 640px) { left: -20px; } }
-    .slick-next { right: -50px; @media (max-width: 640px) { right: -20px; } }
+    .slick-prev {
+        left: 25px; /* Đặt nút bên trong, cách lề trái 25px */
+    }
+    .slick-next {
+        right: 25px; /* Đặt nút bên trong, cách lề phải 25px */
+    }
 `;
 const SectionTitle = styled.h2`
     font-size: 1.75rem; font-weight: 600; margin-bottom: 1.5rem; font-family: ${props => props.theme.fontFamily['dm-sans']};
     color: ${props => props.theme.colors['primary-3']}; text-align: center;
+     padding: 0 1.5rem;
 `;
 const EventGrid = styled.div`
     display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1.5rem;

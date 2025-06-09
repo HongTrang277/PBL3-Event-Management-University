@@ -9,8 +9,6 @@ import 'react-toastify/dist/ReactToastify.css';
 // --- Styled Components ---
 const PageWrapper = styled.div`
   padding: 2rem;
-  max-width: 1100px;
-  margin: 0 auto;
   min-height: 100vh;
   background: #f0f9ff;
 `;
