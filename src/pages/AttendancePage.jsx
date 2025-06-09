@@ -313,7 +313,7 @@ useEffect(() => {
 
   useEffect(() => {
     if (!selectedEvent) return;
-    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
+    const timer = setInterval(() => setCurrentTime(new Date()), 100);
     return () => clearInterval(timer);
   }, [selectedEvent]);
 

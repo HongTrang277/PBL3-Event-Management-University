@@ -820,7 +820,7 @@ const CreateEventPage = () => {
         // --- THÀNH CÔNG VÀ DỌN DẸP ---
         setSuccess('Sự kiện đã được tạo thành công!');
         // Reset form...
-        setTimeout(() => { navigate('/admin/my-events'); }, 2000);
+        setTimeout(() => { navigate('/admin/my-events'); }, 200);
 
     } catch (err) {
         console.error('Lỗi trong quá trình tạo sự kiện:', err);

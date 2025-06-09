@@ -18,7 +18,7 @@ const EventOwnerScanPage = () => {
     if (scanResult) {
       timer = setTimeout(() => {
         setScanResult(null);
-      }, 5000);
+      }, 1000);
     }
     
     return () => {

@@ -137,7 +137,7 @@ function App() {
             
             {/* Thống kê tổng quát - Chỉ cho union */}
             <Route path="statistics" element={
-              <ProtectedRoute allowedRoles={['union', 'Union', 'Admin']}>
+              <ProtectedRoute allowedRoles={['union', 'Union', 'Admin', 'Organizer']}>
                 <StatisticsPage />
               </ProtectedRoute>
             } />
