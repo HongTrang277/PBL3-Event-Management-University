@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import styled, { createGlobalStyle, css, ThemeProvider } from 'styled-components'; // Thêm ThemeProvider và createGlobalStyle
 import Button from '../components/common/Button/Button';
-import { eventService, uploadService, CategoryService, EventCategoryService } from '../services/api';
+import { eventService, uploadService, CategoryService, EventCategoryService, badgeService } from '../services/api';
 import { ATTENDANCE_TYPES, TAGS } from '../utils/constants';
 import { useAuth } from '../hooks/useAuth';
 import Input from '../components/common/Input/Input'; // Giả định Input đã được style hoặc chấp nhận className/style props
@@ -456,6 +456,25 @@ const MapButton = styled.button`
     background-color: ${({ theme, active }) => active ? theme.colors.accent : theme.colors.borderColor};
   }
 `;
+const SectionTitle = styled.h2`
+  font-size: 1.25rem;
+  font-weight: 600;
+  border-bottom: 1px solid ${({ theme }) => theme.colors.border};
+  padding-bottom: 0.5rem;
+  margin-bottom: 1.5rem;
+  margin-top: 2.5rem;
+  color: ${({ theme }) => theme.colors.text};
+`;
+
+const BadgePreview = styled.img`
+  width: 88px; /* 5.5rem */
+  height: 88px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px dashed ${({ theme }) => theme.colors.border};
+  padding: 0.25rem;
+  background-color: ${({ theme }) => theme.colors.surface};
+`;
 
 // --- Component Chính ---
 const CreateEventPage = () => {
@@ -488,6 +507,11 @@ const CreateEventPage = () => {
   const [categories, setCategories] = useState([]);
   const [selectedCategories, setSelectedCategories] = useState([]);
   const [isLoadingCategories, setIsLoadingCategories] = useState(false);
+   const [badgeData, setBadgeData] = useState(null); // Lưu trữ object huy hiệu từ API
+    const [badgeText, setBadgeText] = useState('');
+    const [badgeIconFile, setBadgeIconFile] = useState(null);
+    const [badgeIconPreviewUrl, setBadgeIconPreviewUrl] = useState(null);
+
   useEffect(() => {
     const fetchCategories = async () => {
       setIsLoadingCategories(true);
@@ -562,6 +586,17 @@ const CreateEventPage = () => {
     setCoverPreviewUrl(objectUrl);
     return () => URL.revokeObjectURL(objectUrl);
   }, [cover]);
+
+  useEffect(() => {
+        if (!badgeIconFile) {
+            setBadgeIconPreviewUrl(null);
+            return;
+        }
+        const objectUrl = URL.createObjectURL(badgeIconFile);
+        setBadgeIconPreviewUrl(objectUrl);
+        // Dọn dẹp khi component unmount hoặc file thay đổi
+        return () => URL.revokeObjectURL(objectUrl);
+    }, [badgeIconFile]);
 
 
   const handleFileChange = (fieldName, setter) => (event) => {
@@ -673,152 +708,127 @@ const CreateEventPage = () => {
     setError(null);
     setSuccess(null);
 
+    // --- PHẦN VALIDATE (Giữ nguyên) ---
     const validationError = validateForm();
     const currentFileErrors = { ...fileErrors };
-    if (!logo && !currentFileErrors.logo) currentFileErrors.logo = "Vui lòng tải lên ảnh logo.";
-    if (!cover && !currentFileErrors.cover) currentFileErrors.cover = "Vui lòng tải lên ảnh bìa.";
+    if (!logo) currentFileErrors.logo = "Vui lòng tải lên ảnh logo.";
+    if (!cover) currentFileErrors.cover = "Vui lòng tải lên ảnh bìa.";
     setFileErrors(currentFileErrors);
     const hasFileErrors = Object.values(currentFileErrors).some(err => err);
-
     if (validationError || hasFileErrors) {
-      let combinedError = validationError || "";
-      if (hasFileErrors) {
-        const specificFileErrors = Object.entries(currentFileErrors)
-          .filter(([, value]) => value)
-          .map(([key, value]) => `${key === 'logo' ? 'Logo' : 'Ảnh bìa'}: ${value}`)
-          .join(' ');
-        combinedError = combinedError ? `${combinedError} ${specificFileErrors}` : specificFileErrors;
-      }
-      setError(combinedError || "Vui lòng kiểm tra lại thông tin đã nhập.");
-      return;
+        let combinedError = validationError || "Vui lòng kiểm tra lại thông tin.";
+        setError(combinedError);
+        return;
     }
+
     setIsLoading(true);
     try {
-      let uploadedLogoUrl = '';
-      let uploadedCoverUrl = '';
+        // --- PHẦN UPLOAD FILE ---
+        let uploadedLogoUrl = '';
+        let uploadedCoverUrl = '';
+        let uploadedBadgeIconUrl = '';
 
-      if (logo) {
-        try {
-          const logoUploadResponse = await uploadService.uploadFile(logo);
-          const saveUrl = logoUploadResponse?.saveUrl; 
+        if (logo) {
+            const logoUploadResponse = await uploadService.uploadFile(logo);
+            const saveUrl = logoUploadResponse?.saveUrl;
+            if (saveUrl) {
+                uploadedLogoUrl = uploadService.getFileUrl(saveUrl.split('/').pop());
+            } else { throw new Error("API upload không trả về saveUrl cho logo."); }
+        }
+        if (cover) {
+            const coverUploadResponse = await uploadService.uploadFile(cover);
+            const saveUrl = coverUploadResponse?.saveUrl;
+            if (saveUrl) {
+                uploadedCoverUrl = uploadService.getFileUrl(saveUrl.split('/').pop());
+            } else { throw new Error("API upload không trả về saveUrl cho ảnh bìa."); }
+        }
+        if (badgeIconFile) {
+            const badgeUploadResponse = await uploadService.uploadFile(badgeIconFile);
+            const saveUrl = badgeUploadResponse?.saveUrl;
+            if (saveUrl) {
+                uploadedBadgeIconUrl = uploadService.getFileUrl(saveUrl.split('/').pop());
+            } else { throw new Error("API upload không trả về saveUrl cho icon huy hiệu."); }
+        }
 
-        if (saveUrl) {
-            // Bước 1: Tách lấy tên file từ chuỗi saveUrl
-            // "/uploads/a1b2c3d4.png" -> "a1b2c3d4.png"
-            const fileName = saveUrl.split('/').pop(); 
+        // --- DỮ LIỆU SỰ KIỆN ---
+        const eventData = {
+            EventName: eventName.trim(),
+            Description: description.trim(),
+            AttendanceType: attendanceType,
+            Location: attendanceType === ATTENDANCE_TYPES.ONLINE ? (location.trim() || 'Online Platform') : location.trim(),
+            Latitude: latitude || 0,
+            Longitude: longitude || 0,
+            StartDate: startDate,
+            EndDate: endDate,
+            Capacity: parseInt(capacity, 10),
+            LogoUrl: uploadedLogoUrl,
+            CoverUrl: uploadedCoverUrl,
+            IsRestricted: isRestricted,
+            IsOpenedForRegistration: isOpenedForRegistration,
+            IsCancelled: isCancelled,
+            Scope: isRestricted ? "restricted" : "public"
+        };
+        
+        // ======================= LOGIC XỬ LÝ CHÍNH =======================
+        // 1. Tạo sự kiện
+        console.log("Đang gửi dữ liệu tạo sự kiện:", eventData);
+        const response = await eventService.createEvent(eventData);
+        console.log("%cKết quả từ server khi tạo sự kiện:", "color: blue; font-weight: bold;", response);
 
-            // Bước 2: Dùng hàm getFileUrl để tạo ra URL API chính xác
-            uploadedLogoUrl = uploadService.getFileUrl(fileName);
+        // 2. Lấy ID sự kiện
+        const newEventId = response?.eventId || response?.data?.eventId; 
 
+        // 3. Kiểm tra ID trả về
+        if (!newEventId) {
+            throw new Error("Tạo sự kiện không thành công, không nhận được ID. Vui lòng kiểm tra log 'Kết quả từ server...' ở trên.");
+        }
+        console.log(`%cSự kiện đã tạo thành công với ID: ${newEventId}`, "color: green; font-weight: bold;");
+
+        // 4. Thêm khoa và thể loại
+        if (isRestricted && selectedFaculties.length > 0) {
+            await eventService.addFacultiesToScope(newEventId, selectedFaculties);
+        }
+        if (selectedCategories.length > 0) {
+            await EventCategoryService.addEventCategory(newEventId, selectedCategories);
+        }
+
+        // 5. Tạo huy hiệu (nếu có)
+        console.log("%cKiểm tra thông tin huy hiệu:", "color: blue; font-weight: bold;", { badgeText, uploadedBadgeIconUrl });
+        const hasBadgeInfo = badgeText.trim() && uploadedBadgeIconUrl;
+
+        if (hasBadgeInfo) {
+            console.log("%c--> Điều kiện tạo huy hiệu hợp lệ. Bắt đầu tạo...", "color: green;");
+            const badgePayload = {
+                eventId: newEventId,
+                badgeText: badgeText.trim(),
+                iconUrl: uploadedBadgeIconUrl,
+            };
+            console.log("Đang gửi payload tạo huy hiệu:", badgePayload);
+            try {
+                await badgeService.createBadge(badgePayload);
+                console.log("%cTẠO HUY HIỆU THÀNH CÔNG!", "color: green; font-weight: bold;");
+            } catch (badgeError) {
+                console.error("Lỗi nghiêm trọng khi gọi API tạo huy hiệu:", badgeError);
+                setError(`Sự kiện đã tạo, nhưng tạo huy hiệu thất bại. Lỗi: ${badgeError.message}`);
+                setIsLoading(false);
+                return;
+            }
         } else {
-            throw new Error("API upload không trả về saveUrl cho logo.");
+            console.log("%c--> Không đủ thông tin để tạo huy hiệu, bỏ qua.", "color: orange;");
         }
-    } catch (uploadError) {
-        setError(`Lỗi upload logo: ${uploadError.message}`);
-        setIsLoading(false);
-        return;
-        }
-      }
-      if (cover) {
-        try {
-          const coverUploadResponse = await uploadService.uploadFile(cover);
-          const saveUrl = coverUploadResponse?.saveUrl;
 
-        if (saveUrl) {
-            const fileName = saveUrl.split('/').pop();
-            uploadedCoverUrl = uploadService.getFileUrl(fileName);
-        } else {
-            throw new Error("API upload không trả về saveUrl cho ảnh bìa.");
-        }
-    } catch (uploadError) {
-        setError(`Lỗi upload ảnh bìa: ${uploadError.message}`);
-        setIsLoading(false);
-        return;
-        }
-      }
-      console.log(">>> STATE 'startDate' TRƯỚC new Date():", startDate); // QUAN TRỌNG!
-      console.log(">>> STATE 'endDate' TRƯỚC new Date():", endDate);     // Để so sánh
-
-      const eventData = {
-        EventName: eventName.trim(),
-        Description: description.trim(),
-        AttendanceType: attendanceType,
-        Location: attendanceType === ATTENDANCE_TYPES.ONLINE ?
-          (location.trim() || 'Online Platform') : location.trim(),
-        Latitude: latitude || 0, // Default to 0 if not set
-        Longitude: longitude || 0, // Default to 0 if not set
-        StartDate: startDate,
-        EndDate: endDate,
-        Capacity: parseInt(capacity, 10),
-        LogoUrl: uploadedLogoUrl,
-        CoverUrl: uploadedCoverUrl,
-        // Tags: selectedTags,
-        IsRestricted: isRestricted,
-        // Add the missing fields
-        IsOpenedForRegistration: isOpenedForRegistration,
-        IsCancelled: isCancelled,
-        Scope: isRestricted ? "restricted" : "public" // Set scope based on restriction status
-      };
-
-      console.log('Sending event data:', eventData);
-      console.log('Event restriction status:', isRestricted ? 'Restricted to specific faculties' : 'School-wide (no restrictions)');
-
-      console.log('Sending event data:', eventData);
-      const response = await eventService.createEvent(eventData);
-      console.log('Response from eventService.createEvent:', response);
-      console.log('Event created with ID:', response.data?.eventId);
-      console.log('Selected faculties:', selectedFaculties);
-      console.log('Selected categories:', selectedCategories);
-
-      if (isRestricted && selectedFaculties.length > 0 && response?.eventId) {
-        try {
-          console.log('Adding faculties to event scope:', selectedFaculties);
-          const eventId = response.eventId;
-          console.log('Event ID for adding faculties:', eventId);
-          await eventService.addFacultiesToScope(eventId, selectedFaculties);
-          console.log('Faculties added to event scope successfully');
-        } catch (scopeError) {
-          console.error('Error adding faculties to event scope:', scopeError);
-          setError(`Sự kiện đã được tạo, nhưng có lỗi khi giới hạn khoa: ${scopeError.message}`);
-        }
-      }
-      console.log('Event created successfully:', response.data);
-      if (selectedCategories.length > 0) {
-        try {
-          const eventId = response.eventId;
-          console.log('Event ID for adding categories:', eventId);
-          console.log('Adding categories to event:', selectedCategories);
-          await EventCategoryService.addEventCategory(eventId, selectedCategories);
-          console.log('Categories added to event successfully');
-        } catch (categoriesError) {
-          console.error('Error adding categories to event:', categoriesError);
-          // Don't fail the whole operation, just log a warning
-          console.warn('Event created but categories could not be added');
-        }
-      }
-      // If event is restricted and we have selected faculties, add them to the event scope
-            setSuccess('Sự kiện đã được tạo thành công!');
-
-      // Reset form
-      setEventName(''); setDescription(''); setStartDate(''); setEndDate('');
-      setCapacity(''); setLogo(null); setCover(null);
-      setAttendanceType(ATTENDANCE_TYPES.OFFLINE); setLocation('');
-      setSelectedTags([]); setFileErrors({}); setError(null);
-
-      setTimeout(() => {
-        navigate('/admin/my-events');
-      }, 2000);
+        // --- THÀNH CÔNG VÀ DỌN DẸP ---
+        setSuccess('Sự kiện đã được tạo thành công!');
+        // Reset form...
+        setTimeout(() => { navigate('/admin/my-events'); }, 2000);
 
     } catch (err) {
-      console.error('Error during event creation process:', err);
-      if (!error && !success) {
-        const errorMessage = err.response?.data?.message || err.message || 'Đã xảy ra lỗi khi tạo sự kiện.';
-        setError(errorMessage);
-      }
+        console.error('Lỗi trong quá trình tạo sự kiện:', err);
+        setError(err.response?.data?.message || err.message || 'Đã xảy ra lỗi khi tạo sự kiện.');
     } finally {
-      setIsLoading(false);
+        setIsLoading(false);
     }
-  };
+};
 
 
 
@@ -977,6 +987,35 @@ const CreateEventPage = () => {
                   : "Sự kiện sẽ không mở đăng ký ngay. Bạn có thể mở đăng ký sau."}
               </small>
             </FormGroup>
+            <SectionTitle>Huy hiệu tham gia (Tùy chọn)</SectionTitle>
+                        <FormGroup>
+                            <Input
+                                id="badgeText"
+                                label="Tên/Mô tả huy hiệu"
+                                value={badgeText}
+                                onChange={(e) => setBadgeText(e.target.value)}
+                                placeholder="VD: Chiến sĩ tình nguyện Mùa Hè Xanh 2025"
+                            />
+                        </FormGroup>
+            
+            <GridContainer>
+                            <FormGroup>
+                                <Input
+                                    id="badgeIconFile"
+                                    label="Ảnh Icon cho Huy hiệu (.jpg, .png, .svg)"
+                                    type="file"
+                                    accept="image/jpeg, image/png, image/svg+xml"
+                                    onChange={handleFileChange('badgeIconFile', setBadgeIconFile)}
+                                />
+                                {fileErrors.badgeIconFile && <ErrorMessage style={{padding: '0.5rem', marginTop: '0.5rem', fontSize: '0.8rem', borderLeftWidth: '2px'}}><p style={{margin:0}}>{fileErrors.badgeIconFile}</p></ErrorMessage>}
+                            </FormGroup>
+                            {badgeIconPreviewUrl && (
+                                <PreviewContainer style={{ justifyContent: 'center', alignItems: 'center' }}>
+                                    <BadgePreview src={badgeIconPreviewUrl} alt="Badge Icon Preview" />
+                                </PreviewContainer>
+                            )}
+                        </GridContainer>
+
             <GridContainer>
               <FormGroup>
                 <Input

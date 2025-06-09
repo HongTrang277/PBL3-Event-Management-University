@@ -724,3 +724,108 @@ export const qrService = {
 
 
 export default api;
+
+export const badgeService = {
+    /**
+     * Lấy tất cả huy hiệu có trong hệ thống
+     * Tương ứng với: GET /api/Badges
+     */
+    getAllBadges: async () => {
+        try {
+            const response = await api.get('/Badges');
+            return response.data;
+        } catch (error) {
+            console.error('Error fetching all badges:', error.response?.data || error.message);
+            throw error;
+        }
+    },
+
+    /**
+     * Lấy danh sách huy hiệu của một người dùng cụ thể
+     * Tương ứng với: GET /api/Badges/User/{userId}
+     */
+    getBadgesByUserId: async (userId) => {
+        try {
+            const response = await api.get(`/Badges/User/${userId}`);
+            return response.data;
+        } catch (error) {
+            // Khi người dùng chưa có huy hiệu nào, API có thể trả về 404.
+            // Trong trường hợp này, ta trả về mảng rỗng để không làm crash trang.
+            if (error.response && error.response.status === 404) {
+                console.warn(`No badges found for user ${userId}. Returning empty array.`);
+                return [];
+            }
+            console.error(`Error fetching badges for user ${userId}:`, error.response?.data || error.message);
+            throw error;
+        }
+    },
+
+    /**
+     * Lấy huy hiệu theo ID sự kiện
+     * Tương ứng với: GET /api/Badges/Event/{eventId}
+     */
+    getBadgesByEventId: async (eventId) => {
+        try {
+            const response = await api.get(`/Badges/Event/${eventId}`);
+            return response.data;
+        } catch (error) {
+            if (error.response && error.response.status === 404) {
+                return []; // Trả về mảng rỗng nếu không có huy hiệu, đây là hành vi mong muốn.
+            }
+            console.error(`Error fetching badges for event ${eventId}:`, error.response?.data || error.message);
+            throw error;
+        }
+    },
+
+    /**
+     * Lấy huy hiệu theo ID của chính nó
+     * Tương ứng với: GET /api/Badges/{badgeId}
+     */
+    getBadgeById: async (badgeId) => {
+        try {
+            const response = await api.get(`/Badges/${badgeId}`);
+            return response.data;
+        } catch (error) {
+            console.error(`Error fetching badge with ID ${badgeId}:`, error.response?.data || error.message);
+            throw error;
+        }
+    },
+    createBadge: async (badgeData) => {
+        try {
+            // badgeData phải là object chứa: eventId, badgeText, iconUrl
+            const response = await api.post('/Badges', badgeData);
+            return response.data;
+        } catch (error) {
+            console.error('Error creating badge:', error.response?.data || error.message);
+            throw error;
+        }
+    },
+
+    /**
+     * Cập nhật huy hiệu
+     * Tương ứng với: PUT /api/Badges/{badgeId}
+     */
+    updateBadge: async (badgeId, updatedData) => {
+        try {
+            const response = await api.put(`/Badges/${badgeId}`, updatedData);
+            return response.data;
+        } catch (error) {
+            console.error(`Error updating badge ${badgeId}:`, error.response?.data || error.message);
+            throw error;
+        }
+    },
+    
+    /**
+     * Xóa huy hiệu
+     * Tương ứng với: DELETE /api/Badges/{badgeId}
+     */
+    deleteBadge: async (badgeId) => {
+        try {
+            const response = await api.delete(`/Badges/${badgeId}`);
+            return response.data; // Thường trả về true/false
+        } catch (error) {
+            console.error(`Error deleting badge ${badgeId}:`, error.response?.data || error.message);
+            throw error;
+        }
+    }
+};

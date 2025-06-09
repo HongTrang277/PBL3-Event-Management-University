@@ -33,6 +33,7 @@ import UserQRPage from './pages/UserQRPage';
 // import NotFoundPage from './pages/NotFoundPage'; 
 // import EventCreatorDashboardPage from './pages/EventCreatorDashboardPage';
 import EditEventPage from './pages/EditEventPage';
+import AchievementsPage from './pages/AchievementsPage';
 
 // Đảm bảo RoleGate được import, hoặc tạo mới nếu chưa có
 // import { RoleGate } from './components/common/RoleGate';
@@ -67,7 +68,7 @@ function App() {
 
           <Route path="/achievements" element={
             <ProtectedRoute allowedRoles={['User']}>
-              <div>Chức năng đang phát triển</div>
+              <AchievementsPage/>
             </ProtectedRoute>
           } />
           

@@ -3,7 +3,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import styled, { createGlobalStyle, ThemeProvider } from 'styled-components';
 import Button from '../components/common/Button/Button';
-import { eventService, uploadService } from '../services/api';
+import { eventService, uploadService, badgeService } from '../services/api';
 import { ATTENDANCE_TYPES, TAGS, ROLES } from '../utils/constants';
 import { useAuth } from '../hooks/useAuth';
 import Input from '../components/common/Input/Input';
@@ -109,6 +109,25 @@ const ToggleSwitch = styled.label`
     transform: translateX(24px);
   }
 `;
+const SectionTitle = styled.h2`
+  font-size: 1.25rem;
+  font-weight: 600;
+  border-bottom: 1px solid ${({ theme }) => theme.colors.border};
+  padding-bottom: 0.5rem;
+  margin-bottom: 1.5rem;
+  margin-top: 2.5rem;
+  color: ${({ theme }) => theme.colors.text};
+`;
+
+const BadgePreview = styled.img`
+  width: 88px;
+  height: 88px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px dashed ${({ theme }) => theme.colors.border};
+  padding: 0.25rem;
+  background-color: ${({ theme }) => theme.colors.surface};
+`;
 
 const EditEventPage = () => {
   const { eventId } = useParams();
@@ -140,6 +159,12 @@ const EditEventPage = () => {
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
   const [fileErrors, setFileErrors] = useState({});
+
+   const [badgeData, setBadgeData] = useState(null); // Lưu trữ object huy hiệu từ API
+    const [badgeText, setBadgeText] = useState('');
+    const [badgeIconFile, setBadgeIconFile] = useState(null);
+    const [badgeIconPreviewUrl, setBadgeIconPreviewUrl] = useState(null);
+
   const handleLocationChange = useCallback((lat, lng) => {
         setLatitude(lat);
         setLongitude(lng);
@@ -203,6 +228,18 @@ const inputEndDate = convertApiDateTimeToDaNangInputString(fetchedEvent.endDate)
 
       setIsOpenedForRegistration(fetchedEvent.isOpenedForRegistration ?? true);
             setIsCancelled(fetchedEvent.isCancelled ?? false);
+            try {
+                const badges = await badgeService.getBadgesByEventId(eventId);
+                if (badges && badges.length > 0) {
+                    const currentBadge = badges[0]; // Logic backend chỉ trả về 1 huy hiệu cho mỗi event
+                    setBadgeData(currentBadge);
+                    setBadgeText(currentBadge.badgeText || '');
+                    setBadgeIconPreviewUrl(currentBadge.iconUrl || null);
+                }
+            } catch (badgeError) {
+                console.warn("Không thể tải huy hiệu cho sự kiện này:", badgeError);
+                // Không phải lỗi nghiêm trọng, vẫn tiếp tục
+            }
 
     } catch (err) {
       console.error("Error fetching event details:", err);
@@ -222,6 +259,17 @@ const inputEndDate = convertApiDateTimeToDaNangInputString(fetchedEvent.endDate)
       }
     }
   }, [eventId, authLoading, isAuthenticated, fetchEventDetails]);
+
+   useEffect(() => {
+        if (!badgeIconFile) {
+            // Nếu không có file mới, hiển thị ảnh cũ (nếu có)
+            setBadgeIconPreviewUrl(badgeData?.iconUrl || null);
+            return;
+        }
+        const objectUrl = URL.createObjectURL(badgeIconFile);
+        setBadgeIconPreviewUrl(objectUrl);
+        return () => URL.revokeObjectURL(objectUrl);
+    }, [badgeIconFile, badgeData]);
 
   useEffect(() => {
     if (!logoFile) {
@@ -294,6 +342,12 @@ const inputEndDate = convertApiDateTimeToDaNangInputString(fetchedEvent.endDate)
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    console.clear(); // Xóa console cũ để dễ nhìn
+    console.log("--- BẮT ĐẦU DEBUG HANDLE SUBMIT ---");
+    console.log("Giá trị eventId:", eventId);
+    console.log("Dữ liệu badge hiện tại (từ server):", badgeData);
+    console.log("Text huy hiệu người dùng nhập:", badgeText);
+    console.log("File icon người dùng chọn:", badgeIconFile);
     setError(null);
     setSuccess(null);
     const validationError = validateForm();
@@ -382,6 +436,43 @@ const inputEndDate = convertApiDateTimeToDaNangInputString(fetchedEvent.endDate)
       
       console.log('EDIT PAGE - Sending event update data to API:', updatedEventPayload);
       await eventService.updateEvent(eventId, updatedEventPayload);
+
+      console.log("--- Bắt đầu xử lý logic Huy hiệu ---");
+      let uploadedBadgeIconUrl = badgeData?.iconUrl; // Giữ URL cũ mặc định
+            if (badgeIconFile) { // Nếu có file mới thì upload
+                const badgeUploadResponse = await uploadService.uploadFile(badgeIconFile);
+                console.log("Kết quả upload icon:", badgeUploadResponse);
+                const saveUrl = badgeUploadResponse?.saveUrl;
+                if (saveUrl) {
+                    const fileName = saveUrl.split('/').pop();
+                    uploadedBadgeIconUrl = uploadService.getFileUrl(fileName);
+                } else {
+                    throw new Error("API upload không trả về saveUrl cho icon huy hiệu.");
+                }
+            }
+
+            const hasBadgeInfo = badgeText.trim() && uploadedBadgeIconUrl;
+            
+            if (badgeData && hasBadgeInfo) {
+                // --- CẬP NHẬT huy hiệu đã có ---
+                const badgePayload = {
+                    ...badgeData, // Giữ lại badgeId và eventId
+                    badgeText: badgeText.trim(),
+                    iconUrl: uploadedBadgeIconUrl,
+                };
+                console.log("CHUẨN BỊ GỬI PAYLOAD CẬP NHẬT:", badgePayload); // KIỂM TRA CÁI NÀY
+                await badgeService.updateBadge(badgeData.badgeId, badgePayload);
+            } else if (!badgeData && hasBadgeInfo) {
+                // --- TẠO MỚI huy hiệu cho sự kiện này ---
+                console.log("CHUẨN BỊ GỌI API TẠO/CẬP NHẬT HUY HIỆU"); // Log 1
+                const badgePayload = {
+                    eventId: eventId,
+                    badgeText: badgeText.trim(),
+                    iconUrl: uploadedBadgeIconUrl,
+                };
+                console.log("Dữ liệu (payload) sẽ gửi đi:", badgePayload); // Log 2: Rất quan trọng!
+                await badgeService.createBadge(badgePayload);
+            }
       
       setSuccess('Sự kiện đã được cập nhật thành công!');
       // Không fetchEventDetails() ngay lập tức nếu có setTimeout chuyển trang
@@ -624,6 +715,37 @@ return (
                                     ))}
                                 </TagGrid>
                             </FormGroup>
+
+                            <SectionTitle>Huy hiệu tham gia</SectionTitle>
+                                <FormGroup>
+                                    <Input
+                                        id="badgeText"
+                                        label="Tên/Mô tả huy hiệu"
+                                        value={badgeText}
+                                        onChange={(e) => setBadgeText(e.target.value)}
+                                        placeholder="Để trống nếu không có huy hiệu"
+                                    />
+                                </FormGroup>
+                                <GridContainer>
+                                    <FormGroup>
+                                        <Input
+                                            id="badgeIconFile"
+                                            label="Ảnh Icon Huy hiệu mới (.jpg, .png, .svg)"
+                                            type="file"
+                                            accept="image/jpeg, image/png, image/svg+xml"
+                                            onChange={handleFileChange('badgeIconFile', setBadgeIconFile)}
+                                        />
+                                         {fileErrors.badgeIconFile && <ErrorMessage style={{padding: '0.5rem', marginTop: '0.5rem', fontSize: '0.8rem', borderLeftWidth: '2px'}}><p style={{margin:0}}>{fileErrors.badgeIconFile}</p></ErrorMessage>}
+                                    </FormGroup>
+                                    {badgeIconPreviewUrl && (
+                                        <PreviewContainer style={{ justifyContent: 'center', alignItems: 'center' }}>
+                                             <ImagePreviewWrapper>
+                                                <BadgePreview src={badgeIconPreviewUrl} alt="Badge Icon Preview" />
+                                                <ImagePlaceholderText>Xem trước Icon Huy hiệu</ImagePlaceholderText>
+                                            </ImagePreviewWrapper>
+                                        </PreviewContainer>
+                                    )}
+                                </GridContainer>
 
                             <ActionContainer>
                                 <Button type="button" variant="secondary" onClick={() => navigate(-1)} disabled={isLoading && success === null}>
