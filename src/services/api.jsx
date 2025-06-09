@@ -120,16 +120,45 @@ export const categoryService = {
 
 export const registrationService = {
   registerUserForEvent: async (userId, eventId) => {
-    try {
-      // Swagger: POST /api/Registrations/{userId}/{eventId}
-      const response = await api.post(`/Registrations/${userId}/${eventId}`); // Đảm bảo viết hoa 'R'
-      // console.log('Response from registerUserForEvent:', response);
-      return response.data;
-    } catch (error) {
-      console.error('Error during registerUserForEvent:', error.response?.data || error.message);
-      throw error;
+  try {
+    // Đăng ký người dùng cho sự kiện
+    const response = await api.post(`/Registrations/${userId}/${eventId}`);
+    console.log('Response from registerUserForEvent:', response.data);
+    
+    if (response.status === 200 || response.status === 201) {
+      try {
+        // Lấy email người dùng
+        const userResponse = await api.get(`/appusers/${userId}`);
+        console.log('User response:', userResponse);
+        
+        if (userResponse.data && userResponse.data.email) {
+          const userEmail = userResponse.data.email;
+          console.log('User email retrieved:', userEmail);
+          
+          // CÁCH 1: Gửi email thông qua query params (lựa chọn tốt nhất)
+          await api.post(`/Email/SendRegisteredConfirmation/${eventId}?recipientEmails=${userEmail}`);
+          
+          // HOẶC - CÁCH 2: Gửi email dưới dạng form data
+          // const formData = new FormData();
+          // formData.append('recipientEmails', userEmail);
+          // await api.post(`/Email/SendRegisteredConfirmation/${eventId}`, formData);
+          
+          console.log('Email sent successfully to:', userEmail);
+        } else {
+          console.warn('User email not found in the response');
+        }
+      } catch (emailError) {
+        console.error('Error sending registration confirmation email:', emailError);
+        console.error('Error details:', emailError.response?.data || emailError.message);
+      }
     }
-  },
+    
+    return response.data;
+  } catch (error) {
+    console.error('Error during registerUserForEvent:', error.response?.data || error.message);
+    throw error;
+  }
+},
   getUsersRegisteredForEvent: async (eventId) => {
     try {
       const response = await api.get(`/Registrations/Users/${eventId}`);
@@ -186,7 +215,8 @@ export const registrationService = {
       console.error(`Error fetching registrations for user ${userId}:`, error.response?.data || error.message);
       throw error;
     }
-  }
+  },
+
 
 };
 export const attendanceService = {

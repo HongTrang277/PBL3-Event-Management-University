@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate, Link as RouterLink, useLocation } from 'react-router-dom';
 import styled, { keyframes, ThemeProvider, css } from 'styled-components';
-import { eventService, registrationService } from '../services/api';
+import { authService, eventService, registrationService } from '../services/api';
 import { useAuth } from '../hooks/useAuth';
 import { ROLES, ATTENDANCE_TYPES } from '../utils/constants';
 import { formatDateTime, extractDateInfo } from '../utils/helpers';
@@ -12,14 +12,16 @@ import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import markerIcon from '../assets/marker-icon.png'; // Đảm bảo file này tồn tại
+import { toast } from 'react-toastify';
 
 // Thêm các icons cho map và feature icons
 import {
-    FaMapMarkerAlt, FaCalendarAlt, FaUsers, FaClock, FaTag, FaInfo,
-    FaRegClock, FaRegCalendarCheck, FaRegBuilding, FaArrowLeft,
-    FaEdit, FaShareAlt, FaRegBookmark, FaRegUserCircle,
-    FaCheckCircle, FaTimes // Đã thêm 2 icon này
+  FaMapMarkerAlt, FaCalendarAlt, FaUsers, FaClock, FaTag, FaInfo,
+  FaRegClock, FaRegCalendarCheck, FaRegBuilding, FaArrowLeft,
+  FaEdit, FaShareAlt, FaRegBookmark, FaRegUserCircle,
+  FaCheckCircle, FaTimes // Đã thêm 2 icon này
 } from 'react-icons/fa';
+import { is } from 'date-fns/locale';
 
 // Fix cho Leaflet icon trong React
 delete L.Icon.Default.prototype._getIconUrl;
@@ -940,77 +942,77 @@ const EventDetailsPage = () => {
   const [loadingOtherEvents, setLoadingOtherEvents] = useState(true);
   const [eventStatus, setEventStatus] = useState('upcoming'); // 'upcoming', 'ongoing', 'past'
   const formatDaNangDateTimeString = (dateString) => {
-        if (!dateString || typeof dateString !== 'string') {
-            return 'Chưa xác định';
-        }
-        
-        try {
-            const parts = dateString.split('T');
-            if (parts.length < 2) return dateString; // Trả về chuỗi gốc nếu không đúng định dạng
+    if (!dateString || typeof dateString !== 'string') {
+      return 'Chưa xác định';
+    }
 
-            const datePart = parts[0]; // "2025-06-10"
-            const timePart = parts[1]; // "09:00:00"
+    try {
+      const parts = dateString.split('T');
+      if (parts.length < 2) return dateString; // Trả về chuỗi gốc nếu không đúng định dạng
 
-            const [year, month, day] = datePart.split('-');
-            const [hour, minute] = timePart.split(':');
+      const datePart = parts[0]; // "2025-06-10"
+      const timePart = parts[1]; // "09:00:00"
 
-            if (!day || !month || !year || !hour || !minute) return dateString;
+      const [year, month, day] = datePart.split('-');
+      const [hour, minute] = timePart.split(':');
 
-            // Định dạng lại thành "Giờ:Phút - Ngày/Tháng/Năm"
-            return `${hour}:${minute} - ${day}/${month}/${year}`;
-        } catch (e) {
-            console.error("Lỗi khi định dạng chuỗi thời gian:", dateString, e);
-            return dateString; // Trả về chuỗi gốc nếu có lỗi
-        }
-    };
-    const getDateInfoFromString = (dateString) => {
-        if (!dateString || typeof dateString !== 'string') {
-            return { day: '--', month: '---', year: '----' };
-        }
+      if (!day || !month || !year || !hour || !minute) return dateString;
 
-        try {
-            const datePart = dateString.split('T')[0];
-            const [year, month, day] = datePart.split('-');
-            
-            if (!day || !month || !year) return { day: '--', month: '---', year: '----' };
+      // Định dạng lại thành "Giờ:Phút - Ngày/Tháng/Năm"
+      return `${hour}:${minute} - ${day}/${month}/${year}`;
+    } catch (e) {
+      console.error("Lỗi khi định dạng chuỗi thời gian:", dateString, e);
+      return dateString; // Trả về chuỗi gốc nếu có lỗi
+    }
+  };
+  const getDateInfoFromString = (dateString) => {
+    if (!dateString || typeof dateString !== 'string') {
+      return { day: '--', month: '---', year: '----' };
+    }
 
-            // Lấy tên tháng ngắn gọn
-            const monthShortName = `Thg ${parseInt(month, 10)}`;
+    try {
+      const datePart = dateString.split('T')[0];
+      const [year, month, day] = datePart.split('-');
 
-            return {
-                day: day,
-                month: monthShortName.toUpperCase(),
-                year: year
-            };
-        } catch (error) {
-            console.error("Lỗi khi trích xuất thông tin ngày:", dateString, error);
-            return { day: '--', month: '---', year: '----' };
-        }
-    };
-    
+      if (!day || !month || !year) return { day: '--', month: '---', year: '----' };
+
+      // Lấy tên tháng ngắn gọn
+      const monthShortName = `Thg ${parseInt(month, 10)}`;
+
+      return {
+        day: day,
+        month: monthShortName.toUpperCase(),
+        year: year
+      };
+    } catch (error) {
+      console.error("Lỗi khi trích xuất thông tin ngày:", dateString, error);
+      return { day: '--', month: '---', year: '----' };
+    }
+  };
+
 
 
   // Xác định trạng thái event dựa trên thời gian
   useEffect(() => {
     const getEventLocation = async () => {
-        if (event && event.attendanceType !== ATTENDANCE_TYPES.ONLINE) {
-            let coords = null;
-            
-            if (event.latitude && event.longitude) {
-                coords = [parseFloat(event.latitude), parseFloat(event.longitude)];
-            } else if (event.location) {
-                coords = await geocodeAddress(event.location);
-            }
+      if (event && event.attendanceType !== ATTENDANCE_TYPES.ONLINE) {
+        let coords = null;
 
-            // Chỉ cần làm một việc duy nhất: CẬP NHẬT STATE
-            if (coords) {
-                setEventLocation(coords);
-            }
+        if (event.latitude && event.longitude) {
+          coords = [parseFloat(event.latitude), parseFloat(event.longitude)];
+        } else if (event.location) {
+          coords = await geocodeAddress(event.location);
         }
+
+        // Chỉ cần làm một việc duy nhất: CẬP NHẬT STATE
+        if (coords) {
+          setEventLocation(coords);
+        }
+      }
     };
 
     getEventLocation();
-}, [event]);
+  }, [event]);
 
   // Geocode địa điểm sự kiện
   useEffect(() => {
@@ -1140,24 +1142,27 @@ const EventDetailsPage = () => {
       toast.error("Chỉ tài khoản sinh viên mới có thể đăng ký.");
       return;
     }
-
-    const isProfileVerified = user.fullName && user.studentId && user.class && user.facultyId;
+    const profileUser = await authService.getProfile();
+    const isProfileVerified = profileUser.fullName && profileUser.facultyId;
+    console.log("Is profile verified:", isProfileVerified);
     if (!isProfileVerified) {
-        setRegistrationError("Bạn cần cập nhật đầy đủ thông tin cá nhân trước khi đăng ký.");
-        toast.warn(
-            <div>
-                Vui lòng cập nhật đầy đủ thông tin (Họ tên, MSSV, Lớp, Khoa) trong trang Hồ sơ cá nhân.
-                <Button 
-                    variant="link" 
-                    onClick={() => navigate('/profile')} 
-                    style={{ marginLeft: '10px', textDecoration: 'underline', color: '#2563EB' }}
-                >
-                    Đi đến trang hồ sơ
-                </Button>
-            </div>,
-            { autoClose: 8000 } // Tăng thời gian hiển thị toast
-        );
-        return;
+      console.log(isProfileVerified)
+      console.log("User profile information:", profileUser);
+      setRegistrationError("Bạn cần cập nhật đầy đủ thông tin cá nhân trước khi đăng ký.");
+      toast.warn(
+        <div>
+          Vui lòng cập nhật đầy đủ thông tin (Họ tên, MSSV, Lớp, Khoa) trong trang Hồ sơ cá nhân.
+          <Button
+            variant="link"
+            onClick={() => navigate('/profile')}
+            style={{ marginLeft: '10px', textDecoration: 'underline', color: '#2563EB' }}
+          >
+            Đi đến trang hồ sơ
+          </Button>
+        </div>,
+        { autoClose: 8000 } // Tăng thời gian hiển thị toast
+      );
+      return;
     }
 
     setIsRegistering(true);
@@ -1219,6 +1224,44 @@ const EventDetailsPage = () => {
     const duration = eventsList.length * baseSpeedPerCard;
     return `${Math.max(duration, 30)}s`;
   };
+  const handleRegisterForEvent = async (eventId) => {
+    if (!user || !user.id) {
+      toast.error("Vui lòng đăng nhập để đăng ký tham gia sự kiện");
+      return;
+    }
+
+    try {
+      setIsRegistering(true);
+      await registrationService.registerUserForEvent(eventId, user.id);
+
+      toast.success(
+        <div>
+          <strong>Đăng ký thành công!</strong>
+          <p>Email xác nhận đã được gửi đến địa chỉ email của bạn.</p>
+          <p>Vui lòng kiểm tra hộp thư để xem thông tin sự kiện.</p>
+        </div>,
+        { autoClose: 5000 }
+      );
+
+      // Update UI or redirect
+      setIsRegistered(true);
+    } catch (error) {
+      let errorMessage = "Không thể đăng ký sự kiện. Vui lòng thử lại sau.";
+
+      if (error.response) {
+        if (error.response.status === 409 && error.response.data.message) {
+          errorMessage = error.response.data.message;
+        } else if (error.response.status === 400) {
+          errorMessage = "Bạn đã đăng ký sự kiện này trước đó.";
+        }
+      }
+
+      toast.error(errorMessage);
+    } finally {
+      setIsRegistering(false);
+    }
+  };
+
 
   const renderSidebarContent = (eventsList, listKey) => {
     if (loadingOtherEvents) return <p className="no-events-text">Đang tải...</p>;
@@ -1241,204 +1284,215 @@ const EventDetailsPage = () => {
 
   // Render main content
   return (
-        <ThemeProvider theme={themeColors}>
-            <OverallPageContainer>
-                <SidebarEventsColumn>
-                    <h3><FaRegCalendarCheck /> Sự kiện khác</h3>
-                    {renderSidebarContent(leftSidebarEvents, 'left')}
-                </SidebarEventsColumn>
+    <ThemeProvider theme={themeColors}>
+      <OverallPageContainer>
+        <SidebarEventsColumn>
+          <h3><FaRegCalendarCheck /> Sự kiện khác</h3>
+          {renderSidebarContent(leftSidebarEvents, 'left')}
+        </SidebarEventsColumn>
 
-                <MainEventContent>
-                    {isLoading && <StatusContainer><div>Đang tải thông tin sự kiện...</div></StatusContainer>}
-                    {!isLoading && error && !event && (
-                        <ErrorStatusContainer>
-                            <p>Lỗi: {error}</p>
-                            <Button onClick={() => navigate(-1)} variant="secondary" size="large"><FaArrowLeft /> Quay lại</Button>
-                        </ErrorStatusContainer>
+        <MainEventContent>
+          {isLoading && <StatusContainer><div>Đang tải thông tin sự kiện...</div></StatusContainer>}
+          {!isLoading && error && !event && (
+            <ErrorStatusContainer>
+              <p>Lỗi: {error}</p>
+              <Button onClick={() => navigate(-1)} variant="secondary" size="large"><FaArrowLeft /> Quay lại</Button>
+            </ErrorStatusContainer>
+          )}
+          {!isLoading && !event && !error && <StatusContainer>Không tìm thấy thông tin sự kiện.</StatusContainer>}
+
+          {event && (
+            <PageWrapper>
+              <CoverImageContainer>
+                {event.coverUrl ? (
+                  <CoverImage src={event.coverUrl} alt={`${event.eventName || 'Sự kiện'} cover`} onError={(e) => { e.target.style.display = 'none'; e.target.parentElement.innerHTML = '<span>Ảnh bìa sự kiện</span>'; }} />
+                ) : (
+                  <span>Ảnh bìa sự kiện</span>
+                )}
+
+                {/* Date Badge - SỬ DỤNG HÀM MỚI */}
+                {event.startDate && (
+                  <DateBadge>
+                    <span className="month">{getDateInfoFromString(event.startDate).month}</span>
+                    <span className="day">{getDateInfoFromString(event.startDate).day}</span>
+                    <span className="year">{getDateInfoFromString(event.startDate).year}</span>
+                  </DateBadge>
+                )}
+
+                <StatusBadge $status={eventStatus}>
+                  {eventStatus === 'upcoming' && <><FaRegClock /> Sắp diễn ra</>}
+                  {eventStatus === 'ongoing' && <><FaCalendarAlt /> Đang diễn ra</>}
+                  {eventStatus === 'past' && <><FaRegCalendarCheck /> Đã kết thúc</>}
+                </StatusBadge>
+
+                <EventMeta>
+                  <MetaTitle>{event.eventName}</MetaTitle>
+                  <MetaInfo>
+                    <span><FaRegUserCircle /> {event.hostName || event.hostId}</span>
+                    <span><FaMapMarkerAlt /> {event.location || 'Chưa cập nhật địa điểm'}</span>
+                  </MetaInfo>
+                </EventMeta>
+              </CoverImageContainer>
+
+              <ContentPadding>
+                {event.logoUrl && (
+                  <HeaderSection>
+                    <LogoImageContainer>
+                      <LogoImage src={event.logoUrl} alt={`${event.eventName || 'Sự kiện'} logo`} onError={(e) => { e.target.style.display = 'none'; e.target.parentElement.innerHTML = '<span>Logo</span>'; }} />
+                    </LogoImageContainer>
+
+                    <EventInfoSummary>
+                      {/* Thời gian bắt đầu - SỬ DỤNG HÀM MỚI */}
+                      <InfoItem>
+                        <FaCalendarAlt />
+                        <div>
+                          <h4>Thời gian bắt đầu</h4>
+                          <p>{formatDaNangDateTimeString(event.startDate)}</p>
+                        </div>
+                      </InfoItem>
+                      {/* Thời gian kết thúc - SỬ DỤNG HÀM MỚI */}
+                      <InfoItem>
+                        <FaRegClock />
+                        <div>
+                          <h4>Thời gian kết thúc</h4>
+                          <p>{formatDaNangDateTimeString(event.endDate)}</p>
+                        </div>
+                      </InfoItem>
+                      <InfoItem>
+                        <FaUsers />
+                        <div>
+                          <h4>Số lượng tối đa</h4>
+                          <p>{event.capacity || 'Không giới hạn'} người</p>
+                        </div>
+                      </InfoItem>
+                      <InfoItem>
+                        <FaRegBuilding />
+                        <div>
+                          <h4>Hình thức</h4>
+                          <p>{event.attendanceType === ATTENDANCE_TYPES.ONLINE ? 'Trực tuyến (Online)' : 'Trực tiếp (Offline)'}</p>
+                        </div>
+                      </InfoItem>
+                    </EventInfoSummary>
+                    {isHost && (
+                      <EditButtonContainer>
+                        <RouterLink to={`/admin/edit-event/${event.eventId || eventId}`}>
+                          <Button variant="outline" size="medium"><FaEdit /> Chỉnh sửa</Button>
+                        </RouterLink>
+                      </EditButtonContainer>
                     )}
-                    {!isLoading && !event && !error && <StatusContainer>Không tìm thấy thông tin sự kiện.</StatusContainer>}
+                  </HeaderSection>
+                )}
+                <Divider />
+                <DetailsGrid>
+                  <DescriptionColumn>
+                    <SectionTitle><FaInfo /> Mô tả sự kiện</SectionTitle>
+                    <DescriptionText dangerouslySetInnerHTML={{ __html: event.description || "Không có mô tả cho sự kiện này." }} />
+                  </DescriptionColumn>
 
-                    {event && (
-                        <PageWrapper>
-                            <CoverImageContainer>
-                                {event.coverUrl ? (
-                                    <CoverImage src={event.coverUrl} alt={`${event.eventName || 'Sự kiện'} cover`} onError={(e) => { e.target.style.display = 'none'; e.target.parentElement.innerHTML = '<span>Ảnh bìa sự kiện</span>'; }} />
-                                ) : (
-                                    <span>Ảnh bìa sự kiện</span>
-                                )}
+                  <MapAndDetailsColumn>
+                    <EventInfoCard>
+                      <InfoBlock>
+                        <InfoLabel><FaCalendarAlt /> Thời gian</InfoLabel>
+                        {/* Thời gian trong card - SỬ DỤNG HÀM MỚI */}
+                        <InfoText><SemiBold>Bắt đầu:</SemiBold> {formatDaNangDateTimeString(event.startDate)}</InfoText>
+                        <InfoText><SemiBold>Kết thúc:</SemiBold> {formatDaNangDateTimeString(event.endDate)}</InfoText>
+                      </InfoBlock>
+                      <InfoBlock>
+                        <InfoLabel><FaMapMarkerAlt /> Hình thức & Địa điểm</InfoLabel>
+                        <InfoText>{event.attendanceType === ATTENDANCE_TYPES.ONLINE ? 'Trực tuyến (Online)' : 'Trực tiếp (Offline)'}</InfoText>
+                        {event.location && <InfoText>{event.attendanceType === ATTENDANCE_TYPES.ONLINE ? 'Nền tảng: ' : 'Địa điểm: '}<SemiBold>{event.location}</SemiBold></InfoText>}
+                      </InfoBlock>
+                      <InfoBlock>
+                        <InfoLabel><FaUsers /> Số lượng</InfoLabel>
+                        <InfoText>Tối đa: <SemiBold>{event.capacity || 'Không giới hạn'} người</SemiBold></InfoText>
+                      </InfoBlock>
+                      {eventTags.length > 0 && (
+                        <InfoBlock>
+                          <InfoLabel><FaTag /> Thể loại</InfoLabel>
+                          <TagContainer>
+                            {eventTags.map((tag, index) => <TagBadge key={`${tag}-${index}`}>{tag}</TagBadge>)}
+                          </TagContainer>
+                        </InfoBlock>
+                      )}
+                    </EventInfoCard>
+                    <EventActions>
+                      <ActionButton $secondary onClick={() => navigator.clipboard.writeText(window.location.href).then(() => alert('Đã sao chép liên kết sự kiện!'))}>
+                        <FaShareAlt /> Chia sẻ
+                      </ActionButton>
+                      <ActionButton $secondary>
+                        <FaRegBookmark /> Lưu sự kiện
+                      </ActionButton>
+                    </EventActions>
+                  </MapAndDetailsColumn>
+                </DetailsGrid>
 
-                                {/* Date Badge - SỬ DỤNG HÀM MỚI */}
-                                {event.startDate && (
-                                    <DateBadge>
-                                        <span className="month">{getDateInfoFromString(event.startDate).month}</span>
-                                        <span className="day">{getDateInfoFromString(event.startDate).day}</span>
-                                        <span className="year">{getDateInfoFromString(event.startDate).year}</span>
-                                    </DateBadge>
-                                )}
+                {event.attendanceType !== ATTENDANCE_TYPES.ONLINE && (
+                  <EventLocation>
+                    <SectionTitle><FaMapMarkerAlt /> Bản đồ</SectionTitle>
+                    <MapSection>
+                      <MapContainerWrapper>
+                        <MapContainer center={eventLocation} zoom={15} style={{ height: '100%', width: '100%' }} scrollWheelZoom={true} doubleClickZoom={true} zoomControl={true}>
+                          <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution='© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors' />
+                          <Marker position={eventLocation} icon={customIcon}>
+                            <Popup><b>{event.eventName}</b><br />{event.location}</Popup>
+                          </Marker>
+                          <MapUpdater position={eventLocation} />
+                        </MapContainer>
+                      </MapContainerWrapper>
+                    </MapSection>
+                    <LocationAddress>
+                      <FaMapMarkerAlt />
+                      <div>
+                        <p>{event.location}</p>
+                        <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(event.location)}`} target="_blank" rel="noopener noreferrer">Xem trên Google Maps →</a>
+                      </div>
+                    </LocationAddress>
+                  </EventLocation>
+                )}
 
-                                <StatusBadge $status={eventStatus}>
-                                     {eventStatus === 'upcoming' && <><FaRegClock /> Sắp diễn ra</>}
-                                     {eventStatus === 'ongoing' && <><FaCalendarAlt /> Đang diễn ra</>}
-                                     {eventStatus === 'past' && <><FaRegCalendarCheck /> Đã kết thúc</>}
-                                </StatusBadge>
-
-                                <EventMeta>
-                                    <MetaTitle>{event.eventName}</MetaTitle>
-                                    <MetaInfo>
-                                        <span><FaRegUserCircle /> {event.hostName || event.hostId}</span>
-                                        <span><FaMapMarkerAlt /> {event.location || 'Chưa cập nhật địa điểm'}</span>
-                                    </MetaInfo>
-                                </EventMeta>
-                            </CoverImageContainer>
-
-                            <ContentPadding>
-                                {event.logoUrl && (
-                                    <HeaderSection>
-                                        <LogoImageContainer>
-                                            <LogoImage src={event.logoUrl} alt={`${event.eventName || 'Sự kiện'} logo`} onError={(e) => { e.target.style.display = 'none'; e.target.parentElement.innerHTML = '<span>Logo</span>'; }} />
-                                        </LogoImageContainer>
-
-                                        <EventInfoSummary>
-                                            {/* Thời gian bắt đầu - SỬ DỤNG HÀM MỚI */}
-                                            <InfoItem>
-                                                <FaCalendarAlt />
-                                                <div>
-                                                    <h4>Thời gian bắt đầu</h4>
-                                                    <p>{formatDaNangDateTimeString(event.startDate)}</p>
-                                                </div>
-                                            </InfoItem>
-                                            {/* Thời gian kết thúc - SỬ DỤNG HÀM MỚI */}
-                                            <InfoItem>
-                                                <FaRegClock />
-                                                <div>
-                                                    <h4>Thời gian kết thúc</h4>
-                                                    <p>{formatDaNangDateTimeString(event.endDate)}</p>
-                                                </div>
-                                            </InfoItem>
-                                            <InfoItem>
-                                                <FaUsers />
-                                                <div>
-                                                    <h4>Số lượng tối đa</h4>
-                                                    <p>{event.capacity || 'Không giới hạn'} người</p>
-                                                </div>
-                                            </InfoItem>
-                                            <InfoItem>
-                                                <FaRegBuilding />
-                                                <div>
-                                                    <h4>Hình thức</h4>
-                                                    <p>{event.attendanceType === ATTENDANCE_TYPES.ONLINE ? 'Trực tuyến (Online)' : 'Trực tiếp (Offline)'}</p>
-                                                </div>
-                                            </InfoItem>
-                                        </EventInfoSummary>
-                                        {isHost && (
-                                            <EditButtonContainer>
-                                                <RouterLink to={`/admin/edit-event/${event.eventId || eventId}`}>
-                                                    <Button variant="outline" size="medium"><FaEdit /> Chỉnh sửa</Button>
-                                                </RouterLink>
-                                            </EditButtonContainer>
-                                        )}
-                                    </HeaderSection>
-                                )}
-                                <Divider />
-                                <DetailsGrid>
-                                    <DescriptionColumn>
-                                        <SectionTitle><FaInfo /> Mô tả sự kiện</SectionTitle>
-                                        <DescriptionText dangerouslySetInnerHTML={{ __html: event.description || "Không có mô tả cho sự kiện này." }} />
-                                    </DescriptionColumn>
-
-                                    <MapAndDetailsColumn>
-                                        <EventInfoCard>
-                                            <InfoBlock>
-                                                <InfoLabel><FaCalendarAlt /> Thời gian</InfoLabel>
-                                                {/* Thời gian trong card - SỬ DỤNG HÀM MỚI */}
-                                                <InfoText><SemiBold>Bắt đầu:</SemiBold> {formatDaNangDateTimeString(event.startDate)}</InfoText>
-                                                <InfoText><SemiBold>Kết thúc:</SemiBold> {formatDaNangDateTimeString(event.endDate)}</InfoText>
-                                            </InfoBlock>
-                                            <InfoBlock>
-                                                <InfoLabel><FaMapMarkerAlt /> Hình thức & Địa điểm</InfoLabel>
-                                                <InfoText>{event.attendanceType === ATTENDANCE_TYPES.ONLINE ? 'Trực tuyến (Online)' : 'Trực tiếp (Offline)'}</InfoText>
-                                                {event.location && <InfoText>{event.attendanceType === ATTENDANCE_TYPES.ONLINE ? 'Nền tảng: ' : 'Địa điểm: '}<SemiBold>{event.location}</SemiBold></InfoText>}
-                                            </InfoBlock>
-                                            <InfoBlock>
-                                                <InfoLabel><FaUsers /> Số lượng</InfoLabel>
-                                                <InfoText>Tối đa: <SemiBold>{event.capacity || 'Không giới hạn'} người</SemiBold></InfoText>
-                                            </InfoBlock>
-                                            {eventTags.length > 0 && (
-                                                <InfoBlock>
-                                                    <InfoLabel><FaTag /> Thể loại</InfoLabel>
-                                                    <TagContainer>
-                                                        {eventTags.map((tag, index) => <TagBadge key={`${tag}-${index}`}>{tag}</TagBadge>)}
-                                                    </TagContainer>
-                                                </InfoBlock>
-                                            )}
-                                        </EventInfoCard>
-                                        <EventActions>
-                                            <ActionButton $secondary onClick={() => navigator.clipboard.writeText(window.location.href).then(() => alert('Đã sao chép liên kết sự kiện!'))}>
-                                                <FaShareAlt /> Chia sẻ
-                                            </ActionButton>
-                                            <ActionButton $secondary>
-                                                <FaRegBookmark /> Lưu sự kiện
-                                            </ActionButton>
-                                        </EventActions>
-                                    </MapAndDetailsColumn>
-                                </DetailsGrid>
-
-                                {event.attendanceType !== ATTENDANCE_TYPES.ONLINE && (
-                                    <EventLocation>
-                                        <SectionTitle><FaMapMarkerAlt /> Bản đồ</SectionTitle>
-                                        <MapSection>
-                                            <MapContainerWrapper>
-                                                <MapContainer center={eventLocation} zoom={15} style={{ height: '100%', width: '100%' }} scrollWheelZoom={true} doubleClickZoom={true} zoomControl={true}>
-                                                    <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution='© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors' />
-                                                    <Marker position={eventLocation} icon={customIcon}>
-                                                        <Popup><b>{event.eventName}</b><br />{event.location}</Popup>
-                                                    </Marker>
-                                                    <MapUpdater position={eventLocation} />
-                                                </MapContainer>
-                                            </MapContainerWrapper>
-                                        </MapSection>
-                                        <LocationAddress>
-                                            <FaMapMarkerAlt />
-                                            <div>
-                                                <p>{event.location}</p>
-                                                <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(event.location)}`} target="_blank" rel="noopener noreferrer">Xem trên Google Maps →</a>
-                                            </div>
-                                        </LocationAddress>
-                                    </EventLocation>
-                                )}
-                                
-                                {isAuthenticated && userRoles.includes(ROLES.STUDENT) && eventStatus !== 'past' && event.isOpenedForRegistration &&(
-                                    <RegistrationSection>
-                                        <RegistrationTitle>Đăng ký tham gia</RegistrationTitle>
-                                        <RegistrationInfo>Đăng ký tham gia sự kiện để được cập nhật thông tin mới nhất và nhận thông báo từ ban tổ chức.</RegistrationInfo>
-                                        {registrationMessage ? (
-                                            <StatusMessage><FaCheckCircle /> {registrationMessage}</StatusMessage>
-                                        ) : (
-                                            <>
-                                                {registrationError && <ErrorRegMessage><FaTimes /> {registrationError}</ErrorRegMessage>}
-                                                <Button onClick={handleRegister} isLoading={isRegistering} disabled={isRegistering || isCurrentlyRegistered} variant={isCurrentlyRegistered ? "success" : "primary"} size="large">
-                                                    {isRegistering ? 'Đang xử lý...' : (isCurrentlyRegistered ? 'Đã đăng ký' : 'Đăng ký ngay')}
-                                                </Button>
-                                            </>
-                                        )}
-                                    </RegistrationSection>
-                                )}
-                                
-                                <BackButtonContainer>
-                                    <Button onClick={() => navigate('/events')} variant="secondary" size="medium"><FaArrowLeft /> Xem tất cả sự kiện</Button>
-                                </BackButtonContainer>
-                            </ContentPadding>
-                        </PageWrapper>
+                {isAuthenticated && userRoles.includes(ROLES.STUDENT) && eventStatus !== 'past' && event.isOpenedForRegistration && (
+                  <RegistrationSection>
+                    <RegistrationTitle>Đăng ký tham gia</RegistrationTitle>
+                    <RegistrationInfo>Đăng ký tham gia sự kiện để được cập nhật thông tin mới nhất và nhận thông báo từ ban tổ chức.</RegistrationInfo>
+                    {registrationMessage ? (
+                      <StatusMessage><FaCheckCircle /> {registrationMessage}</StatusMessage>
+                    ) : (
+                      <>
+                        {registrationError && <ErrorRegMessage><FaTimes /> {registrationError}</ErrorRegMessage>}
+                        <button
+                          onClick={() => handleRegister()}
+                          disabled={isRegistering}
+                          className="bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors"
+                        >
+                          {isRegistering ? (
+                            <>
+                              <span className="animate-spin inline-block mr-2">⟳</span>
+                              Đang đăng ký...
+                            </>
+                          ) : (
+                            "Đăng ký tham gia"
+                          )}
+                        </button>
+                      </>
                     )}
-                </MainEventContent>
+                  </RegistrationSection>
+                )}
 
-                <SidebarEventsColumn>
-                    <h3><FaRegCalendarCheck /> Có thể bạn quan tâm</h3>
-                    {renderSidebarContent(rightSidebarEvents, 'right')}
-                </SidebarEventsColumn>
-            </OverallPageContainer>
-        </ThemeProvider>
-    );
+                <BackButtonContainer>
+                  <Button onClick={() => navigate('/events')} variant="secondary" size="medium"><FaArrowLeft /> Xem tất cả sự kiện</Button>
+                </BackButtonContainer>
+              </ContentPadding>
+            </PageWrapper>
+          )}
+        </MainEventContent>
+
+        <SidebarEventsColumn>
+          <h3><FaRegCalendarCheck /> Có thể bạn quan tâm</h3>
+          {renderSidebarContent(rightSidebarEvents, 'right')}
+        </SidebarEventsColumn>
+      </OverallPageContainer>
+    </ThemeProvider>
+  );
 };
 
 export default EventDetailsPage;
