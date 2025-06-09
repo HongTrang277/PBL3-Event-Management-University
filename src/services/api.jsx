@@ -171,9 +171,23 @@ export const registrationService = {
        console.error('Error fetching all registrations:', error.response?.data || error.message);
       throw error;
     }
+  },
+  getUserRegistrations: async (userId) => {
+    try {
+      const response = await registrationService.getAllRegistrations();
+      // Lọc các đăng ký của người dùng theo userId
+      const userRegistrations = response.filter(registration => registration.userId === userId);
+      if (userRegistrations.length === 0) {
+        console.warn(`No registrations found for user ${userId}`);
+        return []; // Trả về mảng rỗng nếu không có đăng ký
+      }
+      return userRegistrations;
+    } catch (error) {
+      console.error(`Error fetching registrations for user ${userId}:`, error.response?.data || error.message);
+      throw error;
+    }
   }
 
-  
 };
 export const attendanceService = {
   // Lấy tất cả attendance
@@ -218,6 +232,15 @@ export const attendanceService = {
     const response = await api.delete(`/Attendances/${attendanceId}`);
     return response.data;
   },
+  markAttendanceByQrCode: async (registrationId)=>{
+    try {
+      const response = await api.post(`/Attendances/MarkByQRRegistration/${registrationId}`);
+      return response.data;
+    } catch (error) {
+      console.error('Error marking attendance by QR code:', error.response?.data || error.message);
+      throw error;
+    }
+  }
 };
 
 
@@ -591,6 +614,113 @@ export const EventCategoryService = {
     }
   }
 }
+// Sửa phần qrService trong api.jsx
+
+export const qrService = {
+  checkIn: async (registrationId) => {
+    try {
+      const response = await api.post(`/Attendances/MarkByQRRegistration/${registrationId}`);
+      return { success: true, data: response.data };
+    } catch (error) {
+      console.error('Error during check-in:', error.response?.data || error.message);
+      return { 
+        success: false, 
+        message: error.response?.data?.message || error.message || 'Check-in failed'
+      };
+    }
+  },
+  
+  // Fix the getUserRegistrations method to work properly
+  getUserRegistrations: async () => {
+    try {
+      const userData = authService.getUser();
+      if (!userData || !userData.id) {
+        throw new Error('User not authenticated');
+      }
+      
+      // Use the existing method from registrationService
+      const response = await registrationService.getEventsUserRegisteredFor(userData.id);
+      const responseRegistrationId = await registrationService.getUserRegistrations(userData.id);
+      console.log('User registrations:', response);
+      console.log('User registration IDs:', responseRegistrationId);
+      //merge the two responses
+      const mergedResponse = response.map(event => {
+        const registration = responseRegistrationId.find(reg => reg.eventId === event.eventId);
+        return {
+          ...event,
+          registrationId: registration ? registration.registrationId : `reg-${event.eventId}-${userData.id}`
+        };
+      });
+      console.log('Merged response:', mergedResponse);
+      // Kiểm tra xem mergedResponse có phải là mảng không
+      
+      
+      // Convert to the format expected by our components
+      const formattedData = Array.isArray(mergedResponse) ? mergedResponse.map(event => ({
+        registrationId: event.registrationId ,
+        eventId: event.eventId,
+        eventName: event.eventName || event.name,
+        eventDate: event.startDate || event.start_date,
+        location: event.location || "Không có thông tin",
+        status: event.status || "confirmed"
+      })) : [];
+      console.log('Formatted user registrations:', formattedData);
+      
+      return formattedData;
+    } catch (error) {
+      console.error('Error getting user registrations:', error.response?.data || error.message);
+      
+      // In development mode, return sample data instead of failing
+      if (process.env.NODE_ENV === 'development') {
+        return [
+          {
+            registrationId: "sample-reg-123",
+            eventId: "event1",
+            eventName: "Hội thảo Công nghệ Blockchain",
+            eventDate: new Date().toISOString(),
+            location: "Hội trường A",
+            status: "confirmed"
+          },
+          {
+            registrationId: "sample-reg-456", 
+            eventId: "event2",
+            eventName: "Workshop AI",
+            eventDate: new Date().toISOString(),
+            location: "Phòng Lab B",
+            status: "confirmed"
+          }
+        ];
+      }
+      
+      throw error;
+    }
+  },
+
+  checkInUser: async (registrationId) => {
+    try {
+      const response = await api.post(`/Attendances/MarkByQRRegistration/${registrationId}`);
+      return { 
+        success: true, 
+        data: response.data 
+      };
+    } catch (error) {
+      console.error('Error during QR check-in:', error.response?.data || error.message);
+      return {
+        success: false,
+        message: error.response?.data?.message || error.message || 'Check-in failed'
+      };
+    }
+  },
+
+  generateQRCode: async (registrationId) => {
+    // Đây chỉ là một helper function, không cần gọi API
+    // QR code sẽ được tạo trực tiếp ở frontend
+    return {
+      registrationId,
+      qrData: registrationId // Có thể mã hóa hoặc thêm dữ liệu bảo mật nếu cần
+    };
+  }
+};
 
 
 export default api;

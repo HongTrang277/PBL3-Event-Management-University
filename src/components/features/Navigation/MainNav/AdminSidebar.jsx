@@ -113,6 +113,11 @@ const AdminSidebar = () => {
                         </StyledNavLink>
                     </NavItem>
                     <NavItem>
+                        <StyledNavLink to="/admin/qr-scan">
+                            QR Scan
+                        </StyledNavLink>
+                    </NavItem>
+                    <NavItem>
                         <StyledNavLink to="/admin/create-event">
                             Tạo sự kiện mới
                         </StyledNavLink>

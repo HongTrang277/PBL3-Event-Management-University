@@ -181,7 +181,9 @@ const StudentNavbar = () => {
                             <li><StyledNavLink to="/registered-events" onClick={closeMenu}>Đã đăng ký</StyledNavLink></li>
                             <li><StyledNavLink to="/achievements" onClick={closeMenu}>Thành tích</StyledNavLink></li>
                             <li><StyledNavLink to="/attendance" onClick={closeMenu}>Điểm danh</StyledNavLink></li>
+                            <li><StyledNavLink to="/my-qr-code" onClick={closeMenu}>Mã QR của tôi</StyledNavLink></li>
                             <li><StyledNavLink to="/profile" onClick={closeMenu}>Hồ sơ</StyledNavLink></li>
+
                         </>
                     )}
                     
